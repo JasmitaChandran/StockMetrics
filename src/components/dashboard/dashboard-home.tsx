@@ -314,7 +314,7 @@ export function DashboardHome() {
         <div className="absolute right-8 top-8 h-36 w-36 rounded-full bg-blue-500/14 blur-3xl motion-safe:animate-float" />
         <div className="absolute bottom-6 left-1/3 h-24 w-24 rounded-full bg-violet-500/12 blur-2xl motion-safe:animate-driftSlow" />
         <div className="relative space-y-4 md:space-y-5">
-          <div className="mx-auto max-w-4xl -translate-y-10 text-center md:-translate-y-16 lg:-translate-y-20">
+          <div className="mx-auto max-w-4xl -translate-y-1 text-center md:-translate-y-60 lg:-translate-y-30">
             <div className="inline-flex items-center rounded-full purple-chip px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-indigo-200">
               {uiMode === 'pro' ? 'PRO Stock Intelligence' : 'Beginner-Friendly Investing'}
             </div>
@@ -329,7 +329,7 @@ export function DashboardHome() {
             </p>
           </div>
 
-          <div className="-mt-8 md:-mt-12 lg:-mt-16">
+          <div className="relative -translate-y-40">
             <HeroMarketIllustration />
           </div>
 
