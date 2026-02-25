@@ -524,16 +524,18 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
 
   return (
     <div className="space-y-6">
-      <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl border border-border p-4">
+      <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="ui-panel hero-glow glass relative rounded-2xl p-4 shadow-panel">
+        <div className="absolute left-6 top-4 h-20 w-20 rounded-full bg-indigo-500/12 blur-2xl" />
+        <div className="absolute right-8 top-6 h-24 w-24 rounded-full bg-blue-500/10 blur-2xl" />
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="mb-1 flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight">{bundle.entity.name}</h1>
-              <span className="rounded-full bg-muted px-2 py-1 text-xs font-medium text-slate-500">
+              <span className="rounded-full border border-border/70 bg-card/50 px-2 py-1 text-xs font-medium text-slate-500">
                 {bundle.entity.displaySymbol}
               </span>
               {bundle.entity.exchange ? (
-                <span className="rounded-full bg-muted px-2 py-1 text-xs font-medium text-slate-500">{bundle.entity.exchange}</span>
+                <span className="rounded-full border border-border/70 bg-card/50 px-2 py-1 text-xs font-medium text-slate-500">{bundle.entity.exchange}</span>
               ) : null}
               {bundle.entity.market === 'india' && bundle.entity.exchange ? (
                 <span className="rounded-full border border-border px-2 py-1 text-xs">{bundle.entity.exchange} stock</span>
@@ -541,7 +543,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
             </div>
             <div className="mb-2 flex flex-wrap items-center gap-3">
               <div className="text-2xl font-semibold">{formatCurrency(quote.price, quote.currency)}</div>
-              <div className={cn('inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm', headerChangeUp ? 'bg-emerald-500/15 text-emerald-500' : 'bg-rose-500/15 text-rose-500')}>
+              <div className={cn('inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm', headerChangeUp ? 'border-emerald-500/25 bg-emerald-500/15 text-emerald-500' : 'border-rose-500/25 bg-rose-500/15 text-rose-500')}>
                 {headerChangeUp ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                 {formatCurrency(quote.change ?? null, quote.currency)} ({formatPercent(quote.changePercent ?? null)})
               </div>
@@ -569,7 +571,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
             ) : null}
             <button
               onClick={() => exportStatementsToXlsx(bundle.fundamentals.statements, `${bundle.entity.displaySymbol}-income-statements`)}
-              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm hover:bg-muted"
+              className="ui-panel glass surface-hover inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm shadow-panel"
             >
               <FileSpreadsheet className="h-4 w-4" /> Export to Excel
             </button>
@@ -608,7 +610,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {visibleMetrics.length ? (
                   visibleMetrics.map((metric) => (
-                    <div key={metric.key} className="rounded-xl border border-border bg-card p-3">
+                    <div key={metric.key} className="ui-panel glass surface-hover rounded-xl p-3 shadow-panel">
                       <div className="text-xs text-slate-500">{metric.label}</div>
                       <div className="mt-1 text-lg font-semibold">
                         {metricValueToDisplay(metric, displayCurrency, fx?.rate)}
@@ -628,7 +630,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
                 {visibleMetrics
                   .filter((m) => ['salesGrowth', 'profitGrowth', 'debtToEquity', 'pe', 'roe', 'dividendYield'].includes(m.key))
                   .map((metric) => (
-                    <div key={metric.key} className="rounded-xl border border-border bg-card p-3">
+                    <div key={metric.key} className="ui-panel glass surface-hover rounded-xl p-3 shadow-panel">
                       <div className="text-xs text-slate-500">{metric.label}</div>
                       <div className="mt-1 text-lg font-semibold">{metricValueToDisplay(metric, displayCurrency, fx?.rate)}</div>
                     </div>
@@ -650,7 +652,9 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
                   onClick={() => setStatementTab(kind)}
                   className={cn(
                     'rounded-xl px-3 py-2 text-sm transition',
-                    statementTab === kind ? 'bg-accent text-white' : 'border border-border bg-card hover:bg-muted',
+                    statementTab === kind
+                      ? 'bg-gradient-to-r from-indigo-500 via-violet-500 to-blue-500 text-white shadow-violet'
+                      : 'ui-panel glass hover:bg-muted/40',
                   )}
                 >
                   {statementLabels[kind]}

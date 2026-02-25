@@ -25,16 +25,16 @@ export function Navbar() {
   const toggleTheme = useUiStore((s) => s.toggleTheme);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/70 bg-bg/75 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-bg/75 backdrop-blur-2xl">
       <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-3 px-4 py-3 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
         <div className="order-1 flex w-full min-w-0 items-center gap-3 md:w-auto md:justify-self-start">
-          <Link href="/dashboard" className="flex shrink-0 items-center gap-2 rounded-xl px-2 py-1 hover:bg-muted/60">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-cyan-400 to-emerald-400 text-slate-900 shadow-glow">
+          <Link href="/dashboard" className="flex shrink-0 items-center gap-2 rounded-xl px-2 py-1 transition hover:bg-muted/45">
+            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-blue-500 text-white shadow-violet">
               <BarChart3 className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-sm font-semibold tracking-tight">Stock Metrics</div>
-              <div className="hidden text-[10px] uppercase tracking-[0.18em] text-slate-500 lg:block">Invest with Insight</div>
+              <div className="text-sm font-semibold tracking-tight text-slate-900 dark:text-white">Stock Metrics</div>
+              <div className="hidden text-[10px] uppercase tracking-[0.18em] text-slate-500 lg:block">Research Workflows</div>
             </div>
           </Link>
           <div className="min-w-0 flex-1 md:w-[260px] md:flex-none lg:w-[300px]">
@@ -42,7 +42,7 @@ export function Navbar() {
           </div>
         </div>
 
-        <nav className="order-3 flex w-full justify-center gap-1 rounded-2xl border border-border/60 bg-card/70 p-1 md:order-2 md:w-auto md:justify-self-center">
+        <nav className="ui-panel glass order-3 flex w-full justify-center gap-1 rounded-2xl p-1 shadow-panel md:order-2 md:w-auto md:justify-self-center">
           {tabs.map((tab) => {
             const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
             return (
@@ -51,7 +51,9 @@ export function Navbar() {
                 href={tab.href}
                 className={cn(
                   'rounded-xl px-3 py-2 text-sm transition',
-                  active ? 'bg-accent text-white shadow' : 'text-slate-600 hover:bg-muted dark:text-slate-300',
+                  active
+                    ? 'bg-gradient-to-r from-indigo-500 via-violet-500 to-blue-500 text-white shadow-violet'
+                    : 'text-slate-600 hover:bg-muted/60 dark:text-slate-300',
                 )}
               >
                 {tab.label}
@@ -72,7 +74,7 @@ export function Navbar() {
           <button
             type="button"
             onClick={toggleTheme}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card hover:bg-muted"
+            className="ui-panel glass inline-flex h-9 w-9 items-center justify-center rounded-xl shadow-panel transition hover:bg-muted/40"
             aria-label="Toggle theme"
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
           >

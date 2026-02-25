@@ -100,16 +100,16 @@ export function MarketTabPanel({ market }: { market: MarketTab }) {
               <Link
                 key={`${market}-${item.symbol}`}
                 href={`/dashboard/${item.market}/${encodeURIComponent(item.symbol)}`}
-                className="group rounded-xl border border-border p-3 transition hover:-translate-y-0.5 hover:bg-muted/40"
+                className="surface-hover ui-panel glass group rounded-xl p-3 shadow-panel"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{item.name}</div>
+                    <div className="truncate text-sm font-medium text-slate-900 dark:text-white">{item.name}</div>
                     <div className="truncate text-xs text-slate-500">
                       {item.symbol} {item.exchange ? `• ${item.exchange}` : ''}
                     </div>
                   </div>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-accent" />
+                  <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-indigo-300" />
                 </div>
                 {item.caption ? <div className="mt-2 text-xs text-slate-500">{item.caption}</div> : null}
               </Link>
