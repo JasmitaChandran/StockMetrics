@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Building2, Globe2, PieChart } from 'lucide-react';
 import { SectionCard } from '@/components/common/section-card';
 import { UniversalSearch } from '@/components/search/universal-search';
 
@@ -84,6 +84,7 @@ const COPY: Record<
 export function MarketTabPanel({ market }: { market: MarketTab }) {
   const content = COPY[market];
   const picks = TOP_PICKS[market];
+  const MarketIcon = market === 'us' ? Globe2 : market === 'india' ? Building2 : PieChart;
 
   return (
     <SectionCard title={content.title} subtitle={content.subtitle}>
@@ -104,14 +105,24 @@ export function MarketTabPanel({ market }: { market: MarketTab }) {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
+                    <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-indigo-300/12 bg-indigo-500/8 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-indigo-200">
+                      <MarketIcon className="h-3 w-3" />
+                      {market === 'us' ? 'US Market' : market === 'india' ? 'India Market' : 'Mutual Fund'}
+                    </div>
                     <div className="truncate text-sm font-medium text-slate-900 dark:text-white">{item.name}</div>
                     <div className="truncate text-xs text-slate-500">
                       {item.symbol} {item.exchange ? `• ${item.exchange}` : ''}
                     </div>
                   </div>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-indigo-300" />
+                  <div className="mt-1 rounded-full border border-indigo-300/10 bg-white/[0.02] p-2">
+                    <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-indigo-300" />
+                  </div>
                 </div>
-                {item.caption ? <div className="mt-2 text-xs text-slate-500">{item.caption}</div> : null}
+                {item.caption ? (
+                  <div className="mt-2 inline-flex rounded-full border border-border/60 bg-muted/35 px-2 py-1 text-xs text-slate-500">
+                    {item.caption}
+                  </div>
+                ) : null}
               </Link>
             ))}
           </div>
