@@ -19,6 +19,7 @@
     "clsx": "^2.1.0",
     "date-fns": "^2.30.0",
     "fast-xml-parser": "^4.3.4",
+    "firebase": "^10.14.1",
     "framer-motion": "^10.16.16",
     "idb": "^8.0.0",
     "lucide-react": "^0.320.0",

@@ -57,16 +57,9 @@ export const localAuthAdapter: AuthAdapter = {
     return appUser;
   },
   async loginWithGoogle() {
-    const user: AppUser = {
-      id: crypto.randomUUID(),
-      username: 'Jasmita',
-      email: 'jasmita@example.com',
-      provider: 'google',
-      createdAt: new Date().toISOString(),
-    };
-    const db = await getDb();
-    await db.put('session', { id: SESSION_KEY, user });
-    return user;
+    throw new Error(
+      'Google sign-in requires Firebase Authentication. Configure Firebase env vars and set NEXT_PUBLIC_ENABLE_FIREBASE_AUTH=true.',
+    );
   },
   async logout() {
     const db = await getDb();
