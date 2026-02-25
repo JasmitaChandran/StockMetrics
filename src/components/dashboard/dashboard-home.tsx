@@ -46,11 +46,11 @@ function HeroMarketIllustration() {
       className="relative mx-auto w-full max-w-5xl overflow-hidden rounded-[28px]"
     >
       <div className="relative rounded-[28px] bg-gradient-to-br from-indigo-400/30 via-violet-500/12 to-blue-500/24 p-[1px] shadow-violet">
-        <div className="ui-panel glass relative overflow-hidden rounded-[28px] p-3 md:p-4">
-          <div className="pointer-events-none absolute left-1/2 top-6 h-20 w-40 -translate-x-1/2 rounded-full bg-indigo-500/20 blur-3xl" />
-          <div className="pointer-events-none absolute bottom-2 left-1/2 h-16 w-2/3 -translate-x-1/2 rounded-full bg-violet-500/20 blur-2xl" />
+        <div className="ui-panel glass relative overflow-hidden rounded-[28px] p-1 md:p-1">
+          <div className="pointer-events-none absolute left-1/2 top-1 h-1 w-0.25 -translate-x-1/2 rounded-full bg-indigo-500/14 blur-2xl" />
+          <div className="pointer-events-none absolute bottom-1 left-1/2 h-12 w-1/2 -translate-x-1/2 rounded-full bg-violet-500/14 blur-2xl" />
 
-          <div className="relative rounded-[20px] border border-indigo-300/15 bg-[#050916]/90 p-2 shadow-panel md:p-3">
+          <div className="relative -mt-1 rounded-[20px] border border-indigo-300/15 bg-[#050916]/90 p-2 shadow-panel md:-mt-1.5 md:p-2.5">
             <div className="mb-2 flex items-center gap-2 rounded-xl border border-indigo-300/10 bg-white/[0.02] px-3 py-2">
               <div className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-rose-400/80" />
