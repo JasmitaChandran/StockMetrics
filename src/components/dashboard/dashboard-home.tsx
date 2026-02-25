@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { BookOpen, LineChart, Star, Wallet, type LucideIcon } from 'lucide-react';
-import { UniversalSearch } from '@/components/search/universal-search';
 import { DashboardMarketTabs } from './dashboard-market-tabs';
 import { useUiStore } from '@/stores/ui-store';
 import { SectionCard } from '@/components/common/section-card';
@@ -53,10 +52,9 @@ export function DashboardHome() {
             <div className="text-xs uppercase tracking-[0.22em] text-slate-500">{uiMode === 'pro' ? 'PRO Dashboard' : 'Beginner Dashboard'}</div>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">Market research and portfolio intelligence</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
-              Universal search across US stocks, Indian stocks, and mutual funds. Data is cached and refreshed efficiently, and unavailable fields are handled clearly in the interface.
+              Use the search bar in the navigation header to look up U.S. stocks, Indian stocks, and mutual funds. Data is cached and refreshed efficiently, and unavailable fields are handled clearly in the interface.
             </p>
           </div>
-          <UniversalSearch marketFilter={undefined} />
           <div>
             <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Dashboard Market Switch</div>
             <DashboardMarketTabs />
