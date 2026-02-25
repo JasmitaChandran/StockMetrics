@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 210 40% 98%;
+  --fg: 222 47% 11%;
+  --muted: 214 32% 92%;
+  --card: 0 0% 100%;
+  --border: 214 32% 84%;
+  --accent: 194 89% 48%;
+  --positive: 158 64% 40%;
+  --negative: 0 72% 51%;
+  --warning: 38 92% 50%;
+}
+
+html.dark {
+  --bg: 216 27% 8%;
+  --fg: 210 40% 96%;
+  --muted: 217 18% 18%;
+  --card: 220 23% 12%;
+  --border: 216 17% 24%;
+  --accent: 188 95% 47%;
+  --positive: 156 64% 46%;
+  --negative: 0 84% 60%;
+  --warning: 40 94% 52%;
+}
+
+body {
+  @apply bg-bg text-fg antialiased;
+  background-image:
+    radial-gradient(circle at 10% 10%, rgba(14, 165, 233, 0.12), transparent 35%),
+    radial-gradient(circle at 85% 20%, rgba(16, 185, 129, 0.08), transparent 32%),
+    radial-gradient(circle at 70% 80%, rgba(244, 114, 182, 0.06), transparent 28%);
+  min-height: 100vh;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+}
+
+.glass {
+  background: color-mix(in hsl, hsl(var(--card)) 78%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.skeleton-shimmer {
+  background-image: linear-gradient(90deg, rgba(148, 163, 184, 0.15), rgba(148, 163, 184, 0.25), rgba(148, 163, 184, 0.15));
+  background-size: 200% 100%;
+}
