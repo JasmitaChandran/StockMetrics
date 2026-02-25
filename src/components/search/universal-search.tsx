@@ -9,7 +9,13 @@ import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
 import { useSearchEntities } from '@/lib/hooks/use-stock-data';
 import { cn } from '@/lib/utils/cn';
 
-export function UniversalSearch({ marketFilter }: { marketFilter?: 'us' | 'india' | 'mf' }) {
+export function UniversalSearch({
+  marketFilter,
+  placeholder,
+}: {
+  marketFilter?: 'us' | 'india' | 'mf';
+  placeholder?: string;
+}) {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -34,7 +40,7 @@ export function UniversalSearch({ marketFilter }: { marketFilter?: 'us' | 'india
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Search US stocks, Indian stocks, Mutual Funds..."
+          placeholder={placeholder ?? 'Search US stocks, Indian stocks, Mutual Funds...'}
           className="w-full rounded-2xl border border-border bg-card pl-10 pr-10 py-3 text-sm shadow-sm outline-none ring-0 placeholder:text-slate-400 focus:border-accent"
         />
         {query ? (

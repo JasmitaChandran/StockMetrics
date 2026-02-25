@@ -6,13 +6,12 @@ import { BookOpen, LineChart, Star, Wallet, type LucideIcon } from 'lucide-react
 import { UniversalSearch } from '@/components/search/universal-search';
 import { DashboardMarketTabs } from './dashboard-market-tabs';
 import { useUiStore } from '@/stores/ui-store';
-import { demoUniverse } from '@/lib/data/mock/demo-data';
 import { SectionCard } from '@/components/common/section-card';
+import { MarketTabPanel } from './market-tab-panel';
 
 export function DashboardHome() {
   const market = useUiStore((s) => s.dashboardMarket);
   const uiMode = useUiStore((s) => s.uiMode);
-  const featured = demoUniverse.filter((e) => e.market === market).slice(0, 8);
   const quickLinks: Array<{ href: string; title: string; desc: string; icon: LucideIcon }> = [
     {
       href: '/screener',
@@ -84,26 +83,7 @@ export function DashboardHome() {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-        <SectionCard title={`Featured ${market === 'us' ? 'US Stocks' : market === 'india' ? 'Indian Stocks' : 'Mutual Funds'}`} subtitle="Selected instruments for quick access. Use search to explore the broader universe.">
-          <div className="grid gap-3 md:grid-cols-2">
-            {featured.map((item) => (
-              <Link
-                href={`/dashboard/${item.market}/${encodeURIComponent(item.symbol)}`}
-                key={item.id}
-                className="rounded-xl border border-border p-3 transition hover:-translate-y-0.5 hover:bg-muted/40"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-medium">{item.name}</div>
-                    <div className="text-xs text-slate-500">{item.displaySymbol} • {item.exchange ?? item.market.toUpperCase()}</div>
-                  </div>
-                  <span className="rounded-lg bg-muted px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500">{item.market}</span>
-                </div>
-                <p className="mt-2 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{item.summary}</p>
-              </Link>
-            ))}
-          </div>
-        </SectionCard>
+        <MarketTabPanel market={market} />
 
         <SectionCard title="Quick Navigation" subtitle="Core app tabs">
           <div className="space-y-2">
