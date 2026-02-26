@@ -114,6 +114,11 @@ html.dark .ui-panel {
   border: 1px solid rgba(129, 140, 248, 0.24);
 }
 
+html.dark .purple-chip {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(139, 92, 246, 0.14));
+  border-color: rgba(129, 140, 248, 0.24);
+}
+
 .focus-violet {
   transition: box-shadow 180ms ease, border-color 180ms ease;
 }
@@ -126,6 +131,13 @@ html.dark .ui-panel {
 }
 
 .title-gradient {
+  background: linear-gradient(90deg, #3730a3 0%, #4f46e5 36%, #6366f1 70%, #2563eb 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+html.dark .title-gradient {
   background: linear-gradient(90deg, #ffffff 0%, #c7d2fe 34%, #a5b4fc 70%, #93c5fd 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -133,9 +145,13 @@ html.dark .ui-panel {
 }
 
 .accent-script {
-  color: #c4b5fd;
+  color: #7c3aed;
   font-style: italic;
   font-family: Georgia, 'Times New Roman', serif;
+}
+
+html.dark .accent-script {
+  color: #c4b5fd;
 }
 
 .surface-hover {
