@@ -105,7 +105,7 @@ export function MarketTabPanel({ market }: { market: MarketTab }) {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-indigo-300/12 bg-indigo-500/8 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-indigo-200">
+                    <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-indigo-300/25 bg-indigo-500/10 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-indigo-700 dark:border-indigo-300/12 dark:bg-indigo-500/8 dark:text-indigo-200">
                       <MarketIcon className="h-3 w-3" />
                       {market === 'us' ? 'US Market' : market === 'india' ? 'India Market' : 'Mutual Fund'}
                     </div>
@@ -114,12 +114,12 @@ export function MarketTabPanel({ market }: { market: MarketTab }) {
                       {item.symbol} {item.exchange ? `• ${item.exchange}` : ''}
                     </div>
                   </div>
-                  <div className="mt-1 rounded-full border border-indigo-300/10 bg-white/[0.02] p-2">
-                    <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-indigo-300" />
+                  <div className="mt-1 rounded-full border border-indigo-300/20 bg-indigo-50/70 p-2 dark:border-indigo-300/10 dark:bg-white/[0.02]">
+                    <ArrowRight className="h-4 w-4 shrink-0 text-indigo-500 transition group-hover:translate-x-0.5 group-hover:text-indigo-700 dark:text-slate-400 dark:group-hover:text-indigo-300" />
                   </div>
                 </div>
                 {item.caption ? (
-                  <div className="mt-2 inline-flex rounded-full border border-border/60 bg-muted/35 px-2 py-1 text-xs text-slate-500">
+                  <div className="mt-2 inline-flex rounded-full border border-indigo-200/80 bg-indigo-50/70 px-2 py-1 text-xs text-slate-600 dark:border-border/60 dark:bg-muted/35 dark:text-slate-500">
                     {item.caption}
                   </div>
                 ) : null}

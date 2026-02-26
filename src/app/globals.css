@@ -29,10 +29,12 @@ html.dark {
 body {
   @apply bg-bg text-fg antialiased;
   background-image:
-    radial-gradient(circle at 12% 8%, rgba(99, 102, 241, 0.12), transparent 34%),
-    radial-gradient(circle at 86% 16%, rgba(59, 130, 246, 0.08), transparent 30%),
-    radial-gradient(circle at 68% 82%, rgba(124, 58, 237, 0.06), transparent 28%);
+    radial-gradient(circle at 12% 8%, rgba(99, 102, 241, 0.16), transparent 36%),
+    radial-gradient(circle at 88% 14%, rgba(59, 130, 246, 0.12), transparent 32%),
+    radial-gradient(circle at 70% 84%, rgba(124, 58, 237, 0.1), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 250, 252, 0.96));
   min-height: 100vh;
+  background-attachment: fixed;
 }
 
 html.dark body {
@@ -55,6 +57,12 @@ html.dark body {
   -webkit-backdrop-filter: blur(16px) saturate(130%);
 }
 
+html:not(.dark) .glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 255, 0.86));
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+}
+
 .skeleton-shimmer {
   background-image: linear-gradient(90deg, rgba(148, 163, 184, 0.15), rgba(148, 163, 184, 0.25), rgba(148, 163, 184, 0.15));
   background-size: 200% 100%;
@@ -68,6 +76,18 @@ html.dark body {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.04) inset,
     0 24px 70px -42px rgba(2, 6, 23, 0.85);
+}
+
+html:not(.dark) .ui-panel {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.08), transparent 42%),
+    radial-gradient(circle at 0% 100%, rgba(59, 130, 246, 0.05), transparent 38%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(246, 249, 255, 0.92));
+  border-color: rgba(148, 163, 184, 0.35);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 16px 36px -26px rgba(37, 99, 235, 0.2),
+    0 10px 26px -24px rgba(99, 102, 241, 0.24);
 }
 
 html.dark .ui-panel {
@@ -90,6 +110,11 @@ html.dark .ui-panel {
   mask-composite: exclude;
   pointer-events: none;
   opacity: 0.8;
+}
+
+html:not(.dark) .ui-panel::before {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.06), rgba(59, 130, 246, 0.14));
+  opacity: 0.65;
 }
 
 .ui-panel > * {
@@ -165,6 +190,14 @@ html.dark .accent-script {
     0 24px 60px -34px rgba(99, 102, 241, 0.28);
 }
 
+html:not(.dark) .surface-hover:hover {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.92) inset,
+    0 20px 34px -22px rgba(79, 70, 229, 0.2),
+    0 10px 22px -20px rgba(37, 99, 235, 0.2);
+  border-color: rgba(129, 140, 248, 0.26);
+}
+
 .dashboard-grid-bg {
   position: relative;
 }
@@ -181,6 +214,10 @@ html.dark .accent-script {
   mask-image: radial-gradient(circle at 50% 35%, black 35%, transparent 90%);
   pointer-events: none;
   opacity: 0.35;
+}
+
+html:not(.dark) .dashboard-grid-bg::before {
+  opacity: 0.2;
 }
 
 @media (prefers-reduced-motion: reduce) {
