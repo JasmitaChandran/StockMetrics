@@ -1,16 +1,14 @@
 'use client';
 
+import Link from 'next/link';
 import { LogOut, UserCircle2 } from 'lucide-react';
-import { useState } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
-import { AuthDialog } from './auth-dialog';
 import { getAuthAdapter } from '@/lib/auth';
 
 export function AuthControls() {
   const user = useAuthStore((s) => s.user);
   const loading = useAuthStore((s) => s.loading);
   const setUser = useAuthStore((s) => s.setUser);
-  const [open, setOpen] = useState(false);
 
   async function logout() {
     await getAuthAdapter().logout();
@@ -22,24 +20,18 @@ export function AuthControls() {
   }
 
   return (
-    <>
-      {user ? (
-        <div className="ui-panel glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm shadow-panel">
-          <UserCircle2 className="h-4 w-4" />
-          <span className="max-w-[120px] truncate">{user.username}</span>
-          <button onClick={logout} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-fg">
-            <LogOut className="h-3.5 w-3.5" /> Logout
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => setOpen(true)}
-          className="ui-panel glass surface-hover rounded-xl px-3 py-2 text-sm font-medium shadow-panel"
-        >
-          Login / Register
+    user ? (
+      <div className="ui-panel glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm shadow-panel">
+        <UserCircle2 className="h-4 w-4" />
+        <span className="max-w-[120px] truncate">{user.username}</span>
+        <button onClick={logout} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-fg">
+          <LogOut className="h-3.5 w-3.5" /> Logout
         </button>
-      )}
-      <AuthDialog open={open} onClose={() => setOpen(false)} />
-    </>
+      </div>
+    ) : (
+      <Link href="/login" className="ui-panel glass surface-hover rounded-xl px-3 py-2 text-sm font-medium shadow-panel">
+        Login / Register
+      </Link>
+    )
   );
 }
