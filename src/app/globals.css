@@ -150,9 +150,7 @@ html.dark .purple-chip {
 
 .focus-violet:focus-within {
   border-color: rgba(129, 140, 248, 0.42);
-  box-shadow:
-    0 0 0 1px rgba(129, 140, 248, 0.3),
-    0 18px 34px -22px rgba(99, 102, 241, 0.55);
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.3);
 }
 
 .title-gradient {

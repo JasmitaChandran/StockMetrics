@@ -23,6 +23,8 @@ export function UniversalSearch({
   const debounced = useDebouncedValue(query, 250);
   const { data, isLoading } = useSearchEntities(debounced, marketFilter);
   const items = useMemo(() => data ?? [], [data]);
+  const hasQuery = query.trim().length > 0;
+  const showDropdown = open && hasQuery;
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent | TouchEvent) {
@@ -60,27 +62,34 @@ export function UniversalSearch({
         <input
           value={query}
           onChange={(e) => {
-            setQuery(e.target.value);
-            setOpen(true);
+            const value = e.target.value;
+            setQuery(value);
+            setOpen(value.trim().length > 0);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => setOpen(query.trim().length > 0)}
           placeholder={placeholder ?? 'Search US stocks, Indian stocks, Mutual Funds...'}
           className="w-full rounded-2xl border-0 bg-transparent pl-10 pr-10 py-3 text-sm outline-none ring-0 placeholder:text-slate-400"
         />
         {query ? (
-          <button className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 transition hover:bg-muted/60" onClick={() => setQuery('')}>
+          <button
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 transition hover:bg-muted/60"
+            onClick={() => {
+              setQuery('');
+              setOpen(false);
+            }}
+          >
             <X className="h-4 w-4 text-slate-400" />
           </button>
         ) : null}
       </div>
       <AnimatePresence>
-        {open ? (
+        {showDropdown ? (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="ui-panel glass absolute z-30 mt-2 w-full overflow-hidden rounded-2xl shadow-panel"
+            className="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-border/80 bg-card shadow-panel"
           >
             <div className="max-h-96 overflow-auto p-2">
               {isLoading ? <div className="p-3 text-sm text-slate-500">Searching...</div> : null}
