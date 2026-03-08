@@ -37,7 +37,7 @@ export function Navbar() {
               <div className="hidden text-[10px] uppercase tracking-[0.18em] text-slate-500 lg:block">Research Workflows</div>
             </div>
           </Link>
-          <div className="min-w-0 flex-1 md:w-[260px] md:flex-none lg:w-[300px]">
+          <div className="min-w-0 flex-1 md:w-[340px] md:flex-none lg:w-[430px] xl:w-[500px]">
             <UniversalSearch />
           </div>
         </div>

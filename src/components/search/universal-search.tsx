@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, X } from 'lucide-react';
+import { Mic, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { SearchEntity } from '@/types';
@@ -20,24 +20,49 @@ export function UniversalSearch({
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
   const [hintIndex, setHintIndex] = useState(0);
+  const [isVoiceSupported, setIsVoiceSupported] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const debounced = useDebouncedValue(query, 250);
   const { data, isLoading } = useSearchEntities(debounced, marketFilter);
   const items = useMemo(() => data ?? [], [data]);
   const hasQuery = query.trim().length > 0;
   const showDropdown = open && hasQuery;
-  const shouldAnimateHint = !marketFilter && !placeholder;
-  const showAnimatedHint = shouldAnimateHint && !hasQuery && !isFocused;
+  const useAnimatedHint = !marketFilter && !placeholder;
+  const showAnimatedHint = useAnimatedHint && !hasQuery;
 
   useEffect(() => {
-    if (!shouldAnimateHint) return;
+    if (!useAnimatedHint) return;
     const id = window.setInterval(() => {
       setHintIndex((idx) => (idx + 1) % rotatingHints.length);
     }, 2200);
     return () => window.clearInterval(id);
-  }, [rotatingHints.length, shouldAnimateHint]);
+  }, [rotatingHints.length, useAnimatedHint]);
+
+  useEffect(() => {
+    const w = window as typeof window & {
+      SpeechRecognition?: new () => {
+        lang: string;
+        interimResults: boolean;
+        maxAlternatives: number;
+        onresult: ((event: any) => void) | null;
+        onerror: (() => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+      };
+      webkitSpeechRecognition?: new () => {
+        lang: string;
+        interimResults: boolean;
+        maxAlternatives: number;
+        onresult: ((event: any) => void) | null;
+        onerror: (() => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+      };
+    };
+    setIsVoiceSupported(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition));
+  }, []);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent | TouchEvent) {
@@ -68,9 +93,61 @@ export function UniversalSearch({
     router.push(`/dashboard/${entity.market}/${encodeURIComponent(entity.symbol)}`);
   }
 
+  function autocompleteFromTopResult() {
+    if (!items.length) return;
+    setQuery(items[0].displaySymbol);
+    setOpen(true);
+  }
+
+  function clearQuery() {
+    setQuery('');
+    setOpen(false);
+  }
+
+  function startVoiceSearch() {
+    if (isListening) return;
+    const w = window as typeof window & {
+      SpeechRecognition?: new () => {
+        lang: string;
+        interimResults: boolean;
+        maxAlternatives: number;
+        onresult: ((event: any) => void) | null;
+        onerror: (() => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+      };
+      webkitSpeechRecognition?: new () => {
+        lang: string;
+        interimResults: boolean;
+        maxAlternatives: number;
+        onresult: ((event: any) => void) | null;
+        onerror: (() => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+      };
+    };
+    const Recognition = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!Recognition) return;
+
+    const recognition = new Recognition();
+    recognition.lang = 'en-IN';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    setIsListening(true);
+    recognition.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript?.trim() ?? '';
+      if (!transcript) return;
+      setQuery(transcript);
+      setOpen(true);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    recognition.start();
+  }
+
   return (
     <div ref={rootRef} className="relative">
-      <div className="focus-violet ui-panel glass relative rounded-2xl">
+      <div className="relative rounded-2xl border border-border/80 bg-card shadow-panel">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           value={query}
@@ -79,16 +156,23 @@ export function UniversalSearch({
             setQuery(value);
             setOpen(value.trim().length > 0);
           }}
-          onFocus={() => {
-            setIsFocused(true);
-            setOpen(query.trim().length > 0);
+          onFocus={() => setOpen(query.trim().length > 0)}
+          onKeyDown={(event) => {
+            if (event.key === 'Tab' && hasQuery && items.length) {
+              event.preventDefault();
+              autocompleteFromTopResult();
+              return;
+            }
+            if (event.key === 'Enter' && showDropdown && items.length) {
+              event.preventDefault();
+              selectEntity(items[0]);
+            }
           }}
-          onBlur={() => setIsFocused(false)}
-          placeholder={showAnimatedHint ? '' : placeholder ?? 'Search stocks & funds...'}
-          className="w-full rounded-2xl border-0 bg-transparent pl-10 pr-10 py-3 text-sm outline-none ring-0 placeholder:text-slate-400"
+          placeholder={showAnimatedHint ? '' : placeholder ?? 'Search for Indian stocks / US stocks / Mutual Funds'}
+          className="w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 py-3 text-sm outline-none ring-0 placeholder:text-slate-400"
         />
         {showAnimatedHint ? (
-          <div className="pointer-events-none absolute inset-y-0 left-10 right-10 flex items-center text-sm text-slate-400">
+          <div className="pointer-events-none absolute inset-y-0 left-10 right-28 flex items-center text-sm text-slate-400">
             <span className="mr-1.5">Search for</span>
             <AnimatePresence mode="wait" initial={false}>
               <motion.span
@@ -96,25 +180,43 @@ export function UniversalSearch({
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="inline-block font-medium text-slate-300"
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+                className="inline-block font-medium text-slate-200"
               >
                 {rotatingHints[hintIndex]}
               </motion.span>
             </AnimatePresence>
           </div>
         ) : null}
-        {query ? (
+        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
           <button
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 transition hover:bg-muted/60"
-            onClick={() => {
-              setQuery('');
-              setOpen(false);
-            }}
+            type="button"
+            onClick={clearQuery}
+            disabled={!hasQuery}
+            className="rounded-md px-2 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-muted/60 disabled:cursor-default disabled:opacity-50"
           >
-            <X className="h-4 w-4 text-slate-400" />
+            Clear
           </button>
-        ) : null}
+          <button
+            type="button"
+            onClick={startVoiceSearch}
+            disabled={!isVoiceSupported || isListening}
+            className="rounded-md p-1.5 text-slate-400 transition hover:bg-muted/60 disabled:cursor-default disabled:opacity-50"
+            title={isVoiceSupported ? (isListening ? 'Listening...' : 'Voice search') : 'Voice search not supported'}
+            aria-label="Voice search"
+          >
+            <Mic className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={autocompleteFromTopResult}
+            disabled={!hasQuery || !items.length}
+            className="rounded-md border border-border/80 px-2 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-muted/60 disabled:cursor-default disabled:opacity-50"
+            title="Autocomplete with top result"
+          >
+            Tab
+          </button>
+        </div>
       </div>
       <AnimatePresence>
         {showDropdown ? (
