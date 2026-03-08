@@ -44,6 +44,7 @@ export function useLiveQuote(
     retry: 1,
     refetchInterval: enabled ? (options?.refetchMs ?? 15_000) : false,
     refetchOnWindowFocus: true,
+    refetchIntervalInBackground: true,
   });
 }
 

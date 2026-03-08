@@ -517,11 +517,20 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
   const [statementTab, setStatementTab] = useState<StatementTab>('profitLoss');
   const [insights, setInsights] = useState<AiInsights | null>(null);
   const [beginnerAssessment, setBeginnerAssessment] = useState<BeginnerAssessment | null>(null);
+  const [statusTick, setStatusTick] = useState(0);
 
-  const status = getMarketStatus(bundle.entity.market);
+  useEffect(() => {
+    const id = window.setInterval(() => setStatusTick((v) => v + 1), 15_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const status = useMemo(() => {
+    void statusTick;
+    return getMarketStatus(bundle.entity.market);
+  }, [bundle.entity.market, statusTick]);
   const { data: polledQuote } = useLiveQuote(bundle.entity, {
     initialData: bundle.quote,
-    refetchMs: bundle.entity.market === 'mf' ? 60_000 : status.isOpen ? 15_000 : 60_000,
+    refetchMs: bundle.entity.market === 'mf' ? 60_000 : 15_000,
   });
   const normalizedQuote = useMemo(() => normalizeHeaderQuote(bundle, polledQuote), [bundle, polledQuote]);
   const displayCurrency = bundle.entity.market === 'us' ? preferredCurrencyForUs : normalizedQuote.currency;
@@ -604,6 +613,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
               <span className={cn('rounded-full px-2 py-1', status.isOpen ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500')}>
                 {status.isOpen ? 'Market Open' : 'Market Closed'}
               </span>
+              <span>IST now: {status.localTime}</span>
               <span>Last updated: {formatDateTime(quote.timestamp)}</span>
               {!status.isOpen ? <span>Next open (IST): {status.nextOpenIst}</span> : null}
               <span>{quote.source}</span>
