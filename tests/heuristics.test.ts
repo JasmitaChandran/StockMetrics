@@ -49,7 +49,26 @@ describe('heuristic AI', () => {
 
     expect(insights.risk.notes.length).toBeGreaterThan(0);
     expect(['Bullish', 'Neutral', 'Bearish']).toContain(insights.sentiment.label);
-    expect(beginner.verdict).toBe('Green');
+    expect(beginner.recommendation).toBe('Yes');
+    expect(beginner.buyScore).toBeGreaterThanOrEqual(4);
     expect(beginner.simpleChecks.length).toBeGreaterThan(0);
+  });
+
+  it('does not mark verdict Red when key fields are missing', () => {
+    const ctx: AiContextInput = {
+      companyName: 'Partial Data Co',
+      symbol: 'PARTIAL',
+      market: 'india',
+      history: makeHistory(),
+      metrics: [
+        { key: 'pe', label: 'P/E', value: 25 },
+      ],
+      news: [],
+    };
+
+    const beginner = buildBeginnerAssessment(ctx);
+    expect(beginner.recommendation).toBe('Neutral');
+    expect(beginner.buyScore).toBe(3);
+    expect(beginner.simpleChecks.find((x) => x.label === 'Is debt high?')?.status).toBe('watch');
   });
 });

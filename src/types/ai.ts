@@ -53,7 +53,8 @@ export interface AiInsights {
 }
 
 export interface BeginnerAssessment {
-  verdict: 'Green' | 'Yellow' | 'Red';
+  recommendation: 'Yes' | 'No' | 'Neutral';
+  buyScore: 1 | 2 | 3 | 4 | 5;
   reasons: string[];
   simpleChecks: Array<{ label: string; status: 'good' | 'watch' | 'bad'; explanation: string }>;
   disclaimer: string;

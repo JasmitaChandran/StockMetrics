@@ -234,9 +234,9 @@ function NotesSection({ stockId }: { stockId: string }) {
 
 function BeginnerPanel({ assessment }: { assessment: BeginnerAssessment | null }) {
   const colorMap = {
-    Green: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30',
-    Yellow: 'bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30',
-    Red: 'bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30',
+    Yes: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30',
+    Neutral: 'bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30',
+    No: 'bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30',
   } as const;
   return (
     <SectionCard title="Beginner Assistant" subtitle="Educational only. Avoids jargon and explains what to check.">
@@ -244,8 +244,8 @@ function BeginnerPanel({ assessment }: { assessment: BeginnerAssessment | null }
         <p className="text-sm text-slate-500">Preparing beginner-friendly checks...</p>
       ) : (
         <div className="space-y-3">
-          <div className={cn('inline-flex rounded-xl border px-3 py-2 text-sm font-semibold', colorMap[assessment.verdict])}>
-            Should I consider buying? {assessment.verdict}
+          <div className={cn('inline-flex rounded-xl border px-3 py-2 text-sm font-semibold', colorMap[assessment.recommendation])}>
+            Should I consider buying? {assessment.recommendation} • Buy score {assessment.buyScore}/5
           </div>
           <ul className="space-y-2 text-sm">
             {assessment.simpleChecks.map((check) => (

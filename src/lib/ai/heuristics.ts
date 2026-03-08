@@ -224,8 +224,8 @@ export function generateAiInsights(input: AiContextInput): AiInsights {
 }
 
 export function buildBeginnerAssessment(input: AiContextInput): BeginnerAssessment {
-  const salesGrowth = getMetric(input, 'salesGrowth') ?? 0;
-  const profitGrowth = getMetric(input, 'profitGrowth') ?? 0;
+  const salesGrowth = getMetric(input, 'salesGrowth');
+  const profitGrowth = getMetric(input, 'profitGrowth');
   const debtToEquity = getMetric(input, 'debtToEquity');
   const pe = getMetric(input, 'pe');
   const industryPe = getMetric(input, 'industryPe');
@@ -233,9 +233,18 @@ export function buildBeginnerAssessment(input: AiContextInput): BeginnerAssessme
   const simpleChecks = [
     {
       label: 'Is the company growing?',
-      status: salesGrowth > 10 && profitGrowth > 10 ? 'good' : salesGrowth > 0 && profitGrowth > 0 ? 'watch' : 'bad',
+      status:
+        salesGrowth === undefined || profitGrowth === undefined
+          ? 'watch'
+          : salesGrowth > 10 && profitGrowth > 10
+            ? 'good'
+            : salesGrowth > 0 && profitGrowth > 0
+              ? 'watch'
+              : 'bad',
       explanation:
-        salesGrowth > 10 && profitGrowth > 10
+        salesGrowth === undefined || profitGrowth === undefined
+          ? 'Growth data is incomplete. Use caution until trend data is available.'
+          : salesGrowth > 10 && profitGrowth > 10
           ? 'Sales and profits are growing at a healthy pace.'
           : salesGrowth > 0 && profitGrowth > 0
             ? 'Sales/profit are growing, but not very strongly.'
@@ -243,7 +252,7 @@ export function buildBeginnerAssessment(input: AiContextInput): BeginnerAssessme
     },
     {
       label: 'Is debt high?',
-      status: (debtToEquity ?? 99) < 0.8 ? 'good' : (debtToEquity ?? 99) < 2 ? 'watch' : 'bad',
+      status: debtToEquity === undefined ? 'watch' : debtToEquity < 0.8 ? 'good' : debtToEquity < 2 ? 'watch' : 'bad',
       explanation:
         debtToEquity === undefined
           ? 'Debt data is not currently available for this stock.'
@@ -274,13 +283,20 @@ export function buildBeginnerAssessment(input: AiContextInput): BeginnerAssessme
     },
   ] as BeginnerAssessment['simpleChecks'];
 
-  const badCount = simpleChecks.filter((x) => x.status === 'bad').length;
-  const goodCount = simpleChecks.filter((x) => x.status === 'good').length;
-  const verdict = badCount >= 2 ? 'Red' : goodCount >= 2 ? 'Green' : 'Yellow';
+  const score = simpleChecks.reduce((acc, check) => {
+    if (check.status === 'good') return acc + 1;
+    if (check.status === 'bad') return acc - 1;
+    return acc;
+  }, 0);
+  const recommendation: BeginnerAssessment['recommendation'] =
+    score >= 2 ? 'Yes' : score <= -2 ? 'No' : 'Neutral';
+  const buyScore: BeginnerAssessment['buyScore'] =
+    score >= 3 ? 5 : score === 2 ? 4 : score === 1 ? 3 : score === 0 ? 3 : score === -1 ? 2 : score === -2 ? 2 : 1;
   const reasons = simpleChecks.map((c) => `${c.label}: ${c.explanation}`);
 
   return {
-    verdict,
+    recommendation,
+    buyScore,
     reasons,
     simpleChecks,
     disclaimer: 'Educational only. This is not financial advice. Always do your own research.',
