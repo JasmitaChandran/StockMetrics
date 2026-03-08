@@ -16,15 +16,28 @@ export function UniversalSearch({
   marketFilter?: 'us' | 'india' | 'mf';
   placeholder?: string;
 }) {
+  const rotatingHints = ['Indian stocks', 'US stocks', 'Mutual Funds'];
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [hintIndex, setHintIndex] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const debounced = useDebouncedValue(query, 250);
   const { data, isLoading } = useSearchEntities(debounced, marketFilter);
   const items = useMemo(() => data ?? [], [data]);
   const hasQuery = query.trim().length > 0;
   const showDropdown = open && hasQuery;
+  const shouldAnimateHint = !marketFilter && !placeholder;
+  const showAnimatedHint = shouldAnimateHint && !hasQuery && !isFocused;
+
+  useEffect(() => {
+    if (!shouldAnimateHint) return;
+    const id = window.setInterval(() => {
+      setHintIndex((idx) => (idx + 1) % rotatingHints.length);
+    }, 2200);
+    return () => window.clearInterval(id);
+  }, [rotatingHints.length, shouldAnimateHint]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent | TouchEvent) {
@@ -66,10 +79,31 @@ export function UniversalSearch({
             setQuery(value);
             setOpen(value.trim().length > 0);
           }}
-          onFocus={() => setOpen(query.trim().length > 0)}
-          placeholder={placeholder ?? 'Search US stocks, Indian stocks, Mutual Funds...'}
+          onFocus={() => {
+            setIsFocused(true);
+            setOpen(query.trim().length > 0);
+          }}
+          onBlur={() => setIsFocused(false)}
+          placeholder={showAnimatedHint ? '' : placeholder ?? 'Search stocks & funds...'}
           className="w-full rounded-2xl border-0 bg-transparent pl-10 pr-10 py-3 text-sm outline-none ring-0 placeholder:text-slate-400"
         />
+        {showAnimatedHint ? (
+          <div className="pointer-events-none absolute inset-y-0 left-10 right-10 flex items-center text-sm text-slate-400">
+            <span className="mr-1.5">Search for</span>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={rotatingHints[hintIndex]}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="inline-block font-medium text-slate-300"
+              >
+                {rotatingHints[hintIndex]}
+              </motion.span>
+            </AnimatePresence>
+          </div>
+        ) : null}
         {query ? (
           <button
             className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 transition hover:bg-muted/60"

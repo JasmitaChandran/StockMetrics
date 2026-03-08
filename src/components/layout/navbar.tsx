@@ -38,7 +38,7 @@ export function Navbar() {
             </div>
           </Link>
           <div className="min-w-0 flex-1 md:w-[260px] md:flex-none lg:w-[300px]">
-            <UniversalSearch placeholder="Search stocks and mutual funds..." />
+            <UniversalSearch />
           </div>
         </div>
 
