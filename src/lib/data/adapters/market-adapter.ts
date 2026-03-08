@@ -6,7 +6,10 @@ import { fetchJsonWithTtl } from './fetch-cache';
 export const marketAdapter: MarketAdapter = {
   async getQuote(entity: SearchEntity): Promise<Quote> {
     try {
-      const data = await fetchJsonWithTtl<Quote>(`/api/market/quote?symbol=${encodeURIComponent(entity.symbol)}&market=${entity.market}`, 30_000);
+      const data = await fetchJsonWithTtl<Quote>(
+        `/api/market/quote?symbol=${encodeURIComponent(entity.symbol)}&market=${entity.market}`,
+        10_000,
+      );
       return data;
     } catch {
       const history = generateDemoHistory(entity);

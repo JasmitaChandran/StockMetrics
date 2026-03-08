@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     const quote =
       symbol.toUpperCase().startsWith('AMFI:') ? await getMfApiQuote(symbol) : await getYahooQuote(symbol, market);
     return NextResponse.json(quote, {
-      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=300' },
+      headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=60' },
     });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 502 });

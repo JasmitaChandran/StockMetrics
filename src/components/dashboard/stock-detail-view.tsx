@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { AlertTriangle, ExternalLink, FileSpreadsheet, Globe2, Info, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { AiInsights, BeginnerAssessment, FinancialStatementTable, StockDetailBundle } from '@/types';
+import type { AiInsights, BeginnerAssessment, FinancialStatementTable, Quote, StockDetailBundle } from '@/types';
 import { SectionCard } from '@/components/common/section-card';
 import { PillToggle } from '@/components/common/pill-toggle';
 import { useUiStore } from '@/stores/ui-store';
-import { useFxUsdInr } from '@/lib/hooks/use-stock-data';
+import { useFxUsdInr, useLiveQuote } from '@/lib/hooks/use-stock-data';
 import { exportStatementsToXlsx } from '@/lib/utils/excel';
 import { formatCurrency, formatDateTime, formatNumber, formatPercent } from '@/lib/utils/format';
 import { getMarketStatus } from '@/lib/utils/market-hours';
@@ -61,14 +61,51 @@ function convertHistoryIfNeeded(bundle: StockDetailBundle, targetCurrency: 'USD'
   };
 }
 
-function convertQuoteIfNeeded(bundle: StockDetailBundle, targetCurrency: 'USD' | 'INR', fxRate?: number) {
-  if (bundle.quote.currency !== 'USD' || targetCurrency !== 'INR' || !fxRate) return bundle.quote;
+function convertQuoteIfNeeded(quote: Quote, targetCurrency: 'USD' | 'INR', fxRate?: number) {
+  if (quote.currency !== 'USD' || targetCurrency !== 'INR' || !fxRate) return quote;
+  const hasNumber = (value: number | null | undefined): value is number => typeof value === 'number' && Number.isFinite(value);
   return {
-    ...bundle.quote,
+    ...quote,
     currency: 'INR' as const,
-    price: bundle.quote.price ? bundle.quote.price * fxRate : bundle.quote.price,
-    previousClose: bundle.quote.previousClose ? bundle.quote.previousClose * fxRate : bundle.quote.previousClose,
-    change: bundle.quote.change ? bundle.quote.change * fxRate : bundle.quote.change,
+    price: hasNumber(quote.price) ? quote.price * fxRate : quote.price,
+    previousClose: hasNumber(quote.previousClose) ? quote.previousClose * fxRate : quote.previousClose,
+    change: hasNumber(quote.change) ? quote.change * fxRate : quote.change,
+  };
+}
+
+function normalizeHeaderQuote(bundle: StockDetailBundle, incomingQuote?: Quote | null): Quote {
+  const baseQuote = incomingQuote ?? bundle.quote;
+  const historyPoints = bundle.history.points.filter((p) => typeof p.close === 'number');
+  const lastHistory = historyPoints[historyPoints.length - 1];
+  const prevHistory = historyPoints[historyPoints.length - 2] ?? lastHistory;
+
+  const price = typeof baseQuote.price === 'number' ? baseQuote.price : lastHistory?.close ?? null;
+  const previousClose =
+    typeof baseQuote.previousClose === 'number'
+      ? baseQuote.previousClose
+      : prevHistory?.close ?? (typeof bundle.quote.previousClose === 'number' ? bundle.quote.previousClose : null);
+
+  const change =
+    typeof baseQuote.change === 'number'
+      ? baseQuote.change
+      : price !== null && previousClose !== null
+        ? price - previousClose
+        : null;
+
+  const changePercent =
+    typeof baseQuote.changePercent === 'number'
+      ? baseQuote.changePercent
+      : change !== null && previousClose
+        ? (change / previousClose) * 100
+        : null;
+
+  return {
+    ...baseQuote,
+    price,
+    previousClose,
+    change,
+    changePercent,
+    timestamp: baseQuote.timestamp ?? bundle.quote.timestamp ?? lastHistory?.ts ?? null,
   };
 }
 
@@ -481,16 +518,21 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
   const [insights, setInsights] = useState<AiInsights | null>(null);
   const [beginnerAssessment, setBeginnerAssessment] = useState<BeginnerAssessment | null>(null);
 
-  const displayCurrency = bundle.entity.market === 'us' ? preferredCurrencyForUs : bundle.quote.currency;
+  const status = getMarketStatus(bundle.entity.market);
+  const { data: polledQuote } = useLiveQuote(bundle.entity, {
+    initialData: bundle.quote,
+    refetchMs: bundle.entity.market === 'mf' ? 60_000 : status.isOpen ? 15_000 : 60_000,
+  });
+  const normalizedQuote = useMemo(() => normalizeHeaderQuote(bundle, polledQuote), [bundle, polledQuote]);
+  const displayCurrency = bundle.entity.market === 'us' ? preferredCurrencyForUs : normalizedQuote.currency;
   const quote = useMemo(
-    () => convertQuoteIfNeeded(bundle, displayCurrency, fx?.rate),
-    [bundle, displayCurrency, fx?.rate],
+    () => convertQuoteIfNeeded(normalizedQuote, displayCurrency, fx?.rate),
+    [normalizedQuote, displayCurrency, fx?.rate],
   );
   const chartHistory = useMemo(
     () => convertHistoryIfNeeded(bundle, displayCurrency, fx?.rate),
     [bundle, displayCurrency, fx?.rate],
   );
-  const status = useMemo(() => getMarketStatus(bundle.entity.market), [bundle.entity.market]);
   const metrics = bundle.fundamentals.keyMetrics;
   const visibleMetrics = metrics;
   const statements = bundle.fundamentals.statements;
@@ -520,6 +562,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
     };
   }, [bundle, statements, visibleMetrics]);
 
+  const hasHeaderChange = typeof quote.change === 'number' && typeof quote.changePercent === 'number';
   const headerChangeUp = (quote.change ?? 0) >= 0;
 
   return (
@@ -543,8 +586,17 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
             </div>
             <div className="mb-2 flex flex-wrap items-center gap-3">
               <div className="text-2xl font-semibold">{formatCurrency(quote.price, quote.currency)}</div>
-              <div className={cn('inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm', headerChangeUp ? 'border-emerald-500/25 bg-emerald-500/15 text-emerald-500' : 'border-rose-500/25 bg-rose-500/15 text-rose-500')}>
-                {headerChangeUp ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+              <div
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm',
+                  !hasHeaderChange
+                    ? 'border-border bg-muted/40 text-slate-500'
+                    : headerChangeUp
+                      ? 'border-emerald-500/25 bg-emerald-500/15 text-emerald-500'
+                      : 'border-rose-500/25 bg-rose-500/15 text-rose-500',
+                )}
+              >
+                {hasHeaderChange ? (headerChangeUp ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />) : null}
                 {formatCurrency(quote.change ?? null, quote.currency)} ({formatPercent(quote.changePercent ?? null)})
               </div>
             </div>

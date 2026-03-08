@@ -86,15 +86,32 @@ export async function getYahooHistory(symbol: string, range = 'max'): Promise<Hi
 }
 
 export async function getYahooQuote(symbol: string, market: 'us' | 'india' | 'mf'): Promise<Quote> {
-  return withServerCache(`yahoo-quote:${symbol}`, 30_000, async () => {
+  return withServerCache(`yahoo-quote:${symbol}`, 15_000, async () => {
     const data = await fetchYahooChart(symbol, '1m');
     const result = data.chart?.result?.[0];
     if (!result) throw new Error(data.chart?.error?.description ?? 'No Yahoo quote result');
     const meta = result.meta ?? {};
-    const price = meta.regularMarketPrice ?? null;
-    const previousClose = meta.previousClose ?? null;
+    const q = result.indicators?.quote?.[0];
+    const closes = (q?.close ?? []).filter((v): v is number => typeof v === 'number');
+    const fallbackLastClose = closes.length ? closes[closes.length - 1] : null;
+    const fallbackPrevClose = closes.length > 1 ? closes[closes.length - 2] : null;
+
+    const price = meta.regularMarketPrice ?? fallbackLastClose ?? null;
+
+    let previousClose = meta.previousClose ?? null;
+    if (previousClose === null) {
+      if (price !== null && fallbackLastClose !== null) {
+        const looksLikeLiveDiff = Math.abs(price - fallbackLastClose) > Math.max(0.01, fallbackLastClose * 0.0001);
+        previousClose = looksLikeLiveDiff ? fallbackLastClose : fallbackPrevClose ?? fallbackLastClose;
+      } else {
+        previousClose = fallbackPrevClose ?? fallbackLastClose;
+      }
+    }
+
     const change = price !== null && previousClose !== null ? price - previousClose : null;
     const changePercent = change !== null && previousClose ? (change / previousClose) * 100 : null;
+    const fallbackTimestamp =
+      result.timestamp && result.timestamp.length ? result.timestamp[result.timestamp.length - 1] : undefined;
     return {
       symbol,
       market,
@@ -103,7 +120,11 @@ export async function getYahooQuote(symbol: string, market: 'us' | 'india' | 'mf
       previousClose,
       change,
       changePercent,
-      timestamp: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000).toISOString() : null,
+      timestamp: meta.regularMarketTime
+        ? new Date(meta.regularMarketTime * 1000).toISOString()
+        : fallbackTimestamp
+          ? new Date(fallbackTimestamp * 1000).toISOString()
+          : null,
       source: 'Yahoo Finance (delayed, subject to availability)',
       delayed: true,
       exchange: market === 'india' ? 'NSE' : market === 'us' ? 'NASDAQ' : 'MF',

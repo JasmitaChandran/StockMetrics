@@ -1,7 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import type { Quote, SearchEntity } from '@/types';
 import { getEntityBySymbol, getStockDetail, getUsdInrRate, searchEntities } from '@/lib/data/adapters';
+import { marketAdapter } from '@/lib/data/adapters/market-adapter';
 
 export function useSearchEntities(query: string, market?: 'us' | 'india' | 'mf') {
   return useQuery({
@@ -20,6 +22,28 @@ export function useStockDetail(symbol: string) {
     gcTime: 10 * 60_000,
     retry: 1,
     enabled: Boolean(symbol),
+  });
+}
+
+export function useLiveQuote(
+  entity: SearchEntity | null | undefined,
+  options?: {
+    enabled?: boolean;
+    initialData?: Quote;
+    refetchMs?: number;
+  },
+) {
+  const enabled = Boolean(entity?.symbol) && (options?.enabled ?? true);
+  return useQuery({
+    queryKey: ['quote-live', entity?.symbol, entity?.market],
+    queryFn: () => marketAdapter.getQuote(entity as SearchEntity),
+    enabled,
+    initialData: options?.initialData,
+    staleTime: 10_000,
+    gcTime: 5 * 60_000,
+    retry: 1,
+    refetchInterval: enabled ? (options?.refetchMs ?? 15_000) : false,
+    refetchOnWindowFocus: true,
   });
 }
 
