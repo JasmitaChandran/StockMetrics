@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { BarChart3, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { BarChart3, Eye, EyeOff } from 'lucide-react';
 import { getAuthAdapter } from '@/lib/auth';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -37,8 +37,15 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
   const adapter = getAuthAdapter();
+
+  useEffect(() => {
+    if (!user) return;
+    setRedirecting(true);
+    router.replace('/dashboard');
+  }, [user, router]);
 
   function validateForm() {
     if (mode === 'register' && username.trim().length < 2) {
@@ -106,34 +113,8 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
     }
   }
 
-  if (loadingSession) {
+  if (loadingSession || redirecting) {
     return <div className="h-[440px] animate-pulse rounded-2xl border border-border bg-card/70" />;
-  }
-
-  if (user) {
-    return (
-      <div className="ui-panel glass mx-auto w-full max-w-md rounded-2xl p-6 shadow-panel">
-        <div className="mb-3 flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-positive" />
-          <h1 className="text-xl font-semibold">Already Signed In</h1>
-        </div>
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-          You are logged in as <span className="font-medium">{user.username}</span>.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white"
-          >
-            Go to Dashboard
-          </Link>
-          <Link href="/account" className="inline-flex items-center rounded-xl border border-border px-4 py-2 text-sm font-medium">
-            Manage Account
-          </Link>
-        </div>
-        {error ? <p className="mt-3 text-xs text-negative">{error}</p> : null}
-      </div>
-    );
   }
 
   return (

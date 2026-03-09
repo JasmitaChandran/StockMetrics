@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Settings2, UserCircle2 } from 'lucide-react';
+import { UserCircle2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 
 export function AuthControls() {
@@ -15,10 +15,9 @@ export function AuthControls() {
   return (
     user ? (
       <div className="ui-panel glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm shadow-panel">
-        <UserCircle2 className="h-4 w-4" />
-        <span className="max-w-[120px] truncate">{user.username}</span>
-        <Link href="/account" className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-fg">
-          <Settings2 className="h-3.5 w-3.5" /> Account
+        <Link href="/account" className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-fg">
+          <UserCircle2 className="h-4 w-4" />
+          Account Info
         </Link>
       </div>
     ) : (
