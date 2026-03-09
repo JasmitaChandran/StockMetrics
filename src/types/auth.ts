@@ -14,10 +14,11 @@ export interface SessionState {
 export interface AuthAdapter {
   id: string;
   getSession(): Promise<SessionState>;
-  register(input: { username: string; email: string; password: string }): Promise<AppUser>;
-  login(input: { email: string; password: string }): Promise<AppUser>;
-  loginWithGoogle?(): Promise<AppUser>;
-  registerWithGoogle?(): Promise<AppUser>;
+  register(input: { username: string; email: string; password: string; remember?: boolean }): Promise<AppUser>;
+  login(input: { email: string; password: string; remember?: boolean }): Promise<AppUser>;
+  loginWithGoogle?(options?: { remember?: boolean }): Promise<AppUser>;
+  registerWithGoogle?(options?: { remember?: boolean }): Promise<AppUser>;
+  forgotPassword(input: { email: string }): Promise<void>;
   deleteAccount(): Promise<void>;
   logout(): Promise<void>;
 }

@@ -34,6 +34,7 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -78,8 +79,8 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
     try {
       const nextUser =
         mode === 'register'
-          ? await adapter.register({ username: username.trim(), email: email.trim(), password })
-          : await adapter.login({ email: email.trim(), password });
+          ? await adapter.register({ username: username.trim(), email: email.trim(), password, remember: rememberMe })
+          : await adapter.login({ email: email.trim(), password, remember: rememberMe });
       setUser(nextUser);
       router.replace('/dashboard');
     } catch (e) {
@@ -102,8 +103,8 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
       }
       const nextUser =
         mode === 'register'
-          ? await adapter.registerWithGoogle!()
-          : await adapter.loginWithGoogle!();
+          ? await adapter.registerWithGoogle!({ remember: rememberMe })
+          : await adapter.loginWithGoogle!({ remember: rememberMe });
       setUser(nextUser);
       router.replace('/dashboard');
     } catch (e) {
@@ -152,6 +153,7 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
                 className="w-full rounded-xl border border-border bg-card px-3 py-2 pl-10"
               />
             </div>
@@ -166,6 +168,7 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               className="w-full rounded-xl border border-border bg-card px-3 py-2 pl-10"
             />
           </div>
@@ -179,6 +182,7 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               className="w-full rounded-xl border border-border bg-card px-3 py-2 pl-10 pr-10"
             />
             <button
@@ -192,6 +196,23 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
             </button>
           </div>
         </label>
+
+        {mode === 'login' ? (
+          <div className="flex items-center justify-between text-xs">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-slate-500">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-border text-accent focus:ring-accent"
+              />
+              Keep me logged in
+            </label>
+            <Link href="/forgot-password" className="font-medium text-accent hover:underline">
+              Forgot password?
+            </Link>
+          </div>
+        ) : null}
 
         {error ? <p className="text-xs text-negative">{error}</p> : null}
 

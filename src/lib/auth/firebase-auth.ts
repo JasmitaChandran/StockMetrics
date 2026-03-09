@@ -81,10 +81,18 @@ export const firebaseAuthAdapter: AuthAdapter = {
     return { user: auth.currentUser ? mapFirebaseUser(auth.currentUser) : null };
   },
 
-  async register({ username, email, password }) {
+  async register({ username, email, password, remember = true }) {
     await ensureConfigured();
-    const { auth, createUserWithEmailAndPassword, updateProfile } = await getFirebaseAuthClient();
+    const {
+      auth,
+      browserLocalPersistence,
+      browserSessionPersistence,
+      createUserWithEmailAndPassword,
+      setPersistence,
+      updateProfile,
+    } = await getFirebaseAuthClient();
     try {
+      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       if (username.trim()) {
         await updateProfile(cred.user, { displayName: username.trim() });
@@ -95,10 +103,12 @@ export const firebaseAuthAdapter: AuthAdapter = {
     }
   },
 
-  async login({ email, password }) {
+  async login({ email, password, remember = true }) {
     await ensureConfigured();
-    const { auth, signInWithEmailAndPassword } = await getFirebaseAuthClient();
+    const { auth, browserLocalPersistence, browserSessionPersistence, setPersistence, signInWithEmailAndPassword } =
+      await getFirebaseAuthClient();
     try {
+      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
       const cred = await signInWithEmailAndPassword(auth, email, password);
       return mapFirebaseUser(cred.user);
     } catch (error) {
@@ -106,10 +116,22 @@ export const firebaseAuthAdapter: AuthAdapter = {
     }
   },
 
-  async loginWithGoogle() {
+  async loginWithGoogle(options) {
     await ensureConfigured();
-    const { auth, GoogleAuthProvider, deleteUser, getAdditionalUserInfo, signInWithPopup, signOut } = await getFirebaseAuthClient();
+    const { remember = true } = options || {};
+    const {
+      auth,
+      browserLocalPersistence,
+      browserSessionPersistence,
+      deleteUser,
+      getAdditionalUserInfo,
+      GoogleAuthProvider,
+      setPersistence,
+      signInWithPopup,
+      signOut,
+    } = await getFirebaseAuthClient();
     try {
+      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       const cred = await signInWithPopup(auth, provider);
@@ -130,10 +152,21 @@ export const firebaseAuthAdapter: AuthAdapter = {
     }
   },
 
-  async registerWithGoogle() {
+  async registerWithGoogle(options) {
     await ensureConfigured();
-    const { auth, GoogleAuthProvider, getAdditionalUserInfo, signInWithPopup, signOut } = await getFirebaseAuthClient();
+    const { remember = true } = options || {};
+    const {
+      auth,
+      browserLocalPersistence,
+      browserSessionPersistence,
+      getAdditionalUserInfo,
+      GoogleAuthProvider,
+      setPersistence,
+      signInWithPopup,
+      signOut,
+    } = await getFirebaseAuthClient();
     try {
+      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       const cred = await signInWithPopup(auth, provider);
@@ -144,6 +177,16 @@ export const firebaseAuthAdapter: AuthAdapter = {
         throw new Error('Account already exists for this Google email. Please login instead.');
       }
       return mapFirebaseUser(cred.user);
+    } catch (error) {
+      throw normalizeFirebaseError(error);
+    }
+  },
+
+  async forgotPassword({ email }) {
+    await ensureConfigured();
+    const { auth, sendPasswordResetEmail } = await getFirebaseAuthClient();
+    try {
+      await sendPasswordResetEmail(auth, email);
     } catch (error) {
       throw normalizeFirebaseError(error);
     }

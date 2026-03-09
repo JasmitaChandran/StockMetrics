@@ -43,12 +43,16 @@ let cached: Promise<{
   app: FirebaseApp;
   auth: Auth;
   onAuthStateChanged: typeof import('firebase/auth')['onAuthStateChanged'];
+  setPersistence: typeof import('firebase/auth')['setPersistence'];
+  browserLocalPersistence: typeof import('firebase/auth')['browserLocalPersistence'];
+  browserSessionPersistence: typeof import('firebase/auth')['browserSessionPersistence'];
   signOut: typeof import('firebase/auth')['signOut'];
   deleteUser: typeof import('firebase/auth')['deleteUser'];
   signInWithPopup: typeof import('firebase/auth')['signInWithPopup'];
   getAdditionalUserInfo: typeof import('firebase/auth')['getAdditionalUserInfo'];
   signInWithEmailAndPassword: typeof import('firebase/auth')['signInWithEmailAndPassword'];
   createUserWithEmailAndPassword: typeof import('firebase/auth')['createUserWithEmailAndPassword'];
+  sendPasswordResetEmail: typeof import('firebase/auth')['sendPasswordResetEmail'];
   updateProfile: typeof import('firebase/auth')['updateProfile'];
   GoogleAuthProvider: typeof import('firebase/auth')['GoogleAuthProvider'];
 }> | null = null;
@@ -73,19 +77,22 @@ export async function getFirebaseAuthClient() {
       const config = getFirebaseConfig();
       const app = getApps().length ? getApp() : initializeApp(config);
       const auth = authMod.getAuth(app);
-      await authMod.setPersistence(auth, authMod.browserLocalPersistence);
       auth.useDeviceLanguage();
 
       return {
         app,
         auth,
         onAuthStateChanged: authMod.onAuthStateChanged,
+        setPersistence: authMod.setPersistence,
+        browserLocalPersistence: authMod.browserLocalPersistence,
+        browserSessionPersistence: authMod.browserSessionPersistence,
         signOut: authMod.signOut,
         deleteUser: authMod.deleteUser,
         signInWithPopup: authMod.signInWithPopup,
         getAdditionalUserInfo: authMod.getAdditionalUserInfo,
         signInWithEmailAndPassword: authMod.signInWithEmailAndPassword,
         createUserWithEmailAndPassword: authMod.createUserWithEmailAndPassword,
+        sendPasswordResetEmail: authMod.sendPasswordResetEmail,
         updateProfile: authMod.updateProfile,
         GoogleAuthProvider: authMod.GoogleAuthProvider,
       };
