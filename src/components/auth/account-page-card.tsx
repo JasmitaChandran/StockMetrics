@@ -89,9 +89,6 @@ export function AccountPageCard() {
         <p>
           Email: <span className="font-medium">{user.email || 'Not available'}</span>
         </p>
-        <p>
-          Provider: <span className="font-medium uppercase">{user.provider}</span>
-        </p>
       </div>
 
       <p className="mt-3 text-xs text-slate-500">All actions below apply only to this currently signed-in account.</p>

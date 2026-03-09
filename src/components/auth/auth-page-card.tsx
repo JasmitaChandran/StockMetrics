@@ -205,6 +205,12 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
           {submitting ? 'Please wait...' : mode === 'login' ? 'Login' : 'Register'}
         </button>
 
+        <div className="flex items-center gap-3">
+          <span className="h-px flex-1 bg-border" />
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">OR</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+
         <button
           onClick={continueWithGoogle}
           disabled={submitting}
