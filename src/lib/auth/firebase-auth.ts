@@ -9,7 +9,7 @@ function normalizeFirebaseError(error: unknown): Error {
   if (token.includes('auth/popup-closed-by-user')) return new Error('Google sign-in was cancelled.');
   if (token.includes('auth/popup-blocked')) return new Error('Popup was blocked by the browser. Please allow popups and try again.');
   if (token.includes('auth/operation-not-allowed')) {
-    return new Error('Google sign-in is not enabled in Firebase Authentication. Enable the Google provider in Firebase Console.');
+    return new Error('This sign-in method is not enabled in Firebase Authentication. Enable it in Firebase Console > Authentication.');
   }
   if (token.includes('auth/unauthorized-domain')) {
     return new Error('This domain is not authorized for Firebase Authentication. Add it in Firebase Console > Authentication > Settings.');
@@ -184,9 +184,18 @@ export const firebaseAuthAdapter: AuthAdapter = {
 
   async forgotPassword({ email }) {
     await ensureConfigured();
-    const { auth, sendPasswordResetEmail } = await getFirebaseAuthClient();
+    const { auth, fetchSignInMethodsForEmail, sendPasswordResetEmail } = await getFirebaseAuthClient();
     try {
-      await sendPasswordResetEmail(auth, email);
+      const normalizedEmail = email.trim().toLowerCase();
+      const methods = await fetchSignInMethodsForEmail(auth, normalizedEmail);
+      // If methods are detectable and password auth is absent, guide users to the correct flow.
+      if (methods.length > 0 && !methods.includes('password')) {
+        if (methods.includes('google.com')) {
+          throw new Error('This email is registered with Google sign-in. Please use Login with Google.');
+        }
+        throw new Error('Password reset is not available for this sign-in method.');
+      }
+      await sendPasswordResetEmail(auth, normalizedEmail);
     } catch (error) {
       throw normalizeFirebaseError(error);
     }

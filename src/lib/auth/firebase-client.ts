@@ -46,6 +46,7 @@ let cached: Promise<{
   setPersistence: typeof import('firebase/auth')['setPersistence'];
   browserLocalPersistence: typeof import('firebase/auth')['browserLocalPersistence'];
   browserSessionPersistence: typeof import('firebase/auth')['browserSessionPersistence'];
+  fetchSignInMethodsForEmail: typeof import('firebase/auth')['fetchSignInMethodsForEmail'];
   signOut: typeof import('firebase/auth')['signOut'];
   deleteUser: typeof import('firebase/auth')['deleteUser'];
   signInWithPopup: typeof import('firebase/auth')['signInWithPopup'];
@@ -86,6 +87,7 @@ export async function getFirebaseAuthClient() {
         setPersistence: authMod.setPersistence,
         browserLocalPersistence: authMod.browserLocalPersistence,
         browserSessionPersistence: authMod.browserSessionPersistence,
+        fetchSignInMethodsForEmail: authMod.fetchSignInMethodsForEmail,
         signOut: authMod.signOut,
         deleteUser: authMod.deleteUser,
         signInWithPopup: authMod.signInWithPopup,

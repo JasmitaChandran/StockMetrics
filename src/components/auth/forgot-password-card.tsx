@@ -10,6 +10,7 @@ function isValidEmail(input: string) {
 }
 
 export function ForgotPasswordCard() {
+  const adapter = getAuthAdapter();
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -30,8 +31,12 @@ export function ForgotPasswordCard() {
     setError(null);
     setSuccess(null);
     try {
-      await getAuthAdapter().forgotPassword({ email: nextEmail });
-      setSuccess('Password reset instructions have been sent to your email.');
+      await adapter.forgotPassword({ email: nextEmail });
+      if (adapter.id === 'local') {
+        setSuccess('Local auth mode is active. Reset emails are not sent in local mode.');
+      } else {
+        setSuccess('If this email uses password login, you will receive a reset email shortly.');
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -89,6 +94,9 @@ export function ForgotPasswordCard() {
           <Link href="/login" className="font-medium text-accent hover:underline">
             Back to Login
           </Link>
+        </p>
+        <p className="text-[11px] text-slate-500">
+          No email yet? Check Spam/Promotions and ensure the account was created with email/password (not Google-only sign-in).
         </p>
       </div>
     </div>
