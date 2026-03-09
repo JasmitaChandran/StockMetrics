@@ -17,5 +17,7 @@ export interface AuthAdapter {
   register(input: { username: string; email: string; password: string }): Promise<AppUser>;
   login(input: { email: string; password: string }): Promise<AppUser>;
   loginWithGoogle?(): Promise<AppUser>;
+  registerWithGoogle?(): Promise<AppUser>;
+  deleteAccount(): Promise<void>;
   logout(): Promise<void>;
 }

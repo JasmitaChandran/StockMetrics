@@ -44,7 +44,9 @@ let cached: Promise<{
   auth: Auth;
   onAuthStateChanged: typeof import('firebase/auth')['onAuthStateChanged'];
   signOut: typeof import('firebase/auth')['signOut'];
+  deleteUser: typeof import('firebase/auth')['deleteUser'];
   signInWithPopup: typeof import('firebase/auth')['signInWithPopup'];
+  getAdditionalUserInfo: typeof import('firebase/auth')['getAdditionalUserInfo'];
   signInWithEmailAndPassword: typeof import('firebase/auth')['signInWithEmailAndPassword'];
   createUserWithEmailAndPassword: typeof import('firebase/auth')['createUserWithEmailAndPassword'];
   updateProfile: typeof import('firebase/auth')['updateProfile'];
@@ -79,7 +81,9 @@ export async function getFirebaseAuthClient() {
         auth,
         onAuthStateChanged: authMod.onAuthStateChanged,
         signOut: authMod.signOut,
+        deleteUser: authMod.deleteUser,
         signInWithPopup: authMod.signInWithPopup,
+        getAdditionalUserInfo: authMod.getAdditionalUserInfo,
         signInWithEmailAndPassword: authMod.signInWithEmailAndPassword,
         createUserWithEmailAndPassword: authMod.createUserWithEmailAndPassword,
         updateProfile: authMod.updateProfile,

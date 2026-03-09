@@ -61,6 +61,21 @@ export const localAuthAdapter: AuthAdapter = {
       'Google sign-in requires Firebase Authentication. Configure Firebase env vars and set NEXT_PUBLIC_ENABLE_FIREBASE_AUTH=true.',
     );
   },
+  async registerWithGoogle() {
+    throw new Error(
+      'Google registration requires Firebase Authentication. Configure Firebase env vars and set NEXT_PUBLIC_ENABLE_FIREBASE_AUTH=true.',
+    );
+  },
+  async deleteAccount() {
+    const db = await getDb();
+    const session = await db.get('session', SESSION_KEY);
+    const currentUserId = session?.user?.id;
+    if (!currentUserId) {
+      throw new Error('No signed-in account found.');
+    }
+    await db.delete('users', currentUserId);
+    await db.delete('session', SESSION_KEY);
+  },
   async logout() {
     const db = await getDb();
     await db.delete('session', SESSION_KEY);

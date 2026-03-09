@@ -2,16 +2,46 @@ import type { AuthAdapter, SessionState } from '@/types';
 import { getFirebaseAuthClient, isFirebaseAuthConfigured, mapFirebaseUser } from './firebase-client';
 
 function normalizeFirebaseError(error: unknown): Error {
-  const message = (error as { message?: string })?.message ?? 'Authentication request failed.';
-  if (/auth\/popup-closed-by-user/i.test(message)) return new Error('Google sign-in was cancelled.');
-  if (/auth\/popup-blocked/i.test(message)) return new Error('Popup was blocked by the browser. Please allow popups and try again.');
-  if (/auth\/operation-not-allowed/i.test(message)) {
+  const message = (error as { message?: string })?.message ?? '';
+  const code = (error as { code?: string })?.code ?? '';
+  const token = `${code} ${message}`.toLowerCase();
+
+  if (token.includes('auth/popup-closed-by-user')) return new Error('Google sign-in was cancelled.');
+  if (token.includes('auth/popup-blocked')) return new Error('Popup was blocked by the browser. Please allow popups and try again.');
+  if (token.includes('auth/operation-not-allowed')) {
     return new Error('Google sign-in is not enabled in Firebase Authentication. Enable the Google provider in Firebase Console.');
   }
-  if (/auth\/unauthorized-domain/i.test(message)) {
+  if (token.includes('auth/unauthorized-domain')) {
     return new Error('This domain is not authorized for Firebase Authentication. Add it in Firebase Console > Authentication > Settings.');
   }
-  return new Error(message);
+  if (token.includes('auth/email-already-in-use')) {
+    return new Error('An account with this email already exists. Please login instead.');
+  }
+  if (token.includes('auth/account-exists-with-different-credential')) {
+    return new Error('This email is already linked to a different sign-in method. Please login with that method.');
+  }
+  if (token.includes('auth/invalid-email')) {
+    return new Error('Please enter a valid email address.');
+  }
+  if (token.includes('auth/weak-password')) {
+    return new Error('Password is too weak. Use at least 8 characters.');
+  }
+  if (token.includes('auth/user-not-found')) {
+    return new Error('No account found with this email.');
+  }
+  if (token.includes('auth/wrong-password') || token.includes('auth/invalid-credential')) {
+    return new Error('Incorrect email or password.');
+  }
+  if (token.includes('auth/too-many-requests')) {
+    return new Error('Too many attempts. Please wait and try again.');
+  }
+  if (token.includes('auth/network-request-failed')) {
+    return new Error('Network error while contacting Firebase. Check your connection and try again.');
+  }
+  if (token.includes('auth/requires-recent-login')) {
+    return new Error('For security, please login again before deleting your account.');
+  }
+  return new Error(message || 'Authentication request failed.');
 }
 
 async function ensureConfigured() {
@@ -78,12 +108,56 @@ export const firebaseAuthAdapter: AuthAdapter = {
 
   async loginWithGoogle() {
     await ensureConfigured();
-    const { auth, GoogleAuthProvider, signInWithPopup } = await getFirebaseAuthClient();
+    const { auth, GoogleAuthProvider, deleteUser, getAdditionalUserInfo, signInWithPopup, signOut } = await getFirebaseAuthClient();
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       const cred = await signInWithPopup(auth, provider);
+      const isNewUser = getAdditionalUserInfo(cred)?.isNewUser ?? false;
+
+      if (isNewUser) {
+        try {
+          // Prevent implicit account creation on "Login with Google" for unknown users.
+          await deleteUser(cred.user);
+        } catch {
+          await signOut(auth);
+        }
+        throw new Error('No account exists for this Google email. Please register first.');
+      }
       return mapFirebaseUser(cred.user);
+    } catch (error) {
+      throw normalizeFirebaseError(error);
+    }
+  },
+
+  async registerWithGoogle() {
+    await ensureConfigured();
+    const { auth, GoogleAuthProvider, getAdditionalUserInfo, signInWithPopup, signOut } = await getFirebaseAuthClient();
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const cred = await signInWithPopup(auth, provider);
+      const isNewUser = getAdditionalUserInfo(cred)?.isNewUser ?? false;
+
+      if (!isNewUser) {
+        await signOut(auth);
+        throw new Error('Account already exists for this Google email. Please login instead.');
+      }
+      return mapFirebaseUser(cred.user);
+    } catch (error) {
+      throw normalizeFirebaseError(error);
+    }
+  },
+
+  async deleteAccount() {
+    await ensureConfigured();
+    const { auth, deleteUser, signOut } = await getFirebaseAuthClient();
+    if (!auth.currentUser) {
+      throw new Error('No signed-in account found.');
+    }
+    try {
+      await deleteUser(auth.currentUser);
+      await signOut(auth);
     } catch (error) {
       throw normalizeFirebaseError(error);
     }
