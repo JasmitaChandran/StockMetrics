@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, LogOut, ShieldAlert, UserCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, LogOut, Mail, ShieldAlert, ShieldCheck, UserCircle2 } from 'lucide-react';
 import { getAuthAdapter } from '@/lib/auth';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -54,7 +55,7 @@ export function AccountPageCard() {
   }
 
   if (loadingSession) {
-    return <div className="h-[360px] animate-pulse rounded-2xl border border-border bg-card/70" />;
+    return <div className="h-[460px] animate-pulse rounded-2xl border border-border bg-card/70" />;
   }
 
   if (!user) {
@@ -82,23 +83,47 @@ export function AccountPageCard() {
         <h1 className="text-xl font-semibold">Account</h1>
       </div>
 
+      <div className="relative mb-4 overflow-hidden rounded-2xl border border-border/70">
+        <Image
+          src="/images/stocks-blur-bg.svg"
+          alt=""
+          width={1200}
+          height={600}
+          className="h-32 w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-slate-950/55" />
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-950/70 via-slate-900/50 to-blue-950/70" />
+        <div className="absolute inset-0 flex flex-col justify-end p-3">
+          <div className="inline-flex w-fit items-center gap-1 rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Account Protected
+          </div>
+          <p className="mt-2 text-xs text-slate-100">Manage sign-out and deletion settings with confidence.</p>
+        </div>
+      </div>
+
       <div className="space-y-2 rounded-xl border border-border bg-card/40 p-4 text-sm">
-        <p>
+        <p className="flex items-center gap-2">
+          <UserCircle2 className="h-4 w-4 text-indigo-400" />
           Signed in as: <span className="font-medium">{user.username}</span>
         </p>
-        <p>
+        <p className="flex items-center gap-2">
+          <Mail className="h-4 w-4 text-sky-400" />
           Email: <span className="font-medium">{user.email || 'Not available'}</span>
         </p>
       </div>
 
-      <p className="mt-3 text-xs text-slate-500">All actions below apply only to this currently signed-in account.</p>
+      <p className="mt-3 inline-flex items-center gap-1 text-xs text-slate-500">
+        <Info className="h-3.5 w-3.5" />
+        All actions below apply only to this currently signed-in account.
+      </p>
 
       <div className="mt-5 flex flex-wrap gap-3">
         <button
           type="button"
           onClick={logout}
           disabled={submitting}
-          className="inline-flex items-center gap-1 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+          className="surface-hover inline-flex items-center gap-1 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
         >
           <LogOut className="h-4 w-4" />
           Logout
@@ -108,7 +133,7 @@ export function AccountPageCard() {
           type="button"
           onClick={deleteAccount}
           disabled={submitting}
-          className="inline-flex items-center gap-1 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+          className="surface-hover inline-flex items-center gap-1 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-500/20 disabled:opacity-50"
         >
           <AlertTriangle className="h-4 w-4" />
           Delete Account Permanently

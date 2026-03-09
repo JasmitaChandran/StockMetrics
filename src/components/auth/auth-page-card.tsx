@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { BarChart3, Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, AtSign, BarChart3, Eye, EyeOff, KeyRound, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
 import { getAuthAdapter } from '@/lib/auth';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -130,39 +130,56 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
               ? 'Login with email/password or continue with Google.'
               : 'Create an account with username, email, password, or continue with Google.'}
           </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2.5 py-1 text-[11px] font-medium text-slate-500">
+              <ShieldCheck className="h-3 w-3 text-indigo-400" />
+              Protected
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2.5 py-1 text-[11px] font-medium text-slate-500">
+              <Sparkles className="h-3 w-3 text-blue-400" />
+              Modern UI
+            </span>
+          </div>
         </div>
       </div>
 
       <div className="space-y-3">
         {mode === 'register' ? (
           <label className="block text-sm">
-            <span className="mb-1 block text-xs text-slate-500">Username</span>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2"
-            />
+            <span className="mb-1 block text-xs font-medium text-slate-500">Username</span>
+            <div className="relative">
+              <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 pl-10"
+              />
+            </div>
           </label>
         ) : null}
 
         <label className="block text-sm">
-          <span className="mb-1 block text-xs text-slate-500">Email</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-xl border border-border bg-card px-3 py-2"
-          />
+          <span className="mb-1 block text-xs font-medium text-slate-500">Email</span>
+          <div className="relative">
+            <AtSign className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 pl-10"
+            />
+          </div>
         </label>
 
         <label className="block text-sm">
-          <span className="mb-1 block text-xs text-slate-500">Password</span>
+          <span className="mb-1 block text-xs font-medium text-slate-500">Password</span>
           <div className="relative">
+            <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 pr-10"
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 pl-10 pr-10"
             />
             <button
               type="button"
@@ -181,9 +198,10 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
         <button
           onClick={submitForm}
           disabled={submitting}
-          className="w-full rounded-xl bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-violet-500 to-blue-500 px-3 py-2 text-sm font-medium text-white shadow-violet disabled:opacity-60"
         >
           {submitting ? 'Please wait...' : mode === 'login' ? 'Login' : 'Register'}
+          {submitting ? null : <ArrowRight className="h-4 w-4" />}
         </button>
 
         <div className="flex items-center gap-3">
@@ -195,7 +213,7 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
         <button
           onClick={continueWithGoogle}
           disabled={submitting}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
+          className="surface-hover flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card/70 px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
         >
           <GoogleLogo />
           {mode === 'login' ? 'Login with Google' : 'Register with Google'}
