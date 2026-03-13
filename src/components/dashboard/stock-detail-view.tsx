@@ -4,14 +4,14 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { AlertTriangle, ExternalLink, FileSpreadsheet, Globe2, Info, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AiInsights, BeginnerAssessment, FinancialStatementTable, Quote, StockDetailBundle } from '@/types';
 import { SectionCard } from '@/components/common/section-card';
 import { PillToggle } from '@/components/common/pill-toggle';
 import { useUiStore } from '@/stores/ui-store';
 import { useFxUsdInr, useLiveQuote } from '@/lib/hooks/use-stock-data';
 import { exportStatementsToXlsx } from '@/lib/utils/excel';
-import { formatCurrency, formatDateTime, formatNumber, formatPercent } from '@/lib/utils/format';
+import { formatCurrency, formatDateTime, formatDateTimeWithSeconds, formatNumber, formatPercent } from '@/lib/utils/format';
 import { getMarketStatus } from '@/lib/utils/market-hours';
 import { getAiProvider } from '@/lib/ai';
 import { getNote, upsertNote } from '@/lib/storage/repositories';
@@ -518,9 +518,12 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
   const [insights, setInsights] = useState<AiInsights | null>(null);
   const [beginnerAssessment, setBeginnerAssessment] = useState<BeginnerAssessment | null>(null);
   const [statusTick, setStatusTick] = useState(0);
+  const [pricePulseKey, setPricePulseKey] = useState(0);
+  const [priceTickDirection, setPriceTickDirection] = useState<'up' | 'down' | 'flat'>('flat');
+  const previousPriceRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const id = window.setInterval(() => setStatusTick((v) => v + 1), 15_000);
+    const id = window.setInterval(() => setStatusTick((v) => v + 1), 1_000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -538,6 +541,19 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
     () => convertQuoteIfNeeded(normalizedQuote, displayCurrency, fx?.rate),
     [normalizedQuote, displayCurrency, fx?.rate],
   );
+  useEffect(() => {
+    const currentPrice = typeof quote.price === 'number' ? quote.price : null;
+    if (currentPrice === null) return;
+    const previousPrice = previousPriceRef.current;
+    if (typeof previousPrice === 'number' && currentPrice !== previousPrice) {
+      setPriceTickDirection(currentPrice > previousPrice ? 'up' : 'down');
+      setPricePulseKey((v) => v + 1);
+      const id = window.setTimeout(() => setPriceTickDirection('flat'), 700);
+      previousPriceRef.current = currentPrice;
+      return () => window.clearTimeout(id);
+    }
+    previousPriceRef.current = currentPrice;
+  }, [quote.price]);
   const chartHistory = useMemo(
     () => convertHistoryIfNeeded(bundle, displayCurrency, fx?.rate),
     [bundle, displayCurrency, fx?.rate],
@@ -576,9 +592,27 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
 
   return (
     <div className="space-y-6">
-      <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="ui-panel hero-glow glass relative rounded-2xl p-4 shadow-panel">
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={cn(
+          'ui-panel hero-glow glass relative rounded-2xl p-4 shadow-panel transition-all duration-500',
+          priceTickDirection === 'up' && 'ring-1 ring-emerald-400/35',
+          priceTickDirection === 'down' && 'ring-1 ring-rose-400/35',
+        )}
+      >
         <div className="absolute left-6 top-4 h-20 w-20 rounded-full bg-indigo-500/12 blur-2xl" />
         <div className="absolute right-8 top-6 h-24 w-24 rounded-full bg-blue-500/10 blur-2xl" />
+        <div
+          className={cn(
+            'pointer-events-none absolute inset-x-8 bottom-3 h-[2px] rounded-full transition-all duration-500',
+            priceTickDirection === 'up'
+              ? 'bg-emerald-400/70 opacity-100'
+              : priceTickDirection === 'down'
+                ? 'bg-rose-400/70 opacity-100'
+                : 'opacity-0',
+          )}
+        />
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -594,10 +628,26 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
               ) : null}
             </div>
             <div className="mb-2 flex flex-wrap items-center gap-3">
-              <div className="text-2xl font-semibold">{formatCurrency(quote.price, quote.currency)}</div>
-              <div
+              <motion.div
+                key={`price-${pricePulseKey}`}
+                initial={{ opacity: 0.68, y: priceTickDirection === 'up' ? 6 : priceTickDirection === 'down' ? -6 : 0 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.24, ease: 'easeOut' }}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm',
+                  'text-3xl font-semibold tracking-tight tabular-nums sm:text-[2.2rem]',
+                  priceTickDirection === 'up' && 'text-emerald-300',
+                  priceTickDirection === 'down' && 'text-rose-300',
+                )}
+              >
+                {formatCurrency(quote.price, quote.currency)}
+              </motion.div>
+              <motion.div
+                key={`change-${pricePulseKey}`}
+                initial={{ opacity: 0.7, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm tabular-nums',
                   !hasHeaderChange
                     ? 'border-border bg-muted/40 text-slate-500'
                     : headerChangeUp
@@ -607,16 +657,35 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
               >
                 {hasHeaderChange ? (headerChangeUp ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />) : null}
                 {formatCurrency(quote.change ?? null, quote.currency)} ({formatPercent(quote.changePercent ?? null)})
-              </div>
+              </motion.div>
             </div>
-            <div className="flex flex-wrap gap-2 text-xs text-slate-500">
-              <span className={cn('rounded-full px-2 py-1', status.isOpen ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500')}>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className={cn('rounded-full px-2 py-1 font-medium', status.isOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400')}>
                 {status.isOpen ? 'Market Open' : 'Market Closed'}
               </span>
-              <span>IST now: {status.localTime}</span>
-              <span>Last updated: {formatDateTime(quote.timestamp)}</span>
-              {!status.isOpen ? <span>Next open (IST): {status.nextOpenIst}</span> : null}
-              <span>{quote.source}</span>
+              <motion.span
+                key={status.localTime}
+                initial={{ opacity: 0.55, y: 3 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.16, ease: 'easeOut' }}
+                className="rounded-full border border-border/70 bg-card/45 px-2 py-1 font-mono tabular-nums text-slate-400"
+              >
+                IST now: {status.localTime}
+              </motion.span>
+              <motion.span
+                key={quote.timestamp ?? 'quote-ts-na'}
+                initial={{ opacity: 0.6, y: 2 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="rounded-full border border-border/70 bg-card/45 px-2 py-1 font-mono tabular-nums text-slate-400"
+              >
+                Last updated: {formatDateTimeWithSeconds(quote.timestamp)}
+              </motion.span>
+              {!status.isOpen ? (
+                <span className="rounded-full border border-border/70 bg-card/45 px-2 py-1 font-mono tabular-nums text-slate-400">
+                  Next open (IST): {status.nextOpenIst}
+                </span>
+              ) : null}
             </div>
           </div>
 

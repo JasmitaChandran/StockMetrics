@@ -31,6 +31,13 @@ export const formatDateTime = (input?: string | Date | null) => {
   return format(date, 'dd MMM yyyy, hh:mm a');
 };
 
+export const formatDateTimeWithSeconds = (input?: string | Date | null) => {
+  if (!input) return 'N/A';
+  const date = typeof input === 'string' ? new Date(input) : input;
+  if (Number.isNaN(date.getTime())) return 'N/A';
+  return format(date, 'dd MMM yyyy, hh:mm:ss a');
+};
+
 export const formatRelativeSimple = (value: number | null | undefined) => {
   if (value === null || value === undefined || Number.isNaN(value)) return 'N/A';
   const sign = value > 0 ? '+' : '';

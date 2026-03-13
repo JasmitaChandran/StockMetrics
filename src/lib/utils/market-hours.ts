@@ -4,7 +4,7 @@ const IST_TZ = 'Asia/Kolkata';
 const ET_TZ = 'America/New_York';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function formatInTZ(date: Date, timeZone: string) {
+function formatInTZ(date: Date, timeZone: string, includeSeconds = false) {
   return new Intl.DateTimeFormat('en-IN', {
     timeZone,
     year: 'numeric',
@@ -12,6 +12,7 @@ function formatInTZ(date: Date, timeZone: string) {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+    second: includeSeconds ? '2-digit' : undefined,
     hour12: true,
   }).format(date);
 }
@@ -135,7 +136,7 @@ export function getMarketStatus(market: MarketKind): MarketStatusInfo {
       isOpen,
       marketLabel: market === 'mf' ? 'Mutual Fund / NAV' : 'Indian Market (NSE/BSE)',
       timezone: IST_TZ,
-      localTime: formatInTZ(now, IST_TZ),
+      localTime: formatInTZ(now, IST_TZ, true),
       nextOpenIst: formatInTZ(nextOpenBase, IST_TZ),
       sessionCloseIst: formatInTZ(sessionClose, IST_TZ),
       message: isOpen ? 'Market is open (IST).' : 'Market is closed (IST).',
@@ -154,7 +155,7 @@ export function getMarketStatus(market: MarketKind): MarketStatusInfo {
     isOpen,
     marketLabel: 'US Market (NYSE/NASDAQ)',
     timezone: ET_TZ,
-    localTime: formatInTZ(now, ET_TZ),
+    localTime: formatInTZ(now, ET_TZ, true),
     nextOpenIst: formatInTZ(nextOpenBase, IST_TZ),
     sessionCloseIst: formatInTZ(sessionClose, IST_TZ),
     message: isOpen ? 'US market is open.' : 'US market is closed.',
