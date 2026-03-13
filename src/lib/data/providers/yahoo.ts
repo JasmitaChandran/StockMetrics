@@ -97,7 +97,7 @@ export async function getYahooHistory(symbol: string, range = 'max'): Promise<Hi
 }
 
 export async function getYahooQuote(symbol: string, market: 'us' | 'india' | 'mf'): Promise<Quote> {
-  return withServerCache(`yahoo-quote:${symbol}`, 15_000, async () => {
+  return withServerCache(`yahoo-quote:${symbol}`, 1_000, async () => {
     // Use intraday candles for quote freshness and avoid long revalidation cache.
     const data = await fetchYahooChart(symbol, '1d', '1m');
     const result = data.chart?.result?.[0];

@@ -6,9 +6,10 @@ import { fetchJsonWithTtl } from './fetch-cache';
 export const marketAdapter: MarketAdapter = {
   async getQuote(entity: SearchEntity): Promise<Quote> {
     try {
+      const ttlMs = entity.market === 'mf' ? 60_000 : 1_000;
       const data = await fetchJsonWithTtl<Quote>(
         `/api/market/quote?symbol=${encodeURIComponent(entity.symbol)}&market=${entity.market}`,
-        10_000,
+        ttlMs,
       );
       return data;
     } catch {

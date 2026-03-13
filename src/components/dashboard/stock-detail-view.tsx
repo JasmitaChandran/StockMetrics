@@ -530,7 +530,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
   }, [bundle.entity.market, statusTick]);
   const { data: polledQuote } = useLiveQuote(bundle.entity, {
     initialData: bundle.quote,
-    refetchMs: bundle.entity.market === 'mf' ? 60_000 : 15_000,
+    refetchMs: bundle.entity.market === 'mf' ? 60_000 : status.isOpen ? 1_000 : 15_000,
   });
   const normalizedQuote = useMemo(() => normalizeHeaderQuote(bundle, polledQuote), [bundle, polledQuote]);
   const displayCurrency = bundle.entity.market === 'us' ? preferredCurrencyForUs : normalizedQuote.currency;

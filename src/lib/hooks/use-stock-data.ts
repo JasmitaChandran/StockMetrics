@@ -39,7 +39,7 @@ export function useLiveQuote(
     queryFn: () => marketAdapter.getQuote(entity as SearchEntity),
     enabled,
     initialData: options?.initialData,
-    staleTime: 10_000,
+    staleTime: 0,
     gcTime: 5 * 60_000,
     retry: 1,
     refetchInterval: enabled ? (options?.refetchMs ?? 15_000) : false,
