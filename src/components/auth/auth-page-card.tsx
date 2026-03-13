@@ -132,14 +132,6 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
               : 'Create an account with username, email, password, or continue with Google.'}
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2.5 py-1 text-[11px] font-medium text-slate-500">
-              <ShieldCheck className="h-3 w-3 text-indigo-400" />
-              Protected
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2.5 py-1 text-[11px] font-medium text-slate-500">
-              <Sparkles className="h-3 w-3 text-blue-400" />
-              Modern UI
-            </span>
           </div>
         </div>
       </div>
