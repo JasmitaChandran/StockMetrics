@@ -27,6 +27,7 @@ function getParts(date: Date, timeZone: string) {
     weekday: 'short',
     hour: '2-digit',
     minute: '2-digit',
+    second: '2-digit',
   }).formatToParts(date);
   const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
   return {
@@ -36,6 +37,7 @@ function getParts(date: Date, timeZone: string) {
     day: Number(map.day),
     hour: Number(map.hour),
     minute: Number(map.minute),
+    second: Number(map.second),
   };
 }
 
@@ -83,9 +85,9 @@ function getNextOpen(
   closeMinute: number,
 ) {
   const nowParts = getParts(now, marketTz);
-  const nowMinutes = nowParts.hour * 60 + nowParts.minute;
-  const openMinutes = openHour * 60 + openMinute;
-  const closeMinutes = closeHour * 60 + closeMinute;
+  const nowSeconds = nowParts.hour * 3600 + nowParts.minute * 60 + nowParts.second;
+  const openSeconds = openHour * 3600 + openMinute * 60;
+  const closeSeconds = closeHour * 3600 + closeMinute * 60;
 
   for (let i = 0; i < 10; i += 1) {
     const probe = new Date(now.getTime() + i * DAY_MS);
@@ -93,12 +95,12 @@ function getNextOpen(
     if (isWeekend(p.weekday)) continue;
 
     if (i === 0) {
-      if (nowMinutes < openMinutes) {
+      if (nowSeconds < openSeconds) {
         return marketTz === IST_TZ
           ? makeDateWithFixedOffset(p.year, p.month, p.day, openHour, openMinute, 330)
           : makeDateForTimeZone(p.year, p.month, p.day, openHour, openMinute, marketTz);
       }
-      if (nowMinutes <= closeMinutes) {
+      if (nowSeconds < closeSeconds) {
         // If market is already open, the "next open" is the next trading day.
         continue;
       }
@@ -125,11 +127,11 @@ export function getMarketStatus(market: MarketKind): MarketStatusInfo {
 
   if (market === 'india' || market === 'mf') {
     const p = getParts(now, IST_TZ);
-    const minutes = p.hour * 60 + p.minute;
-    const open = 9 * 60 + 15;
-    const close = 15 * 60 + 30;
+    const seconds = p.hour * 3600 + p.minute * 60 + p.second;
+    const open = 9 * 3600 + 15 * 60;
+    const close = 15 * 3600 + 30 * 60;
     const isTradingDay = !isWeekend(p.weekday);
-    const isOpen = isTradingDay && minutes >= open && minutes <= close;
+    const isOpen = isTradingDay && seconds >= open && seconds < close;
     const nextOpenBase = getNextOpen(now, IST_TZ, 9, 15, 15, 30);
     const sessionClose = getSessionClose(now, IST_TZ, 15, 30);
     return {
@@ -144,11 +146,11 @@ export function getMarketStatus(market: MarketKind): MarketStatusInfo {
   }
 
   const p = getParts(now, ET_TZ);
-  const minutes = p.hour * 60 + p.minute;
-  const open = 9 * 60 + 30;
-  const close = 16 * 60;
+  const seconds = p.hour * 3600 + p.minute * 60 + p.second;
+  const open = 9 * 3600 + 30 * 60;
+  const close = 16 * 3600;
   const isTradingDay = !isWeekend(p.weekday);
-  const isOpen = isTradingDay && minutes >= open && minutes <= close;
+  const isOpen = isTradingDay && seconds >= open && seconds < close;
   const nextOpenBase = getNextOpen(now, ET_TZ, 9, 30, 16, 0);
   const sessionClose = getSessionClose(now, ET_TZ, 16, 0);
   return {
