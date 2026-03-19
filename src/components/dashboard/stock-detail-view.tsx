@@ -109,6 +109,8 @@ function normalizeHeaderQuote(bundle: StockDetailBundle, incomingQuote?: Quote |
   };
 }
 
+type AboutHighlight = { label: string; value: string };
+
 function StatementTableView({ table }: { table: FinancialStatementTable }) {
   type StatementView = 'consolidated' | 'standalone';
   const availableViews = [
@@ -579,6 +581,67 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
   const visibleMetrics = metrics;
   const statements = bundle.fundamentals.statements;
   const activeStatement = statements.find((t) => t.kind === statementTab) ?? statements[0];
+  const aboutProfile = useMemo(() => {
+    const getMetric = (key: string) => metrics.find((m) => m.key === key);
+    const metricText = (key: string) => {
+      const metric = getMetric(key);
+      return metric ? metricValueToDisplay(metric, displayCurrency, fx?.rate) : null;
+    };
+
+    const baseSummary = (bundle.fundamentals.summary ?? bundle.entity.summary ?? 'Company summary is not currently available.')
+      .trim()
+      .replace(/\s+/g, ' ');
+    const withPeriod = (value: string) => (/[.!?]$/.test(value) ? value : `${value}.`);
+    const valueOr = (key: string, fallback = 'not currently available') => metricText(key) ?? fallback;
+
+    const segmentHints = [
+      /energy/i.test(baseSummary) ? 'energy' : null,
+      /telecom/i.test(baseSummary) ? 'telecom' : null,
+      /retail/i.test(baseSummary) ? 'retail' : null,
+      /digital/i.test(baseSummary) ? 'digital services' : null,
+      /technology|it services/i.test(baseSummary) ? 'technology services' : null,
+      /bank|banking/i.test(baseSummary) ? 'banking and financial services' : null,
+    ].filter(Boolean) as string[];
+
+    const aboutLines = [
+      withPeriod(baseSummary),
+      bundle.entity.industry
+        ? `${bundle.entity.name} mainly operates in the ${bundle.entity.industry.toLowerCase()} business.`
+        : bundle.entity.sector
+          ? `${bundle.entity.name} mainly operates in the ${bundle.entity.sector.toLowerCase()} sector.`
+          : `${bundle.entity.name} operates across multiple business areas.`,
+      segmentHints.length >= 2
+        ? `Its business mix includes ${segmentHints.slice(0, 4).join(', ')}.`
+        : `${bundle.entity.name} serves customers through a mix of core operations and supporting businesses.`,
+      bundle.entity.country
+        ? `Its primary operating market is ${bundle.entity.country}.`
+        : 'Its primary operating market information is currently limited.',
+      bundle.entity.exchange
+        ? `The company is listed on ${bundle.entity.exchange} under the symbol ${bundle.entity.displaySymbol}.`
+        : `The tracked symbol for this company is ${bundle.entity.displaySymbol}.`,
+      `Company size snapshot: market capitalization is ${valueOr('marketCap')}.`,
+      `Valuation snapshot: P/E ${valueOr('pe')}, P/B ${valueOr('pb')}, and EV/EBITDA ${valueOr('evEbitda')}.`,
+      `Growth snapshot: sales growth is ${valueOr('salesGrowth')} and profit growth is ${valueOr('profitGrowth')}.`,
+      `Profitability snapshot: OPM ${valueOr('opm')}, ROE ${valueOr('roe')}, and ROCE ${valueOr('roce')}.`,
+      `Balance-sheet snapshot: debt/equity ${valueOr('debtToEquity')}, current ratio ${valueOr('currentRatio')}, and interest coverage ${valueOr('interestCoverage')}.`,
+      `Shareholder-return snapshot: dividend yield ${valueOr('dividendYield')} and 6-month return ${valueOr('return6m')}.`,
+      `Latest tracked price is ${formatCurrency(quote.price, quote.currency)} with a day move of ${formatCurrency(quote.change ?? null, quote.currency)} (${formatPercent(quote.changePercent ?? null)}).`,
+      'For a practical review, focus on revenue growth consistency, profit quality, debt control, and cash-flow strength over multiple periods.',
+    ].filter(Boolean) as string[];
+
+    const highlights: AboutHighlight[] = [
+      { label: 'Market Cap', value: metricText('marketCap') ?? '—' },
+      { label: 'P/E', value: metricText('pe') ?? '—' },
+      { label: 'P/B', value: metricText('pb') ?? '—' },
+      { label: 'ROE', value: metricText('roe') ?? '—' },
+      { label: 'Debt / Equity', value: metricText('debtToEquity') ?? '—' },
+      { label: 'Current Ratio', value: metricText('currentRatio') ?? '—' },
+      { label: 'Dividend Yield', value: metricText('dividendYield') ?? '—' },
+      { label: '6M Return', value: metricText('return6m') ?? '—' },
+    ];
+
+    return { aboutText: aboutLines.join(' '), highlights };
+  }, [bundle, metrics, displayCurrency, fx?.rate, quote.price, quote.change, quote.changePercent, quote.currency]);
 
   useEffect(() => {
     let active = true;
@@ -734,9 +797,17 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
-          <SectionCard title="About" subtitle={bundle.fundamentals.source}>
-            <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
-              <p>{bundle.fundamentals.summary ?? bundle.entity.summary ?? 'Company summary is not currently available.'}</p>
+          <SectionCard title="About">
+            <div className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
+              <p className="leading-relaxed">{aboutProfile.aboutText}</p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {aboutProfile.highlights.map((item) => (
+                  <div key={item.label} className="rounded-xl border border-border bg-card/40 p-3">
+                    <div className="text-[11px] uppercase tracking-wide text-slate-500">{item.label}</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{item.value}</div>
+                  </div>
+                ))}
+              </div>
               {bundle.fundamentals.website || bundle.entity.website ? (
                 <Link
                   href={bundle.fundamentals.website ?? bundle.entity.website ?? '#'}

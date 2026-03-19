@@ -644,7 +644,7 @@ export const demoFundamentalsBySymbol: Record<string, FundamentalsBundle> = Obje
         statements,
         shareholding: shareholdingFor(entity.symbol),
         peerSymbols: peers,
-        source: entity.market === 'india' ? 'Reference fundamentals dataset + market data (India coverage varies by source)' : 'Reference fundamentals dataset',
+        source: 'Reference fundamentals dataset',
         notes: [
           'Some advanced ratios may be unavailable for certain securities depending on data coverage.',
           'The UI hides missing metrics instead of showing placeholders.',
