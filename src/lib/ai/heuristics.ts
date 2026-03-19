@@ -303,27 +303,312 @@ export function buildBeginnerAssessment(input: AiContextInput): BeginnerAssessme
   };
 }
 
+type SeriesPoint = { year: string; value: number };
+type StatementSeries = { label: string; points: SeriesPoint[] };
+
+function formatCompact(value: number): string {
+  return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+}
+
+function formatSigned(value: number, digits = 1, suffix = ''): string {
+  const abs = Math.abs(value).toFixed(digits);
+  return `${value >= 0 ? '+' : '-'}${abs}${suffix}`;
+}
+
+function changePct(start: number, end: number): number {
+  return ((end - start) / (Math.abs(start) || 1)) * 100;
+}
+
+function cagrPct(start: number, end: number, periods: number): number | undefined {
+  if (periods <= 0 || start <= 0 || end <= 0) return undefined;
+  return ((end / start) ** (1 / periods) - 1) * 100;
+}
+
+function extractSeries(rows: StatementSummaryInput['table']['rows'], yearList: string[], patterns: RegExp[], avoid?: RegExp): StatementSeries | undefined {
+  for (const pattern of patterns) {
+    const row = rows.find((candidate) => pattern.test(candidate.label) && (!avoid || !avoid.test(candidate.label)));
+    if (!row) continue;
+    const points = yearList
+      .map((year) => ({ year, raw: row.valuesByYear[year] }))
+      .filter((point): point is { year: string; raw: number } => typeof point.raw === 'number' && Number.isFinite(point.raw))
+      .map((point) => ({ year: point.year, value: point.raw }));
+    if (points.length) return { label: row.label, points };
+  }
+  return undefined;
+}
+
+function marginSeries(numerator: StatementSeries, denominator: StatementSeries): StatementSeries | undefined {
+  const denByYear = new Map(denominator.points.map((p) => [p.year, p.value]));
+  const points = numerator.points
+    .map((p) => {
+      const den = denByYear.get(p.year);
+      if (den === undefined || den === 0) return null;
+      return { year: p.year, value: (p.value / den) * 100 };
+    })
+    .filter((p): p is SeriesPoint => p !== null && Number.isFinite(p.value));
+  if (!points.length) return undefined;
+  return { label: `${numerator.label} Margin`, points };
+}
+
+function summarizeGenericStatement(table: StatementSummaryInput['table'], years: string[], rows: StatementSummaryInput['table']['rows']): StatementSummaryOutput {
+  const bullets: string[] = [];
+  for (const row of rows.slice(0, 6)) {
+    const values = years.map((y) => row.valuesByYear[y]).filter((v): v is number => typeof v === 'number');
+    if (values.length < 2) continue;
+    const first = values[0];
+    const last = values[values.length - 1];
+    const delta = changePct(first, last);
+    const recentDelta = changePct(values[values.length - 2], last);
+    bullets.push(
+      `${row.label}: ${delta >= 0 ? 'up' : 'down'} ${Math.abs(delta).toFixed(1)}% overall, with latest period ${recentDelta >= 0 ? 'up' : 'down'} ${Math.abs(recentDelta).toFixed(1)}%.`,
+    );
+  }
+  if (!bullets.length) {
+    bullets.push('No analyzable numeric trends were found in this statement.');
+  }
+  bullets.push(`Periods reviewed: ${years.join(', ')}`);
+  return {
+    title: `${table.title} summary`,
+    bullets,
+    confidence: bullets.length >= 4 ? 'medium' : 'low',
+  };
+}
+
+function summarizeIncomeStatement(table: StatementSummaryInput['table'], years: string[], rows: StatementSummaryInput['table']['rows']): StatementSummaryOutput {
+  const revenue = extractSeries(rows, years, [/^\s*revenue\b/i, /^\s*sales\b/i, /\btotal income\b/i, /\bturnover\b/i]);
+  const netProfit = extractSeries(rows, years, [/\bnet\s*profit\b/i, /\bprofit after tax\b/i, /\bpat\b/i, /\bnet income\b/i]);
+  const operating = extractSeries(rows, years, [/\boperating income\b/i, /\boperating profit\b/i, /\bebit\b/i], /\bmargin\b/i);
+  const ebitda = extractSeries(rows, years, [/\bebitda\b/i], /\bmargin\b/i);
+  const marginRow = extractSeries(rows, years, [/\bebitda margin\b/i, /\boperating margin\b/i, /\bopm\b/i, /\bnet margin\b/i]);
+  const interest = extractSeries(rows, years, [/\bfinance cost\b/i, /\binterest expense\b/i, /\binterest\b/i]);
+  const pbt = extractSeries(rows, years, [/\bprofit before tax\b/i, /\bpbt\b/i]);
+  const tax = extractSeries(rows, years, [/^\s*tax\b/i, /\btax expense\b/i, /\bincome tax\b/i]);
+
+  const bullets: string[] = [];
+  let signalCount = 0;
+  let score = 0;
+  const scoreDrivers: string[] = [];
+
+  const derivedMargin = revenue && netProfit ? marginSeries(netProfit, revenue) : undefined;
+  const usableMargin = marginRow ?? derivedMargin;
+
+  if (revenue && revenue.points.length >= 2) {
+    signalCount += 1;
+    const first = revenue.points[0];
+    const last = revenue.points[revenue.points.length - 1];
+    const delta = changePct(first.value, last.value);
+    const cagr = cagrPct(first.value, last.value, revenue.points.length - 1);
+    const latestDelta = changePct(revenue.points[revenue.points.length - 2].value, last.value);
+    bullets.push(
+      `Topline: ${revenue.label} moved from ${formatCompact(first.value)} (${first.year}) to ${formatCompact(last.value)} (${last.year}), ${formatSigned(delta, 1, '%')} overall${cagr === undefined ? '' : ` (CAGR ${formatSigned(cagr, 1, '%')})`}. Latest period change is ${formatSigned(latestDelta, 1, '%')}.`,
+    );
+    if (cagr !== undefined) {
+      if (cagr >= 12) {
+        score += 2;
+        scoreDrivers.push('strong revenue CAGR');
+      } else if (cagr >= 6) {
+        score += 1;
+        scoreDrivers.push('steady revenue growth');
+      } else if (cagr < 0) {
+        score -= 2;
+        scoreDrivers.push('contracting revenue base');
+      }
+    }
+  }
+
+  if (netProfit && netProfit.points.length >= 2) {
+    signalCount += 1;
+    const first = netProfit.points[0];
+    const last = netProfit.points[netProfit.points.length - 1];
+    const delta = changePct(first.value, last.value);
+    const cagr = cagrPct(first.value, last.value, netProfit.points.length - 1);
+    const latestDelta = changePct(netProfit.points[netProfit.points.length - 2].value, last.value);
+    bullets.push(
+      `Bottom line: ${netProfit.label} moved from ${formatCompact(first.value)} (${first.year}) to ${formatCompact(last.value)} (${last.year}), ${formatSigned(delta, 1, '%')} overall${cagr === undefined ? '' : ` (CAGR ${formatSigned(cagr, 1, '%')})`}. Latest period change is ${formatSigned(latestDelta, 1, '%')}.`,
+    );
+
+    if (last.value <= 0) {
+      score -= 3;
+      scoreDrivers.push('latest period profitability is weak');
+    } else if (cagr !== undefined) {
+      if (cagr >= 15) {
+        score += 2;
+        scoreDrivers.push('strong profit compounding');
+      } else if (cagr >= 8) {
+        score += 1;
+        scoreDrivers.push('healthy profit growth');
+      } else if (cagr < 0) {
+        score -= 3;
+        scoreDrivers.push('declining profits');
+      }
+    }
+
+    let downYears = 0;
+    for (let i = 1; i < netProfit.points.length; i += 1) {
+      if (netProfit.points[i].value < netProfit.points[i - 1].value) downYears += 1;
+    }
+    if (downYears >= 2) {
+      score -= 1;
+      scoreDrivers.push('profit trend has multiple down periods');
+    } else if (downYears === 0 && netProfit.points.length >= 4) {
+      score += 1;
+      scoreDrivers.push('profit trend is consistent');
+    }
+  }
+
+  if (usableMargin && usableMargin.points.length >= 2) {
+    signalCount += 1;
+    const first = usableMargin.points[0];
+    const last = usableMargin.points[usableMargin.points.length - 1];
+    const marginDelta = last.value - first.value;
+    bullets.push(
+      `Profitability quality: ${usableMargin.label} moved from ${first.value.toFixed(1)}% (${first.year}) to ${last.value.toFixed(1)}% (${last.year}), a ${formatSigned(marginDelta, 1, ' ppt')} shift.`,
+    );
+
+    if (marginDelta >= 2) {
+      score += 1;
+      scoreDrivers.push('margin expansion');
+    } else if (marginDelta <= -2) {
+      score -= 1;
+      scoreDrivers.push('margin compression');
+    }
+    if (last.value < 5) {
+      score -= 1;
+      scoreDrivers.push('low terminal margin profile');
+    }
+  } else if (operating && ebitda && revenue) {
+    signalCount += 1;
+    const latestYear = years[years.length - 1];
+    const opLatest = operating.points.find((p) => p.year === latestYear)?.value;
+    const ebitdaLatest = ebitda.points.find((p) => p.year === latestYear)?.value;
+    const revLatest = revenue.points.find((p) => p.year === latestYear)?.value;
+    if (typeof opLatest === 'number' && typeof ebitdaLatest === 'number' && typeof revLatest === 'number' && revLatest !== 0) {
+      bullets.push(
+        `Operating structure: latest operating income is ${formatCompact(opLatest)} and EBITDA is ${formatCompact(ebitdaLatest)}, implying EBITDA margin near ${((ebitdaLatest / revLatest) * 100).toFixed(1)}%.`,
+      );
+    }
+  }
+
+  if (interest && interest.points.length >= 1) {
+    const latestInterest = interest.points[interest.points.length - 1];
+    const latestPbt = pbt?.points.find((p) => p.year === latestInterest.year)?.value;
+    const latestOperating = operating?.points.find((p) => p.year === latestInterest.year)?.value;
+    if (typeof latestPbt === 'number' && latestPbt !== 0) {
+      signalCount += 1;
+      const interestShare = (Math.abs(latestInterest.value) / Math.abs(latestPbt)) * 100;
+      bullets.push(
+        `Cost pressure: in ${latestInterest.year}, finance cost was ${formatCompact(latestInterest.value)}, about ${interestShare.toFixed(1)}% of pre-tax profit.`,
+      );
+      if (interestShare > 45) {
+        score -= 2;
+        scoreDrivers.push('interest burden is heavy');
+      } else if (interestShare > 25) {
+        score -= 1;
+        scoreDrivers.push('interest burden is elevated');
+      } else if (interestShare < 15) {
+        score += 1;
+        scoreDrivers.push('interest burden is manageable');
+      }
+    } else if (typeof latestOperating === 'number' && latestOperating > 0) {
+      signalCount += 1;
+      const coverage = latestOperating / Math.max(1, Math.abs(latestInterest.value));
+      bullets.push(
+        `Cost pressure: in ${latestInterest.year}, operating income covered finance cost by ~${coverage.toFixed(1)}x.`,
+      );
+      if (coverage < 2) {
+        score -= 2;
+        scoreDrivers.push('thin interest coverage');
+      } else if (coverage < 4) {
+        score -= 1;
+        scoreDrivers.push('moderate interest coverage');
+      } else {
+        score += 1;
+        scoreDrivers.push('healthy interest coverage');
+      }
+    }
+  }
+
+  if (tax && tax.points.length >= 1 && pbt && pbt.points.length >= 1) {
+    const latestTax = tax.points[tax.points.length - 1];
+    const matchedPbt = pbt.points.find((p) => p.year === latestTax.year);
+    if (matchedPbt && matchedPbt.value !== 0) {
+      signalCount += 1;
+      const effectiveTax = (Math.abs(latestTax.value) / Math.abs(matchedPbt.value)) * 100;
+      bullets.push(`Tax check: effective tax rate in ${latestTax.year} is ~${effectiveTax.toFixed(1)}% of pre-tax profit.`);
+      if (effectiveTax > 40) {
+        score -= 1;
+        scoreDrivers.push('high effective tax drag');
+      }
+    }
+  }
+
+  if (revenue && netProfit && revenue.points.length >= 2 && netProfit.points.length >= 2) {
+    const latestYear = years[years.length - 1];
+    const prevYear = years[years.length - 2];
+    const revLatest = revenue.points.find((p) => p.year === latestYear)?.value;
+    const revPrev = revenue.points.find((p) => p.year === prevYear)?.value;
+    const profitLatest = netProfit.points.find((p) => p.year === latestYear)?.value;
+    const profitPrev = netProfit.points.find((p) => p.year === prevYear)?.value;
+
+    if (typeof revLatest === 'number' && typeof revPrev === 'number' && typeof profitLatest === 'number' && typeof profitPrev === 'number') {
+      signalCount += 1;
+      const revMomentum = changePct(revPrev, revLatest);
+      const profitMomentum = changePct(profitPrev, profitLatest);
+      bullets.push(
+        `Latest momentum (${prevYear} to ${latestYear}): revenue ${formatSigned(revMomentum, 1, '%')}, net profit ${formatSigned(profitMomentum, 1, '%')}.`,
+      );
+      if (revMomentum > 0 && profitMomentum > 0) {
+        score += 1;
+        scoreDrivers.push('recent momentum is positive');
+      } else if (revMomentum < 0 && profitMomentum < 0) {
+        score -= 2;
+        scoreDrivers.push('recent momentum is negative');
+      } else if (revMomentum > 0 && profitMomentum < 0) {
+        score -= 2;
+        scoreDrivers.push('topline growth is not converting to profit');
+      }
+    }
+  }
+
+  if (!bullets.length) {
+    return summarizeGenericStatement(table, years, rows);
+  }
+
+  let decision = 'Decision bias: mixed income-statement signals; treat this as a hold/watch setup until trend quality improves.';
+  if (score >= 5) {
+    decision = 'Decision bias: constructive. Growth and profitability signals are strong enough to support a positive investment view, subject to valuation discipline.';
+  } else if (score >= 2) {
+    decision = 'Decision bias: mildly positive. Core trends are supportive, but position sizing should account for remaining execution and cycle risk.';
+  } else if (score <= -4) {
+    decision =
+      'Decision bias: cautious/defensive. Income-statement quality is weak right now, so fresh exposure is better deferred until profitability and momentum stabilize.';
+  } else if (score < 0) {
+    decision = 'Decision bias: cautious. Signals are below average, so require clearer earnings strength before taking aggressive exposure.';
+  }
+
+  const driverSuffix = scoreDrivers.length ? ` Key drivers: ${scoreDrivers.slice(0, 3).join(', ')}.` : '';
+  bullets.push(`${decision}${driverSuffix}`);
+  bullets.push('Cross-check this view with balance sheet leverage, cash-flow conversion, and current valuation before acting.');
+
+  return {
+    title: `${table.title} summary`,
+    bullets,
+    confidence: signalCount >= 6 ? 'high' : signalCount >= 4 ? 'medium' : 'low',
+  };
+}
+
 export function summarizeStatement(input: StatementSummaryInput): StatementSummaryOutput {
   const { table, currentView } = input;
   const selected = table.viewData?.[currentView];
   const yearList = selected?.years ?? table.years;
   const rows = selected?.rows ?? table.rows;
-  const bullets: string[] = [];
   if (!yearList.length || !rows.length) {
     return { title: `${table.title} summary`, bullets: ['No rows are currently available for this statement.'], confidence: 'low' };
   }
-
-  for (const row of rows.slice(0, 5)) {
-    const values = yearList.map((y) => row.valuesByYear[y]).filter((v): v is number => typeof v === 'number');
-    if (values.length < 2) continue;
-    const first = values[0];
-    const last = values[values.length - 1];
-    const change = ((last - first) / (Math.abs(first) || 1)) * 100;
-    bullets.push(`${row.label}: ${change >= 0 ? 'up' : 'down'} ${Math.abs(change).toFixed(1)}% across available periods.`);
+  if (table.kind === 'profitLoss' || /income statement|profit and loss/i.test(table.title)) {
+    return summarizeIncomeStatement(table, yearList, rows);
   }
-
-  bullets.push(`Years: ${yearList.join(', ')}`);
-  return { title: `${table.title} summary`, bullets, confidence: bullets.length >= 3 ? 'medium' : 'low' };
+  return summarizeGenericStatement(table, yearList, rows);
 }
 
 export function suggestPeersHeuristic(input: AiContextInput): PeerSuggestionResult {
