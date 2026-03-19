@@ -42,7 +42,7 @@ export function StockChartPanel({ history, displayCurrency }: { history: History
   return (
     <SectionCard
       title="Price Chart"
-      subtitle={`${history.source}${history.delayed ? ' • Delayed / availability-dependent' : ''}`}
+      subtitle={history.source}
       action={
         <PillToggle
           options={RANGE_OPTIONS.map((r) => ({ value: r.value, label: r.label }))}
@@ -76,9 +76,6 @@ export function StockChartPanel({ history, displayCurrency }: { history: History
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-2 text-xs text-slate-500">
-        Detailed chart controls are optimized for speed using downsampling to keep UI responsive.
-      </p>
     </SectionCard>
   );
 }

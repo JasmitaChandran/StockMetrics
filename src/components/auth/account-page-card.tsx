@@ -98,7 +98,6 @@ export function AccountPageCard() {
             <ShieldCheck className="h-3.5 w-3.5" />
             Account Protected
           </div>
-          <p className="mt-2 text-xs text-slate-100">Manage sign-out and deletion settings with confidence.</p>
         </div>
       </div>
 

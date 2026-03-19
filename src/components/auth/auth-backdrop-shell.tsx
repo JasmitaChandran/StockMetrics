@@ -13,7 +13,7 @@ const modeGradient: Record<AuthBackdropMode, string> = {
 type AuthBackdropShellProps = {
   mode: AuthBackdropMode;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   children: React.ReactNode;
   contentClassName?: string;
 };
@@ -41,7 +41,7 @@ export function AuthBackdropShell({ mode, title, subtitle, children, contentClas
               Stock Metrics
             </p>
             <h1 className="mt-3 text-2xl font-semibold leading-tight text-white sm:text-3xl">{title}</h1>
-            <p className="mt-2 max-w-lg text-sm text-slate-200 sm:text-base">{subtitle}</p>
+            {subtitle ? <p className="mt-2 max-w-lg text-sm text-slate-200 sm:text-base">{subtitle}</p> : null}
           </div>
 
           <div className={cn('w-full', contentClassName)}>{children}</div>

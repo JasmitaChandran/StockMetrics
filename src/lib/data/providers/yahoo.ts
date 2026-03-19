@@ -90,7 +90,7 @@ export async function getYahooHistory(symbol: string, range = 'max'): Promise<Hi
       symbol,
       currency: (result.meta?.currency as 'USD' | 'INR') || 'USD',
       points,
-      source: 'Yahoo Finance (delayed, subject to availability)',
+      source: 'Yahoo Finance',
       delayed: true,
     };
   });
@@ -139,7 +139,7 @@ export async function getYahooQuote(symbol: string, market: 'us' | 'india' | 'mf
       change,
       changePercent,
       timestamp: typeof freshestTimestampMs === 'number' ? new Date(freshestTimestampMs).toISOString() : null,
-      source: 'Yahoo Finance (delayed, subject to availability)',
+      source: 'Yahoo Finance',
       delayed: true,
       exchange: market === 'india' ? 'NSE' : market === 'us' ? 'NASDAQ' : 'MF',
     };

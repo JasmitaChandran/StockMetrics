@@ -214,7 +214,7 @@ function NotesSection({ stockId }: { stockId: string }) {
   }
 
   return (
-    <SectionCard title="Notes" subtitle="Saved locally in IndexedDB per stock.">
+    <SectionCard title="Notes">
       <textarea
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -730,14 +730,13 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
                   <Globe2 className="h-4 w-4" /> Official Website <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
               ) : null}
-              <div className="text-xs text-slate-500">Unavailable fields are hidden to preserve data quality and clarity.</div>
             </div>
           </SectionCard>
 
           {uiMode === 'beginner' ? <BeginnerPanel assessment={beginnerAssessment} /> : null}
 
           {uiMode === 'pro' ? (
-            <SectionCard title="Key Metrics" subtitle="Displays available metrics for the selected security.">
+            <SectionCard title="Key Metrics">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {visibleMetrics.length ? (
                   visibleMetrics.map((metric) => (

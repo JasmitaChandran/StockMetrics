@@ -6,7 +6,6 @@ export default function AccountPage() {
     <AuthBackdropShell
       mode="account"
       title="Manage Your Account Settings"
-      subtitle="Review your profile and manage security actions in one place."
       contentClassName="lg:max-w-xl"
     >
       <AccountPageCard />
