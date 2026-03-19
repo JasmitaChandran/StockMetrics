@@ -1,20 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Activity,
   ArrowUpRight,
   BarChart3,
-  BookOpen,
-  Database,
-  LineChart,
-  Search,
   ShieldCheck,
   Sparkles,
-  Star,
   TrendingUp,
-  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { DashboardMarketTabs } from './dashboard-market-tabs';
@@ -210,32 +203,6 @@ function HeroMarketIllustration() {
 export function DashboardHome() {
   const market = useUiStore((s) => s.dashboardMarket);
   const uiMode = useUiStore((s) => s.uiMode);
-  const quickLinks: Array<{ href: string; title: string; desc: string; icon: LucideIcon }> = [
-    {
-      href: '/screener',
-      title: 'Screener',
-      desc: 'AI / rule-based screener, built-in strategies, custom screens',
-      icon: LineChart,
-    },
-    {
-      href: '/watchlist',
-      title: 'Watchlist',
-      desc: 'Multiple watchlists with local persistence and quick changes',
-      icon: Star,
-    },
-    {
-      href: '/portfolio',
-      title: 'Portfolio',
-      desc: 'Track buy/sell transactions, P&L and allocation locally',
-      icon: Wallet,
-    },
-    {
-      href: '/learning',
-      title: 'Learning',
-      desc: 'Finance Q&A using local markdown knowledge + optional LLM',
-      icon: BookOpen,
-    },
-  ];
   const beginnerCards: Array<{ title: string; text: string; icon: LucideIcon }> = [
     {
       title: 'Is the company growing?',
@@ -258,50 +225,6 @@ export function DashboardHome() {
       icon: BarChart3,
     },
   ];
-  const heroInfoCards: Array<{ title: string; text: string; icon: LucideIcon }> = [
-    {
-      title: 'Universal Search',
-      text: 'Search stocks and mutual funds from the header',
-      icon: Search,
-    },
-    {
-      title: uiMode === 'pro' ? 'PRO Mode Analytics' : 'Beginner Mode Guidance',
-      text:
-        uiMode === 'pro'
-          ? 'Ratios, statements, AI insights, peers'
-          : 'Plain-language checks and simple explanations',
-      icon: Sparkles,
-    },
-    {
-      title: 'Personal Workspace',
-      text: 'Watchlists, portfolio, notes, and learning in one place',
-      icon: Database,
-    },
-  ];
-  const overviewCards: Array<{ label: string; desc: string; meta: string; icon: LucideIcon; progress: number }> = [
-    {
-      label: 'Watchlists',
-      desc: 'Track ideas and spot moves quickly',
-      meta: 'Create multiple local watchlists',
-      icon: Star,
-      progress: 72,
-    },
-    {
-      label: 'Screeners',
-      desc: 'Run strategy scans and custom filters',
-      meta: 'Magic Formula, Quality, Value, Momentum',
-      icon: LineChart,
-      progress: 86,
-    },
-    {
-      label: 'Portfolio',
-      desc: 'Review allocation and P&L summaries',
-      meta: 'Transactions and notes saved locally',
-      icon: Wallet,
-      progress: 64,
-    },
-  ];
-
   return (
     <div className="space-y-6">
       <motion.section
@@ -316,7 +239,7 @@ export function DashboardHome() {
         <div className="relative space-y-4 md:space-y-5">
           <div className="mx-auto max-w-4xl -translate-y-1 text-center md:-translate-y-60 lg:-translate-y-30">
             <div className="inline-flex items-center rounded-full purple-chip px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-indigo-700 dark:text-indigo-200">
-              {uiMode === 'pro' ? 'PRO Stock Intelligence' : 'Beginner-Friendly Investing'}
+              {uiMode === 'pro' ? 'Pro Mode' : 'Beginner Mode'}
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-5xl">
               <span className="title-gradient">Smarter Research Workflows</span>
@@ -324,9 +247,6 @@ export function DashboardHome() {
               <span className="text-slate-900 dark:text-white">Start with </span>
               <span className="accent-script">Stock Metrics</span>
             </h1>
-            <p className="mx-auto mt-4 max-w-3xl text-sm text-slate-600 dark:text-slate-300 md:text-base">
-              Use the search bar in the navigation header to look up U.S. stocks, Indian stocks, and mutual funds. Data is cached and refreshed efficiently, and unavailable fields are handled clearly in the interface.
-            </p>
           </div>
 
           <div className="relative -translate-y-40">
@@ -337,60 +257,6 @@ export function DashboardHome() {
             <div className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dashboard Market Switch</div>
             <div className="flex justify-center">
               <DashboardMarketTabs />
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            {heroInfoCards.map(({ title, text, icon: Icon }, idx) => (
-              <motion.div
-                key={title}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 * idx, duration: 0.22 }}
-                className="surface-hover ui-panel glass rounded-2xl p-4"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-200">
-                    <span className="rounded-lg border border-indigo-300/15 bg-indigo-400/10 p-1.5 text-indigo-700 dark:text-indigo-200">
-                      <Icon className="h-3.5 w-3.5" />
-                    </span>
-                    {title}
-                  </div>
-                  <ArrowUpRight className="h-4 w-4 text-indigo-500/70 dark:text-indigo-200/70" />
-                </div>
-                <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">{text}</div>
-              </motion.div>
-            ))}
-          </div>
-
-          <div className="ui-panel glass relative overflow-hidden rounded-2xl p-4">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-300/50 to-transparent" />
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-900 dark:text-white">Dashboard Overview</div>
-                <div className="text-xs text-slate-500">Fast navigation into research workflows</div>
-              </div>
-              <div className="hidden rounded-full purple-chip px-3 py-1 text-xs text-indigo-700 dark:text-indigo-200 md:block">Live workspace</div>
-            </div>
-            <div className="grid gap-3 lg:grid-cols-3">
-              {overviewCards.map(({ label, desc, meta, icon: Icon, progress }) => (
-                <div key={label} className="surface-hover rounded-xl border border-border/70 bg-card/45 p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="inline-flex items-center gap-2">
-                      <span className="rounded-lg border border-indigo-300/15 bg-indigo-400/10 p-2 text-indigo-700 dark:text-indigo-200">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <div className="text-sm font-semibold text-slate-900 dark:text-white">{label}</div>
-                    </div>
-                    <ArrowUpRight className="h-4 w-4 text-indigo-500/70 dark:text-indigo-200/70" />
-                  </div>
-                  <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">{desc}</div>
-                  <div className="mt-3 h-1.5 w-full rounded-full bg-muted/70">
-                    <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-blue-500" style={{ width: `${progress}%` }} />
-                  </div>
-                  <div className="mt-2 text-xs text-slate-500">{meta}</div>
-                </div>
-              ))}
             </div>
           </div>
         </div>
@@ -414,25 +280,7 @@ export function DashboardHome() {
         </SectionCard>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-        <MarketTabPanel market={market} />
-
-        <SectionCard title="Quick Navigation" subtitle="Core app tabs">
-          <div className="space-y-2">
-            {quickLinks.map(({ href, title, desc, icon: Comp }) => {
-              return (
-                <Link href={href} key={href} className="surface-hover ui-panel glass flex items-start gap-3 rounded-xl p-3 shadow-panel">
-                  <div className="mt-0.5 rounded-lg bg-gradient-to-br from-indigo-500/20 to-blue-500/20 p-2 text-indigo-700 dark:text-indigo-200"><Comp className="h-4 w-4" /></div>
-                  <div>
-                    <div className="text-sm font-medium text-slate-900 dark:text-white">{title}</div>
-                    <div className="text-xs text-slate-500">{desc}</div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </SectionCard>
-      </div>
+      <MarketTabPanel market={market} />
     </div>
   );
 }

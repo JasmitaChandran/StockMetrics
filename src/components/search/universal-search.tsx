@@ -24,6 +24,7 @@ export function UniversalSearch({
   const [isVoiceSupported, setIsVoiceSupported] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const debounced = useDebouncedValue(query, 250);
   const { data, isLoading } = useSearchEntities(debounced, marketFilter);
   const items = useMemo(() => data ?? [], [data]);
@@ -62,6 +63,13 @@ export function UniversalSearch({
       };
     };
     setIsVoiceSupported(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition));
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -104,8 +112,13 @@ export function UniversalSearch({
     setOpen(false);
   }
 
-  function startVoiceSearch() {
-    if (isListening) return;
+  function toggleVoiceSearch() {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+      setIsListening(false);
+      return;
+    }
     const w = window as typeof window & {
       SpeechRecognition?: new () => {
         lang: string;
@@ -130,6 +143,7 @@ export function UniversalSearch({
     if (!Recognition) return;
 
     const recognition = new Recognition();
+    recognitionRef.current = recognition as unknown as { stop: () => void };
     recognition.lang = 'en-IN';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
@@ -140,8 +154,14 @@ export function UniversalSearch({
       setQuery(transcript);
       setOpen(true);
     };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => {
+      recognitionRef.current = null;
+      setIsListening(false);
+    };
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      setIsListening(false);
+    };
     recognition.start();
   }
 
@@ -199,11 +219,11 @@ export function UniversalSearch({
           </button>
           <button
             type="button"
-            onClick={startVoiceSearch}
-            disabled={!isVoiceSupported || isListening}
+            onClick={toggleVoiceSearch}
+            disabled={!isVoiceSupported}
             className="rounded-md p-1.5 text-slate-400 transition hover:bg-muted/60 disabled:cursor-default disabled:opacity-50"
-            title={isVoiceSupported ? (isListening ? 'Listening...' : 'Voice search') : 'Voice search not supported'}
-            aria-label="Voice search"
+            title={isVoiceSupported ? (isListening ? 'Stop voice search' : 'Voice search') : 'Voice search not supported'}
+            aria-label={isListening ? 'Stop voice search' : 'Voice search'}
           >
             <Mic className="h-4 w-4" />
           </button>

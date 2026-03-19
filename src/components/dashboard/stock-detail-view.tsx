@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { AlertTriangle, ExternalLink, FileSpreadsheet, Globe2, Info, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
+import { AlertTriangle, ExternalLink, FileSpreadsheet, Globe2, TrendingDown, TrendingUp } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AiInsights, BeginnerAssessment, FinancialStatementTable, Quote, StockDetailBundle } from '@/types';
 import { SectionCard } from '@/components/common/section-card';
@@ -847,22 +847,6 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
 
           <NotesSection stockId={bundle.entity.id} />
 
-          <SectionCard title="Data Quality Notes" subtitle="Accuracy and transparency">
-            <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
-              <div className="flex items-start gap-2">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                <p>
-                  This application uses publicly available market data sources. Quotes and historical series may be delayed or temporarily unavailable depending on source coverage.
-                </p>
-              </div>
-              <div className="flex items-start gap-2">
-                <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                <p>
-                  Data is cached and refreshed automatically to support a responsive experience and reliable operation during temporary source limits.
-                </p>
-              </div>
-            </div>
-          </SectionCard>
         </div>
       </div>
     </div>
