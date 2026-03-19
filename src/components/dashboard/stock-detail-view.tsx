@@ -36,6 +36,35 @@ const statementLabels: Record<StatementTab, string> = {
   cashFlow: 'Cash Flow',
 };
 
+type SummaryTone = 'positive' | 'caution' | 'neutral';
+
+function inferSummaryTone(text: string): SummaryTone {
+  const value = text.toLowerCase();
+  if (
+    /good sign|positive|constructive|healthy|supportive|improving|manageable|strong|safer|reasonable|comfortable/.test(value)
+  ) {
+    return 'positive';
+  }
+  if (/caution|warning|risk|weak|decline|defensive|deferred|defer|mixed|uncertain|soft|pressure|hold\/watch/.test(value)) {
+    return 'caution';
+  }
+  return 'neutral';
+}
+
+function splitSummaryLine(raw: string): { main: string; simple?: string; tone: SummaryTone } {
+  const marker = '(Simple view:';
+  const idx = raw.lastIndexOf(marker);
+  if (idx === -1) return { main: raw, tone: inferSummaryTone(raw) };
+  const main = raw.slice(0, idx).trim();
+  const simpleWithPrefix = raw.slice(idx + 1).trim();
+  const simple = (simpleWithPrefix.endsWith(')') ? simpleWithPrefix.slice(0, -1) : simpleWithPrefix).trim();
+  return {
+    main,
+    simple,
+    tone: inferSummaryTone(simple),
+  };
+}
+
 function metricValueToDisplay(
   metric: StockDetailBundle['fundamentals']['keyMetrics'][number],
   currencyOverride: 'USD' | 'INR',
@@ -119,11 +148,22 @@ function StatementTableView({ table }: { table: FinancialStatementTable }) {
   ] as StatementView[];
   const resolvedDefaultView = availableViews.includes(table.activeViewDefault) ? table.activeViewDefault : (availableViews[0] ?? 'standalone');
   const [view, setView] = useState<StatementView>(resolvedDefaultView);
-  const [summary, setSummary] = useState<{ bullets: string[]; title: string } | null>(null);
+  const [summary, setSummary] = useState<{
+    bullets: string[];
+    title: string;
+    confidence?: 'low' | 'medium' | 'high';
+  } | null>(null);
   const activeView: StatementView = availableViews.includes(view) ? view : resolvedDefaultView;
   const activeViewData = table.viewData?.[activeView];
   const years = activeViewData?.years ?? table.years;
   const rows = activeViewData?.rows ?? table.rows;
+  const parsedSummaryBullets = useMemo(() => summary?.bullets.map((line) => splitSummaryLine(line)) ?? [], [summary]);
+
+  const confidenceStyle = useMemo(() => {
+    if (summary?.confidence === 'high') return 'border-emerald-500/35 bg-emerald-500/12 text-emerald-300';
+    if (summary?.confidence === 'medium') return 'border-sky-500/35 bg-sky-500/12 text-sky-300';
+    return 'border-amber-500/35 bg-amber-500/12 text-amber-300';
+  }, [summary?.confidence]);
 
   useEffect(() => {
     setView(resolvedDefaultView);
@@ -192,11 +232,39 @@ function StatementTableView({ table }: { table: FinancialStatementTable }) {
         </table>
       </div>
       <div className="rounded-xl border border-border bg-card p-3">
-        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">AI Summary</div>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">AI Summary</div>
+          {summary?.confidence ? (
+            <div className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', confidenceStyle)}>
+              {summary.confidence} confidence
+            </div>
+          ) : null}
+        </div>
         {summary ? (
-          <ul className="space-y-1 text-sm">
-            {summary.bullets.map((b) => (
-              <li key={b} className="text-slate-600 dark:text-slate-300">• {b}</li>
+          <ul className="space-y-2">
+            {parsedSummaryBullets.map((line, idx) => (
+              <li
+                key={`${line.main}-${idx}`}
+                className={cn('rounded-xl border p-3', {
+                  'border-emerald-500/20 bg-emerald-500/5': line.tone === 'positive',
+                  'border-amber-500/20 bg-amber-500/5': line.tone === 'caution',
+                  'border-slate-500/20 bg-slate-500/5': line.tone === 'neutral',
+                })}
+              >
+                <p className="text-sm leading-relaxed text-slate-100">{line.main}</p>
+                {line.simple ? (
+                  <div
+                    className={cn('mt-2 rounded-lg border px-3 py-2 text-xs leading-relaxed', {
+                      'border-emerald-400/30 bg-emerald-400/10 text-emerald-100': line.tone === 'positive',
+                      'border-amber-400/30 bg-amber-400/10 text-amber-100': line.tone === 'caution',
+                      'border-sky-400/30 bg-sky-400/10 text-sky-100': line.tone === 'neutral',
+                    })}
+                  >
+                    <span className="mr-1 font-semibold uppercase tracking-wide text-[10px]">Simple view:</span>
+                    {line.simple.replace(/^Simple view:\s*/i, '')}
+                  </div>
+                ) : null}
+              </li>
             ))}
           </ul>
         ) : (
