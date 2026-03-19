@@ -937,7 +937,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
             </SectionCard>
           )}
 
-          <DynamicChartPanel history={chartHistory} displayCurrency={displayCurrency} />
+          <DynamicChartPanel history={chartHistory} displayCurrency={displayCurrency} keyMetrics={bundle.fundamentals.keyMetrics} />
 
           <SectionCard title="Income Statements" subtitle="Profit & Loss, Quarterly Results, Balance Sheet, and Cash Flow with automated summaries.">
             <div className="mb-3 flex flex-wrap gap-2">
