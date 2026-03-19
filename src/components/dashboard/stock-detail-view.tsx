@@ -110,40 +110,57 @@ function normalizeHeaderQuote(bundle: StockDetailBundle, incomingQuote?: Quote |
 }
 
 function StatementTableView({ table }: { table: FinancialStatementTable }) {
-  const [view, setView] = useState<'consolidated' | 'standalone'>(table.activeViewDefault);
+  type StatementView = 'consolidated' | 'standalone';
+  const availableViews = [
+    ...(table.consolidatedAvailable ? (['consolidated'] as const) : []),
+    ...(table.standaloneAvailable ? (['standalone'] as const) : []),
+  ] as StatementView[];
+  const resolvedDefaultView = availableViews.includes(table.activeViewDefault) ? table.activeViewDefault : (availableViews[0] ?? 'standalone');
+  const [view, setView] = useState<StatementView>(resolvedDefaultView);
   const [summary, setSummary] = useState<{ bullets: string[]; title: string } | null>(null);
+  const activeView: StatementView = availableViews.includes(view) ? view : resolvedDefaultView;
+  const activeViewData = table.viewData?.[activeView];
+  const years = activeViewData?.years ?? table.years;
+  const rows = activeViewData?.rows ?? table.rows;
+
+  useEffect(() => {
+    setView(resolvedDefaultView);
+  }, [table, resolvedDefaultView]);
 
   useEffect(() => {
     let active = true;
     getAiProvider()
-      .summarizeStatement({ table, currentView: view })
+      .summarizeStatement({ table, currentView: activeView })
       .then((res) => {
         if (active) setSummary(res);
       });
     return () => {
       active = false;
     };
-  }, [table, view]);
+  }, [table, activeView]);
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-xs text-slate-500">Years: {table.years.join(', ') || 'No data'}</div>
-        <PillToggle
-          options={[
-            { value: 'consolidated', label: 'Consolidated' },
-            { value: 'standalone', label: 'Standalone' },
-          ]}
-          value={view}
-          onChange={(v) => setView(v as 'consolidated' | 'standalone')}
-        />
+        <div className="text-xs text-slate-500">Years: {years.join(', ') || 'No data'}</div>
+        {availableViews.length > 1 ? (
+          <PillToggle
+            options={availableViews.map((v) => ({ value: v, label: v === 'consolidated' ? 'Consolidated' : 'Standalone' }))}
+            value={activeView}
+            onChange={(v) => setView(v as StatementView)}
+          />
+        ) : (
+          <div className="rounded-full border border-border/70 bg-muted/50 px-3 py-1 text-xs text-slate-500">
+            {availableViews[0] === 'consolidated' ? 'Consolidated only' : 'Standalone only'}
+          </div>
+        )}
       </div>
       <div className="overflow-auto rounded-xl border border-border">
         <table className="min-w-full text-sm">
           <thead className="bg-muted/40 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-3 py-2 text-left font-medium">Particulars</th>
-              {table.years.map((year) => (
+              {years.map((year) => (
                 <th key={year} className="px-3 py-2 text-right font-medium">
                   {year}
                 </th>
@@ -151,17 +168,17 @@ function StatementTableView({ table }: { table: FinancialStatementTable }) {
             </tr>
           </thead>
           <tbody>
-            {table.rows.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
-                <td colSpan={table.years.length + 1} className="px-3 py-4 text-center text-sm text-slate-500">
+                <td colSpan={years.length + 1} className="px-3 py-4 text-center text-sm text-slate-500">
                   Statement data is not currently available.
                 </td>
               </tr>
             ) : (
-              table.rows.map((row) => (
+              rows.map((row) => (
                 <tr key={row.label} className="border-t border-border/70">
                   <td className="px-3 py-2 font-medium">{row.label}</td>
-                  {table.years.map((year) => (
+                  {years.map((year) => (
                     <td key={`${row.label}-${year}`} className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">
                       {typeof row.valuesByYear[year] === 'number' ? formatNumber(row.valuesByYear[year] as number) : '—'}
                     </td>

@@ -361,76 +361,197 @@ const demoMetricInputs: Record<string, Record<string, number>> = {
   },
 };
 
+function rowsByYear(years: string[], rows: Array<[string, number[]]>): FinancialStatementTable['rows'] {
+  return rows.map(([label, values]) => ({
+    label,
+    valuesByYear: Object.fromEntries(years.map((y, i) => [y, values[i] ?? null])),
+  }));
+}
+
 function buildStatementTable(
   kind: FinancialStatementTable['kind'],
   title: string,
-  years: string[],
-  rows: Array<[string, number[]]>,
+  input: {
+    consolidated?: { years: string[]; rows: Array<[string, number[]]> };
+    standalone?: { years: string[]; rows: Array<[string, number[]]> };
+  },
   source: string,
 ): FinancialStatementTable {
+  const viewData: FinancialStatementTable['viewData'] = {};
+  if (input.consolidated) {
+    viewData.consolidated = {
+      years: input.consolidated.years,
+      rows: rowsByYear(input.consolidated.years, input.consolidated.rows),
+    };
+  }
+  if (input.standalone) {
+    viewData.standalone = {
+      years: input.standalone.years,
+      rows: rowsByYear(input.standalone.years, input.standalone.rows),
+    };
+  }
+
+  const preferred = viewData.consolidated ?? viewData.standalone ?? { years: [] as string[], rows: [] as FinancialStatementTable['rows'] };
+  const hasConsolidated = Boolean(viewData.consolidated);
+  const hasStandalone = Boolean(viewData.standalone);
+
   return {
     kind,
     title,
-    years,
-    rows: rows.map(([label, values]) => ({
-      label,
-      valuesByYear: Object.fromEntries(years.map((y, i) => [y, values[i] ?? null])),
-    })),
-    consolidatedAvailable: true,
-    standaloneAvailable: true,
-    activeViewDefault: 'consolidated',
+    years: preferred.years,
+    rows: preferred.rows,
+    viewData,
+    consolidatedAvailable: hasConsolidated,
+    standaloneAvailable: hasStandalone,
+    activeViewDefault: hasConsolidated ? 'consolidated' : 'standalone',
     source,
   };
 }
 
+function mkProfitLossRows(revenue: number[], profit: number[], debt: number[]): Array<[string, number[]]> {
+  const otherIncome = revenue.map((r) => Math.round(r * 0.018));
+  const pbt = profit.map((p) => Math.round(p / 0.76));
+  const financeCost = pbt.map((p) => Math.max(1, Math.round(p * 0.08)));
+  const depreciation = revenue.map((r) => Math.round(r * 0.03));
+  const ebit = pbt.map((p, i) => Math.round(p + financeCost[i] - otherIncome[i]));
+  const ebitda = ebit.map((e, i) => Math.round(e + depreciation[i]));
+  const tax = pbt.map((p, i) => Math.max(0, p - profit[i]));
+  const debtToRevenue = debt.map((d, i) => Number(((d / Math.max(1, revenue[i])) * 100).toFixed(1)));
+  const ebitdaMargin = ebitda.map((e, i) => Number(((e / Math.max(1, revenue[i])) * 100).toFixed(1)));
+
+  return [
+    ['Revenue', revenue],
+    ['Other Income', otherIncome],
+    ['Total Income', revenue.map((r, i) => r + otherIncome[i])],
+    ['EBITDA', ebitda],
+    ['EBITDA Margin %', ebitdaMargin],
+    ['Depreciation', depreciation],
+    ['Finance Cost', financeCost],
+    ['Profit Before Tax', pbt],
+    ['Tax', tax],
+    ['Net Profit', profit],
+    ['Debt / Revenue %', debtToRevenue],
+  ];
+}
+
+function mkQuarterlyRows(revenue: number[], profit: number[]): { years: string[]; rows: Array<[string, number[]]> } {
+  const years = ['Q3 FY24', 'Q4 FY24', 'Q1 FY25', 'Q2 FY25', 'Q3 FY25', 'Q4 FY25', 'Q1 FY26', 'Q2 FY26'];
+  const annualIndexByQuarter = [2, 2, 3, 3, 3, 3, 4, 4];
+  const quarterMix = [0.24, 0.26, 0.22, 0.24, 0.25, 0.27, 0.22, 0.24];
+  const qRevenue = years.map((_, i) => Math.round(revenue[annualIndexByQuarter[i]] * quarterMix[i]));
+  const annualProfitMargin = revenue.map((r, i) => profit[i] / Math.max(1, r));
+  const qProfit = years.map((_, i) => {
+    const idx = annualIndexByQuarter[i];
+    const margin = Math.max(0.07, annualProfitMargin[idx] * (i % 2 === 0 ? 0.97 : 1.03));
+    return Math.round(qRevenue[i] * margin);
+  });
+  const qEbitda = qRevenue.map((r, i) => Math.round(r * (0.24 + (i % 3) * 0.01)));
+  const qEbitdaMargin = qEbitda.map((e, i) => Number(((e / Math.max(1, qRevenue[i])) * 100).toFixed(1)));
+  const qEps = qProfit.map((p) => Number((p / 120).toFixed(2)));
+
+  return {
+    years,
+    rows: [
+      ['Revenue', qRevenue],
+      ['EBITDA', qEbitda],
+      ['EBITDA Margin %', qEbitdaMargin],
+      ['Net Profit', qProfit],
+      ['EPS', qEps],
+    ],
+  };
+}
+
+function mkBalanceSheetRows(assets: number[], debt: number[]): Array<[string, number[]]> {
+  const fixedAssets = assets.map((a) => Math.round(a * 0.44));
+  const currentAssets = assets.map((a) => Math.round(a * 0.33));
+  const cashEq = currentAssets.map((c) => Math.round(c * 0.27));
+  const otherLiabilities = assets.map((a) => Math.round(a * 0.31));
+  const totalLiabilities = debt.map((d, i) => d + otherLiabilities[i]);
+  const netWorth = assets.map((a, i) => Math.max(0, a - totalLiabilities[i]));
+  const reserves = netWorth.map((n) => Math.round(n * 0.78));
+
+  return [
+    ['Total Assets', assets],
+    ['Fixed Assets', fixedAssets],
+    ['Current Assets', currentAssets],
+    ['Cash & Equivalents', cashEq],
+    ['Total Debt', debt],
+    ['Other Liabilities', otherLiabilities],
+    ['Total Liabilities', totalLiabilities],
+    ['Net Worth', netWorth],
+    ['Reserves', reserves],
+  ];
+}
+
+function mkCashFlowRows(profit: number[]): Array<[string, number[]]> {
+  const cfo = profit.map((p) => Math.round(p * 1.18));
+  const capex = profit.map((p) => -Math.round(p * 0.42));
+  const cfi = profit.map((p) => -Math.round(p * 0.64));
+  const cff = profit.map((p) => -Math.round(p * 0.2));
+  const fcf = cfo.map((c, i) => c + capex[i]);
+  const netCashChange = cfo.map((c, i) => c + cfi[i] + cff[i]);
+
+  return [
+    ['Cash from Operations', cfo],
+    ['Cash from Investing', cfi],
+    ['Capital Expenditure', capex],
+    ['Cash from Financing', cff],
+    ['Free Cash Flow', fcf],
+    ['Net Change in Cash', netCashChange],
+  ];
+}
+
 function mkStatements(base: { revenue: number; profit: number; assets: number; debt: number }): FinancialStatementTable[] {
   const years = ['2021', '2022', '2023', '2024', '2025'];
-  const revenue = [0.72, 0.83, 0.91, 1.0, 1.08].map((m) => Math.round(base.revenue * m));
-  const profit = [0.65, 0.78, 0.87, 1.0, 1.13].map((m) => Math.round(base.profit * m));
-  const assets = [0.82, 0.88, 0.94, 1.0, 1.07].map((m) => Math.round(base.assets * m));
-  const debt = [1.15, 1.08, 1.02, 1.0, 0.96].map((m) => Math.round(base.debt * m));
+  const consolidatedRevenue = [0.72, 0.83, 0.91, 1.0, 1.08].map((m) => Math.round(base.revenue * m));
+  const consolidatedProfit = [0.65, 0.78, 0.87, 1.0, 1.13].map((m) => Math.round(base.profit * m));
+  const consolidatedAssets = [0.82, 0.88, 0.94, 1.0, 1.07].map((m) => Math.round(base.assets * m));
+  const consolidatedDebt = [1.15, 1.08, 1.02, 1.0, 0.96].map((m) => Math.round(base.debt * m));
+
+  const standaloneFactor = [0.93, 0.92, 0.91, 0.9, 0.89];
+  const standaloneRevenue = consolidatedRevenue.map((v, i) => Math.round(v * standaloneFactor[i]));
+  const standaloneProfit = consolidatedProfit.map((v, i) => Math.round(v * (standaloneFactor[i] - 0.01)));
+  const standaloneAssets = consolidatedAssets.map((v, i) => Math.round(v * (standaloneFactor[i] + 0.03)));
+  const standaloneDebt = consolidatedDebt.map((v, i) => Math.round(v * (0.97 - i * 0.01)));
+
+  const consolidatedQuarterly = mkQuarterlyRows(consolidatedRevenue, consolidatedProfit);
+  const standaloneQuarterly = mkQuarterlyRows(standaloneRevenue, standaloneProfit);
+
   return [
     buildStatementTable(
       'profitLoss',
       'Profit and Loss',
-      years,
-      [
-        ['Revenue', revenue],
-        ['Operating Profit', profit.map((p) => Math.round(p * 1.4))],
-        ['Net Profit', profit],
-      ],
+      {
+        consolidated: { years, rows: mkProfitLossRows(consolidatedRevenue, consolidatedProfit, consolidatedDebt) },
+        standalone: { years, rows: mkProfitLossRows(standaloneRevenue, standaloneProfit, standaloneDebt) },
+      },
       'Reference fundamentals dataset',
     ),
     buildStatementTable(
       'quarterly',
       'Quarterly Results',
-      ['Q2 FY24', 'Q3 FY24', 'Q4 FY24', 'Q1 FY25', 'Q2 FY25'],
-      [
-        ['Revenue', [0.2, 0.22, 0.23, 0.24, 0.25].map((m) => Math.round(base.revenue * m))],
-        ['Net Profit', [0.045, 0.05, 0.052, 0.054, 0.056].map((m) => Math.round(base.revenue * m))],
-      ],
+      {
+        consolidated: consolidatedQuarterly,
+        standalone: standaloneQuarterly,
+      },
       'Reference fundamentals dataset',
     ),
     buildStatementTable(
       'balanceSheet',
       'Balance Sheet',
-      years,
-      [
-        ['Total Assets', assets],
-        ['Total Debt', debt],
-        ['Net Worth', assets.map((a, i) => Math.round(a - debt[i] * 0.35))],
-      ],
+      {
+        consolidated: { years, rows: mkBalanceSheetRows(consolidatedAssets, consolidatedDebt) },
+        standalone: { years, rows: mkBalanceSheetRows(standaloneAssets, standaloneDebt) },
+      },
       'Reference fundamentals dataset',
     ),
     buildStatementTable(
       'cashFlow',
       'Cash Flow',
-      years,
-      [
-        ['Cash from Operations', profit.map((p) => Math.round(p * 1.2))],
-        ['Capital Expenditure', profit.map((p) => -Math.round(p * 0.4))],
-        ['Free Cash Flow', profit.map((p) => Math.round(p * 0.8))],
-      ],
+      {
+        consolidated: { years, rows: mkCashFlowRows(consolidatedProfit) },
+        standalone: { years, rows: mkCashFlowRows(standaloneProfit) },
+      },
       'Reference fundamentals dataset',
     ),
   ];

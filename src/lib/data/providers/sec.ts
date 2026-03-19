@@ -108,14 +108,21 @@ function tableFromSeries(
   source: string,
 ): FinancialStatementTable {
   const years = Array.from(new Set(rowsInput.flatMap((r) => r.series.map((p) => p.label))));
+  const rows = rowsInput.map((r) => ({
+    label: r.label,
+    valuesByYear: Object.fromEntries(years.map((y) => [y, r.series.find((p) => p.label === y)?.value ?? null])),
+  }));
   return {
     kind,
     title,
     years,
-    rows: rowsInput.map((r) => ({
-      label: r.label,
-      valuesByYear: Object.fromEntries(years.map((y) => [y, r.series.find((p) => p.label === y)?.value ?? null])),
-    })),
+    rows,
+    viewData: {
+      standalone: {
+        years,
+        rows,
+      },
+    },
     consolidatedAvailable: false,
     standaloneAvailable: true,
     activeViewDefault: 'standalone',
@@ -259,12 +266,23 @@ export async function getSecFundamentals(ticker: string): Promise<FundamentalsBu
 
     const revenueYearly = yearlySeries(revenues).map((x) => ({ label: x.end.slice(0, 4), value: x.val }));
     const profitYearly = yearlySeries(netIncome).map((x) => ({ label: x.end.slice(0, 4), value: x.val }));
+    const opIncomeYearly = yearlySeries(opIncome).map((x) => ({ label: x.end.slice(0, 4), value: x.val }));
+    const epsYearly = yearlySeries(epsDiluted).map((x) => ({ label: x.end.slice(0, 4), value: x.val }));
     const assetsYearly = yearlySeries(assets).map((x) => ({ label: x.end.slice(0, 4), value: x.val }));
+    const equityYearly = yearlySeries(equity).map((x) => ({ label: x.end.slice(0, 4), value: x.val }));
+    const debtYearly = yearlySeries(debt).map((x) => ({ label: x.end.slice(0, 4), value: x.val }));
     const liabilitiesYearly = yearlySeries(liabilities).map((x) => ({ label: x.end.slice(0, 4), value: x.val }));
+    const currentAssetsYearly = yearlySeries(currentAssets).map((x) => ({ label: x.end.slice(0, 4), value: x.val }));
+    const currentLiabilitiesYearly = yearlySeries(currentLiabilities).map((x) => ({ label: x.end.slice(0, 4), value: x.val }));
     const cfoYearly = yearlySeries(cfo).map((x) => ({ label: x.end.slice(0, 4), value: x.val }));
     const capexYearly = yearlySeries(capex).map((x) => ({ label: x.end.slice(0, 4), value: -Math.abs(x.val) }));
+    const fcfYearly = cfoYearly.map((cfoPoint) => {
+      const capexPoint = capexYearly.find((x) => x.label === cfoPoint.label);
+      return { label: cfoPoint.label, value: cfoPoint.value + (capexPoint?.value ?? 0) };
+    });
     const qRevenueRows = quarterlySeries(revenues).map((x) => ({ label: `${x.fp ?? 'Q'} FY${String(x.fy ?? '').slice(-2)}`, value: x.val }));
     const qProfitRows = quarterlySeries(netIncome).map((x) => ({ label: `${x.fp ?? 'Q'} FY${String(x.fy ?? '').slice(-2)}`, value: x.val }));
+    const qOperatingRows = quarterlySeries(opIncome).map((x) => ({ label: `${x.fp ?? 'Q'} FY${String(x.fy ?? '').slice(-2)}`, value: x.val }));
 
     const statements: FinancialStatementTable[] = [
       tableFromSeries(
@@ -272,6 +290,8 @@ export async function getSecFundamentals(ticker: string): Promise<FundamentalsBu
         'Profit and Loss',
         [
           { label: 'Revenue', series: revenueYearly },
+          { label: 'Operating Income', series: opIncomeYearly },
+          { label: 'EPS (Diluted)', series: epsYearly },
           { label: 'Net Profit', series: profitYearly },
         ],
         'SEC EDGAR Company Facts',
@@ -281,6 +301,7 @@ export async function getSecFundamentals(ticker: string): Promise<FundamentalsBu
         'Quarterly Results',
         [
           { label: 'Revenue', series: qRevenueRows },
+          { label: 'Operating Income', series: qOperatingRows },
           { label: 'Net Profit', series: qProfitRows },
         ],
         'SEC EDGAR Company Facts',
@@ -290,6 +311,10 @@ export async function getSecFundamentals(ticker: string): Promise<FundamentalsBu
         'Balance Sheet',
         [
           { label: 'Total Assets', series: assetsYearly },
+          { label: 'Current Assets', series: currentAssetsYearly },
+          { label: 'Current Liabilities', series: currentLiabilitiesYearly },
+          { label: 'Total Debt', series: debtYearly },
+          { label: 'Shareholder Equity', series: equityYearly },
           { label: 'Total Liabilities', series: liabilitiesYearly },
         ],
         'SEC EDGAR Company Facts',
@@ -300,6 +325,7 @@ export async function getSecFundamentals(ticker: string): Promise<FundamentalsBu
         [
           { label: 'Cash from Operations', series: cfoYearly },
           { label: 'Capital Expenditure', series: capexYearly },
+          { label: 'Free Cash Flow', series: fcfYearly },
         ],
         'SEC EDGAR Company Facts',
       ),

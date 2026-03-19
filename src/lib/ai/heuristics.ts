@@ -304,14 +304,16 @@ export function buildBeginnerAssessment(input: AiContextInput): BeginnerAssessme
 }
 
 export function summarizeStatement(input: StatementSummaryInput): StatementSummaryOutput {
-  const { table } = input;
-  const yearList = table.years;
+  const { table, currentView } = input;
+  const selected = table.viewData?.[currentView];
+  const yearList = selected?.years ?? table.years;
+  const rows = selected?.rows ?? table.rows;
   const bullets: string[] = [];
-  if (!yearList.length || !table.rows.length) {
+  if (!yearList.length || !rows.length) {
     return { title: `${table.title} summary`, bullets: ['No rows are currently available for this statement.'], confidence: 'low' };
   }
 
-  for (const row of table.rows.slice(0, 4)) {
+  for (const row of rows.slice(0, 5)) {
     const values = yearList.map((y) => row.valuesByYear[y]).filter((v): v is number => typeof v === 'number');
     if (values.length < 2) continue;
     const first = values[0];

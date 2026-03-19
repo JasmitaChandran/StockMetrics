@@ -21,11 +21,17 @@ export interface StatementRow {
   valuesByYear: Record<string, number | null>;
 }
 
+export interface StatementViewData {
+  years: string[];
+  rows: StatementRow[];
+}
+
 export interface FinancialStatementTable {
   kind: StatementKind;
   title: string;
   years: string[];
   rows: StatementRow[];
+  viewData?: Partial<Record<'consolidated' | 'standalone', StatementViewData>>;
   consolidatedAvailable: boolean;
   standaloneAvailable: boolean;
   activeViewDefault: 'consolidated' | 'standalone';
