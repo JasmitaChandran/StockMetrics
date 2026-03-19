@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { AlertTriangle, ExternalLink, FileSpreadsheet, Globe2, TrendingDown, TrendingUp } from 'lucide-react';
+import { AlertTriangle, ExternalLink, FileSpreadsheet, Globe2, Info, TrendingDown, TrendingUp } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AiInsights, BeginnerAssessment, FinancialStatementTable, Quote, StockDetailBundle } from '@/types';
 import { SectionCard } from '@/components/common/section-card';
@@ -1194,29 +1194,37 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
             </SectionCard>
           ) : (
             <SectionCard title="Simple Snapshot" subtitle="Beginner-friendly summary without heavy jargon.">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {beginnerSnapshotMetrics.map((metric) => {
-                  const explanation = evaluateBeginnerMetric(metric, industryPeValue);
-                  return (
-                    <div key={metric.key} className="ui-panel glass surface-hover rounded-xl p-3 shadow-panel">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="text-xs text-slate-500">{metric.label}</div>
-                        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', {
-                          'bg-emerald-500/15 text-emerald-400': explanation.tone === 'good',
-                          'bg-amber-500/15 text-amber-400': explanation.tone === 'watch',
-                          'bg-rose-500/15 text-rose-400': explanation.tone === 'bad',
-                        })}>
-                          {explanation.tone}
-                        </span>
+              <div className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {beginnerSnapshotMetrics.map((metric) => {
+                    const explanation = evaluateBeginnerMetric(metric, industryPeValue);
+                    return (
+                      <div key={metric.key} className="ui-panel glass surface-hover rounded-xl p-3 shadow-panel">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="text-xs text-slate-500">{metric.label}</div>
+                          <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', {
+                            'bg-emerald-500/15 text-emerald-400': explanation.tone === 'good',
+                            'bg-amber-500/15 text-amber-400': explanation.tone === 'watch',
+                            'bg-rose-500/15 text-rose-400': explanation.tone === 'bad',
+                          })}>
+                            {explanation.tone}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-lg font-semibold">{metricValueToDisplay(metric, displayCurrency, fx?.rate)}</div>
+                        <p className="mt-2 text-xs text-slate-500">{explanation.meaning}</p>
+                        <p className="mt-1 text-xs text-slate-300">{explanation.guidance}</p>
                       </div>
-                      <div className="mt-1 text-lg font-semibold">{metricValueToDisplay(metric, displayCurrency, fx?.rate)}</div>
-                      <p className="mt-2 text-xs text-slate-500">{explanation.meaning}</p>
-                      <p className="mt-1 text-xs text-slate-300">{explanation.guidance}</p>
+                    );
+                  })}
+                </div>
+                <div className="rounded-xl border border-sky-400/30 bg-sky-500/10 p-3">
+                  <div className="flex items-start gap-2">
+                    <Info className="mt-0.5 h-4 w-4 text-sky-300" />
+                    <div>
+                      <p className="text-sm text-sky-100">Beginner mode hides many technical metrics.</p>
+                      <p className="mt-1 text-xs text-sky-100/85">Switch to PRO mode for full ratios and complete statement details.</p>
                     </div>
-                  );
-                })}
-                <div className="rounded-xl border border-dashed border-border p-3 text-sm text-slate-600 dark:text-slate-300">
-                  Beginner mode hides many technical metrics. Switch to PRO mode for the full ratio and statement view.
+                  </div>
                 </div>
               </div>
             </SectionCard>
