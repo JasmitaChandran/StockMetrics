@@ -619,22 +619,6 @@ export function getDemoNews(entity: SearchEntity): NewsItem[] {
 }
 
 export function getDemoDocuments(entity: SearchEntity): DocumentLink[] {
-  if (entity.market === 'mf') return [];
-  return [
-    {
-      id: `${entity.symbol}-ar-2024`,
-      title: 'Annual Report 2024',
-      url: entity.website ?? 'https://example.com',
-      kind: 'annual_report',
-      year: 2024,
-      source: 'Company Documents',
-    },
-    {
-      id: `${entity.symbol}-presentation`,
-      title: 'Investor Presentation',
-      url: entity.website ?? 'https://example.com',
-      kind: 'presentation',
-      source: 'Company Documents',
-    },
-  ];
+  // Avoid placeholder links for documents; only real provider URLs should be shown.
+  return [];
 }
