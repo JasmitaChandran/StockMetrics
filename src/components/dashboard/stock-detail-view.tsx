@@ -1251,7 +1251,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
         <div className="space-y-6">
           <ShareholdingPanel shareholding={bundle.fundamentals.shareholding} />
 
-          <SectionCard title="News" subtitle="RSS-based relevance filtering (ticker + company name).">
+          <SectionCard title="News">
             <div className="space-y-3">
               {bundle.news.length ? (
                 bundle.news.map((n) => (

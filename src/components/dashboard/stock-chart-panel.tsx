@@ -121,7 +121,7 @@ export function StockChartPanel({
   const isPriceMode = activeMetric === 'price';
 
   return (
-    <SectionCard title="Price Chart" subtitle={history.source}>
+    <SectionCard title="Price Chart">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <PillToggle
           options={RANGE_OPTIONS.map((r) => ({ value: r.value, label: r.label }))}
