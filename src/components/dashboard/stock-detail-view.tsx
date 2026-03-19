@@ -165,6 +165,12 @@ function StatementTableView({ table }: { table: FinancialStatementTable }) {
     return 'border-amber-500/35 bg-amber-500/12 text-amber-300';
   }, [summary?.confidence]);
 
+  const confidenceTooltip = useMemo(() => {
+    if (summary?.confidence === 'high') return 'High confidence: many useful signals were found and analyzed.';
+    if (summary?.confidence === 'medium') return 'Medium confidence: enough signals were found, but coverage is not complete.';
+    return 'Low confidence: data is limited, so this summary is less dependable.';
+  }, [summary?.confidence]);
+
   useEffect(() => {
     setView(resolvedDefaultView);
   }, [table, resolvedDefaultView]);
@@ -235,7 +241,11 @@ function StatementTableView({ table }: { table: FinancialStatementTable }) {
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">AI Summary</div>
           {summary?.confidence ? (
-            <div className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', confidenceStyle)}>
+            <div
+              title={confidenceTooltip}
+              aria-label={confidenceTooltip}
+              className={cn('cursor-help rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', confidenceStyle)}
+            >
               {summary.confidence} confidence
             </div>
           ) : null}
