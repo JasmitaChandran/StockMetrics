@@ -37,6 +37,8 @@ const statementLabels: Record<StatementTab, string> = {
 };
 
 type SummaryTone = 'positive' | 'caution' | 'neutral';
+type BeginnerMetricTone = 'good' | 'watch' | 'bad';
+type MetricItem = StockDetailBundle['fundamentals']['keyMetrics'][number];
 
 function inferSummaryTone(text: string): SummaryTone {
   const value = text.toLowerCase();
@@ -65,8 +67,229 @@ function splitSummaryLine(raw: string): { main: string; simple?: string; tone: S
   };
 }
 
+function beginnerCheckMeta(label: string): { why: string; action: string } {
+  const l = label.toLowerCase();
+  if (l.includes('growing')) {
+    return {
+      why: 'Businesses that grow sales and profits steadily usually have better long-term compounding potential.',
+      action: 'Check if both sales and profit are rising consistently across 3-5 years, not just one year.',
+    };
+  }
+  if (l.includes('debt')) {
+    return {
+      why: 'High debt increases risk when business conditions become weak.',
+      action: 'Prefer companies with manageable debt and stable profit/cash flow to service that debt.',
+    };
+  }
+  if (l.includes('price expensive')) {
+    return {
+      why: 'Even a good company can become a poor investment if bought at an expensive valuation.',
+      action: 'Compare valuation with peers and avoid aggressive entry when valuation is far above normal.',
+    };
+  }
+  if (l.includes('profits keeping up with sales')) {
+    return {
+      why: 'If profit lags sales, the company may be selling more but earning less per unit.',
+      action: 'Look at margin trend and management commentary before assuming growth is high quality.',
+    };
+  }
+  if (l.includes('profitability quality')) {
+    return {
+      why: 'Profitability quality (like ROE) shows how efficiently a company uses shareholder capital.',
+      action: 'Prefer stable or improving profitability over multiple years.',
+    };
+  }
+  if (l.includes('near-term obligations')) {
+    return {
+      why: 'Weak near-term liquidity can create stress even if long-term business is good.',
+      action: 'Watch current ratio and short-term debt pressure before taking large positions.',
+    };
+  }
+  if (l.includes('interest costs')) {
+    return {
+      why: 'If interest cost absorbs too much profit, future growth becomes harder.',
+      action: 'Prefer companies with comfortable interest coverage and improving debt profile.',
+    };
+  }
+  if (l.includes('momentum')) {
+    return {
+      why: 'Momentum helps with entry timing and reduces the chance of catching a falling trend.',
+      action: 'Use momentum as timing support, not as the only reason to buy.',
+    };
+  }
+  if (l.includes('cash return')) {
+    return {
+      why: 'Dividends provide direct cash return and can reduce dependence on price appreciation.',
+      action: 'Treat dividend as bonus quality. Do not buy only for yield without checking fundamentals.',
+    };
+  }
+  return {
+    why: 'This check helps reduce one-sided decisions based on a single metric.',
+    action: 'Combine this with growth, debt, valuation, and cash-flow checks before investing.',
+  };
+}
+
+function evaluateBeginnerMetric(metric: MetricItem, industryPe?: number): { tone: BeginnerMetricTone; meaning: string; guidance: string } {
+  switch (metric.key) {
+    case 'salesGrowth': {
+      if (metric.value >= 12) {
+        return {
+          tone: 'good',
+          meaning: 'Shows how fast company revenue is growing year over year.',
+          guidance: 'Healthy sales growth supports scale and future earnings if margins stay stable.',
+        };
+      }
+      if (metric.value >= 5) {
+        return {
+          tone: 'watch',
+          meaning: 'Shows how fast company revenue is growing year over year.',
+          guidance: 'Growth is positive but moderate. Confirm that profit is also improving.',
+        };
+      }
+      return {
+        tone: 'bad',
+        meaning: 'Shows how fast company revenue is growing year over year.',
+        guidance: 'Low sales growth can limit future upside unless profitability improves sharply.',
+      };
+    }
+    case 'profitGrowth': {
+      if (metric.value >= 12) {
+        return {
+          tone: 'good',
+          meaning: 'Shows how fast net profit is growing year over year.',
+          guidance: 'Strong profit growth is a positive sign if driven by core business, not one-offs.',
+        };
+      }
+      if (metric.value >= 5) {
+        return {
+          tone: 'watch',
+          meaning: 'Shows how fast net profit is growing year over year.',
+          guidance: 'Profit growth is okay but not strong. Monitor margin consistency.',
+        };
+      }
+      return {
+        tone: 'bad',
+        meaning: 'Shows how fast net profit is growing year over year.',
+        guidance: 'Weak profit growth is a caution signal for future returns.',
+      };
+    }
+    case 'debtToEquity': {
+      if (metric.value <= 0.8) {
+        return {
+          tone: 'good',
+          meaning: 'Compares company debt with shareholder equity (lower is usually safer).',
+          guidance: 'Debt level looks manageable for most business cycles.',
+        };
+      }
+      if (metric.value <= 2) {
+        return {
+          tone: 'watch',
+          meaning: 'Compares company debt with shareholder equity (lower is usually safer).',
+          guidance: 'Debt is moderate. Keep track of interest coverage and cash flow.',
+        };
+      }
+      return {
+        tone: 'bad',
+        meaning: 'Compares company debt with shareholder equity (lower is usually safer).',
+        guidance: 'High debt increases downside risk in weak markets.',
+      };
+    }
+    case 'pe': {
+      const rel = typeof industryPe === 'number' && industryPe > 0 ? metric.value / industryPe : undefined;
+      if (rel !== undefined) {
+        if (rel <= 1) {
+          return {
+            tone: 'good',
+            meaning: 'Valuation multiple: price investors pay for each unit of earnings.',
+            guidance: 'Valuation is not above peer average, which is generally better for entry.',
+          };
+        }
+        if (rel <= 1.25) {
+          return {
+            tone: 'watch',
+            meaning: 'Valuation multiple: price investors pay for each unit of earnings.',
+            guidance: 'Somewhat expensive versus peers; position sizing should be moderate.',
+          };
+        }
+        return {
+          tone: 'bad',
+          meaning: 'Valuation multiple: price investors pay for each unit of earnings.',
+          guidance: 'Premium valuation raises correction risk if growth disappoints.',
+        };
+      }
+      if (metric.value <= 20) {
+        return {
+          tone: 'good',
+          meaning: 'Valuation multiple: price investors pay for each unit of earnings.',
+          guidance: 'Valuation appears reasonable by absolute level.',
+        };
+      }
+      if (metric.value <= 35) {
+        return {
+          tone: 'watch',
+          meaning: 'Valuation multiple: price investors pay for each unit of earnings.',
+          guidance: 'Valuation is moderate to rich; verify growth quality before buying.',
+        };
+      }
+      return {
+        tone: 'bad',
+        meaning: 'Valuation multiple: price investors pay for each unit of earnings.',
+        guidance: 'High valuation requires very strong and consistent future growth.',
+      };
+    }
+    case 'roe': {
+      if (metric.value >= 15) {
+        return {
+          tone: 'good',
+          meaning: 'Shows how efficiently the company uses shareholder capital.',
+          guidance: 'Strong ROE supports quality and efficiency if sustained over time.',
+        };
+      }
+      if (metric.value >= 10) {
+        return {
+          tone: 'watch',
+          meaning: 'Shows how efficiently the company uses shareholder capital.',
+          guidance: 'ROE is acceptable but not strong. Prefer improving trend.',
+        };
+      }
+      return {
+        tone: 'bad',
+        meaning: 'Shows how efficiently the company uses shareholder capital.',
+        guidance: 'Low ROE may indicate weak capital efficiency or business quality.',
+      };
+    }
+    case 'dividendYield': {
+      if (metric.value >= 1) {
+        return {
+          tone: 'good',
+          meaning: 'Cash return paid by the company relative to current market price.',
+          guidance: 'Meaningful dividend provides additional return cushion.',
+        };
+      }
+      if (metric.value > 0) {
+        return {
+          tone: 'watch',
+          meaning: 'Cash return paid by the company relative to current market price.',
+          guidance: 'Dividend exists but is small; growth quality matters more.',
+        };
+      }
+      return {
+        tone: 'watch',
+        meaning: 'Cash return paid by the company relative to current market price.',
+        guidance: 'No dividend currently. Returns depend mainly on price appreciation.',
+      };
+    }
+    default:
+      return {
+        tone: 'watch',
+        meaning: 'Helpful indicator for company quality and trend.',
+        guidance: 'Use this together with growth, debt, valuation, and cash-flow checks.',
+      };
+  }
+}
+
 function metricValueToDisplay(
-  metric: StockDetailBundle['fundamentals']['keyMetrics'][number],
+  metric: MetricItem,
   currencyOverride: 'USD' | 'INR',
   fxRate?: number,
 ) {
@@ -334,6 +557,22 @@ function BeginnerPanel({ assessment }: { assessment: BeginnerAssessment | null }
     Neutral: 'bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30',
     No: 'bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30',
   } as const;
+  const statusTotals = assessment
+    ? assessment.simpleChecks.reduce(
+        (acc, check) => {
+          acc[check.status] += 1;
+          return acc;
+        },
+        { good: 0, watch: 0, bad: 0 },
+      )
+    : { good: 0, watch: 0, bad: 0 };
+
+  const priorityChecks = assessment
+    ? [...assessment.simpleChecks].sort((a, b) => {
+        const rank = { bad: 0, watch: 1, good: 2 } as const;
+        return rank[a.status] - rank[b.status];
+      })
+    : [];
   return (
     <SectionCard title="Beginner Assistant" subtitle="Educational only. Avoids jargon and explains what to check.">
       {!assessment ? (
@@ -342,6 +581,20 @@ function BeginnerPanel({ assessment }: { assessment: BeginnerAssessment | null }
         <div className="space-y-3">
           <div className={cn('inline-flex rounded-xl border px-3 py-2 text-sm font-semibold', colorMap[assessment.recommendation])}>
             Should I consider buying? {assessment.recommendation} • Buy score {assessment.buyScore}/5
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+              <div className="font-semibold uppercase tracking-wide">Healthy signals</div>
+              <div className="mt-1 text-sm font-semibold">{statusTotals.good}</div>
+            </div>
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+              <div className="font-semibold uppercase tracking-wide">Watch items</div>
+              <div className="mt-1 text-sm font-semibold">{statusTotals.watch}</div>
+            </div>
+            <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
+              <div className="font-semibold uppercase tracking-wide">Risk items</div>
+              <div className="mt-1 text-sm font-semibold">{statusTotals.bad}</div>
+            </div>
           </div>
           <ul className="space-y-2 text-sm">
             {assessment.simpleChecks.map((check) => (
@@ -355,9 +608,25 @@ function BeginnerPanel({ assessment }: { assessment: BeginnerAssessment | null }
                   })}>{check.status}</span>
                 </div>
                 <p className="mt-1 text-slate-600 dark:text-slate-300">{check.explanation}</p>
+                <div className="mt-2 space-y-1 rounded-lg border border-border/70 bg-muted/20 px-2.5 py-2 text-xs text-slate-500 dark:text-slate-300">
+                  <p>
+                    <span className="font-semibold text-slate-400">Why this matters:</span> {beginnerCheckMeta(check.label).why}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-400">What to do next:</span> {beginnerCheckMeta(check.label).action}
+                  </p>
+                </div>
               </li>
             ))}
           </ul>
+          <div className="rounded-xl border border-border/70 bg-card/40 p-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Beginner Action Plan</div>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
+              {(priorityChecks.length ? priorityChecks : assessment.simpleChecks).slice(0, 3).map((check) => (
+                <li key={`plan-${check.label}`}>{beginnerCheckMeta(check.label).action}</li>
+              ))}
+            </ol>
+          </div>
           <p className="text-xs text-slate-500">{assessment.disclaimer}</p>
         </div>
       )}
@@ -656,6 +925,10 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
   );
   const metrics = bundle.fundamentals.keyMetrics;
   const visibleMetrics = metrics;
+  const industryPeValue = visibleMetrics.find((m) => m.key === 'industryPe')?.value;
+  const beginnerSnapshotMetrics = visibleMetrics.filter((m) =>
+    ['salesGrowth', 'profitGrowth', 'debtToEquity', 'pe', 'roe', 'dividendYield'].includes(m.key),
+  );
   const statements = bundle.fundamentals.statements;
   const activeStatement = statements.find((t) => t.kind === statementTab) ?? statements[0];
   const aboutProfile = useMemo(() => {
@@ -922,14 +1195,26 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
           ) : (
             <SectionCard title="Simple Snapshot" subtitle="Beginner-friendly summary without heavy jargon.">
               <div className="grid gap-3 sm:grid-cols-2">
-                {visibleMetrics
-                  .filter((m) => ['salesGrowth', 'profitGrowth', 'debtToEquity', 'pe', 'roe', 'dividendYield'].includes(m.key))
-                  .map((metric) => (
+                {beginnerSnapshotMetrics.map((metric) => {
+                  const explanation = evaluateBeginnerMetric(metric, industryPeValue);
+                  return (
                     <div key={metric.key} className="ui-panel glass surface-hover rounded-xl p-3 shadow-panel">
-                      <div className="text-xs text-slate-500">{metric.label}</div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-xs text-slate-500">{metric.label}</div>
+                        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', {
+                          'bg-emerald-500/15 text-emerald-400': explanation.tone === 'good',
+                          'bg-amber-500/15 text-amber-400': explanation.tone === 'watch',
+                          'bg-rose-500/15 text-rose-400': explanation.tone === 'bad',
+                        })}>
+                          {explanation.tone}
+                        </span>
+                      </div>
                       <div className="mt-1 text-lg font-semibold">{metricValueToDisplay(metric, displayCurrency, fx?.rate)}</div>
+                      <p className="mt-2 text-xs text-slate-500">{explanation.meaning}</p>
+                      <p className="mt-1 text-xs text-slate-300">{explanation.guidance}</p>
                     </div>
-                  ))}
+                  );
+                })}
                 <div className="rounded-xl border border-dashed border-border p-3 text-sm text-slate-600 dark:text-slate-300">
                   Beginner mode hides many technical metrics. Switch to PRO mode for the full ratio and statement view.
                 </div>

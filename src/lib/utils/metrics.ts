@@ -41,12 +41,31 @@ export function mapMetricEntries(
   input: Record<string, number | null | undefined>,
   currency: 'USD' | 'INR',
 ): MetricValue[] {
+  const currencyKeys = new Set(['sales', 'pat', 'marketCap', 'salesLatestQuarter', 'patLatestQuarter', 'debt', 'currentPrice', 'enterpriseValue']);
+  const percentKeys = new Set([
+    'opm',
+    'dividendYield',
+    'roce',
+    'roa',
+    'roe',
+    'salesGrowth',
+    'profitGrowth',
+    'yoyQuarterlySalesGrowth',
+    'yoyQuarterlyProfitGrowth',
+    'promoterHolding',
+    'changeInPromoterHolding',
+    'earningsYield',
+    'pledgedPercentage',
+    'return3m',
+    'return6m',
+  ]);
+
   return Object.entries(METRIC_LABELS)
     .map(([key, label]) => {
       const value = input[key];
       if (value === null || value === undefined || Number.isNaN(value)) return null;
-      const isCurrency = /sales|pat|marketCap|debt|currentPrice|enterpriseValue/i.test(key);
-      const isPercent = /yield|growth|holding|return|opm|roce|roa|roe|pledged/i.test(key);
+      const isCurrency = currencyKeys.has(key);
+      const isPercent = percentKeys.has(key);
       return {
         key,
         label,

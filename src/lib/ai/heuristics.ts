@@ -229,6 +229,11 @@ export function buildBeginnerAssessment(input: AiContextInput): BeginnerAssessme
   const debtToEquity = getMetric(input, 'debtToEquity');
   const pe = getMetric(input, 'pe');
   const industryPe = getMetric(input, 'industryPe');
+  const roe = getMetric(input, 'roe');
+  const currentRatio = getMetric(input, 'currentRatio');
+  const interestCoverage = getMetric(input, 'interestCoverage');
+  const dividendYield = getMetric(input, 'dividendYield');
+  const return6m = getMetric(input, 'return6m');
 
   const simpleChecks = [
     {
@@ -278,8 +283,87 @@ export function buildBeginnerAssessment(input: AiContextInput): BeginnerAssessme
           : pe <= industryPe
             ? 'Price is not more expensive than the industry average P/E.'
             : pe <= industryPe * 1.25
-              ? 'Valuation is somewhat expensive versus peers.'
-              : 'Valuation looks expensive versus industry average.',
+            ? 'Valuation is somewhat expensive versus peers.'
+            : 'Valuation looks expensive versus industry average.',
+    },
+    {
+      label: 'Are profits keeping up with sales?',
+      status:
+        salesGrowth === undefined || profitGrowth === undefined
+          ? 'watch'
+          : profitGrowth >= salesGrowth - 1
+            ? 'good'
+            : profitGrowth >= salesGrowth - 5
+              ? 'watch'
+              : 'bad',
+      explanation:
+        salesGrowth === undefined || profitGrowth === undefined
+          ? 'Not enough data to compare sales growth and profit growth.'
+          : profitGrowth >= salesGrowth - 1
+            ? 'Profit growth is broadly keeping pace with sales growth.'
+            : profitGrowth >= salesGrowth - 5
+              ? 'Sales are growing faster than profits. Watch margin quality.'
+              : 'Sales growth is not converting well into profits, which is a caution sign.',
+    },
+    {
+      label: 'Is profitability quality healthy?',
+      status: roe === undefined ? 'watch' : roe >= 15 ? 'good' : roe >= 10 ? 'watch' : 'bad',
+      explanation:
+        roe === undefined
+          ? 'Profitability quality data (ROE) is not available.'
+          : roe >= 15
+            ? 'ROE is strong, suggesting efficient use of shareholder capital.'
+            : roe >= 10
+              ? 'ROE is moderate. Prefer a stronger and stable profitability track.'
+              : 'ROE is weak, which may indicate low capital efficiency.',
+    },
+    {
+      label: 'Can the company handle near-term obligations?',
+      status: currentRatio === undefined ? 'watch' : currentRatio >= 1.5 ? 'good' : currentRatio >= 1 ? 'watch' : 'bad',
+      explanation:
+        currentRatio === undefined
+          ? 'Liquidity data is not available for this stock.'
+          : currentRatio >= 1.5
+            ? 'Near-term liquidity looks comfortable.'
+            : currentRatio >= 1
+              ? 'Liquidity is adequate but not very strong.'
+              : 'Liquidity is tight, so near-term balance sheet risk is higher.',
+    },
+    {
+      label: 'Can operating profit cover interest costs?',
+      status: interestCoverage === undefined ? 'watch' : interestCoverage >= 4 ? 'good' : interestCoverage >= 2 ? 'watch' : 'bad',
+      explanation:
+        interestCoverage === undefined
+          ? 'Interest coverage data is not available.'
+          : interestCoverage >= 4
+            ? 'Interest coverage is healthy, reducing debt-servicing risk.'
+            : interestCoverage >= 2
+              ? 'Interest coverage is moderate. Monitor if profits remain stable.'
+              : 'Interest coverage is weak, which can raise financial risk.',
+    },
+    {
+      label: 'Is recent market momentum supportive?',
+      status: return6m === undefined ? 'watch' : return6m >= 8 ? 'good' : return6m >= 0 ? 'watch' : 'bad',
+      explanation:
+        return6m === undefined
+          ? 'Recent momentum data is unavailable.'
+          : return6m >= 8
+            ? 'Recent 6-month return is positive, showing supportive momentum.'
+            : return6m >= 0
+              ? 'Momentum is slightly positive but not very strong.'
+              : 'Recent momentum is negative, so entry timing needs extra caution.',
+    },
+    {
+      label: 'Does it provide cash return to shareholders?',
+      status: dividendYield === undefined ? 'watch' : dividendYield >= 1 ? 'good' : dividendYield > 0 ? 'watch' : 'watch',
+      explanation:
+        dividendYield === undefined
+          ? 'Dividend yield data is unavailable.'
+          : dividendYield >= 1
+            ? 'Dividend yield is meaningful and provides some cash return.'
+            : dividendYield > 0
+              ? 'Dividend exists but is modest. Total return depends more on growth.'
+              : 'No dividend currently. Returns rely mainly on price appreciation.',
     },
   ] as BeginnerAssessment['simpleChecks'];
 
@@ -288,10 +372,12 @@ export function buildBeginnerAssessment(input: AiContextInput): BeginnerAssessme
     if (check.status === 'bad') return acc - 1;
     return acc;
   }, 0);
+  const totalChecks = simpleChecks.length;
+  const normalized = totalChecks ? score / totalChecks : 0;
   const recommendation: BeginnerAssessment['recommendation'] =
-    score >= 2 ? 'Yes' : score <= -2 ? 'No' : 'Neutral';
-  const buyScore: BeginnerAssessment['buyScore'] =
-    score >= 3 ? 5 : score === 2 ? 4 : score === 1 ? 3 : score === 0 ? 3 : score === -1 ? 2 : score === -2 ? 2 : 1;
+    normalized >= 0.25 ? 'Yes' : normalized <= -0.25 ? 'No' : 'Neutral';
+  const scaledBuy = Math.max(1, Math.min(5, Math.round(((normalized + 1) / 2) * 4 + 1)));
+  const buyScore = scaledBuy as BeginnerAssessment['buyScore'];
   const reasons = simpleChecks.map((c) => `${c.label}: ${c.explanation}`);
 
   return {
