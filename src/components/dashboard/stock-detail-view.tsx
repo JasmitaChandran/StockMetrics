@@ -260,7 +260,6 @@ function StatementTableView({ table }: { table: FinancialStatementTable }) {
                       'border-sky-400/30 bg-sky-400/10 text-sky-100': line.tone === 'neutral',
                     })}
                   >
-                    <span className="mr-1 font-semibold uppercase tracking-wide text-[10px]">Simple view:</span>
                     {line.simple.replace(/^Simple view:\s*/i, '')}
                   </div>
                 ) : null}
