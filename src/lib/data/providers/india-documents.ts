@@ -51,45 +51,84 @@ function parseYear(value: string): number | undefined {
   return Number(yearMatch[1]);
 }
 
-function annualScore(a: ParsedAnchor): number {
-  const haystack = `${a.text} ${a.attrs} ${a.href}`.toLowerCase();
-  if (!/annual\s*report/.test(haystack)) return -1;
-  let score = 0;
-  if (haystack.includes('plausible-event-name=annual+report')) score += 10;
-  if (a.href.toLowerCase().endsWith('.pdf')) score += 5;
-  if (/financial year \d{4}/i.test(a.text)) score += 3;
-  const year = parseYear(`${a.text} ${a.href}`);
-  if (year) score += year / 10000;
-  return score;
+function isPdfUrl(url: string) {
+  return /\.pdf($|[?#])/i.test(url);
 }
 
-function presentationScore(a: ParsedAnchor): number {
-  const haystack = `${a.text} ${a.attrs} ${a.href}`.toLowerCase();
-  const isPresentation =
-    /\bppt\b/.test(a.text.toLowerCase()) ||
-    /investor presentation/.test(haystack) ||
-    /presentation/.test(a.href.toLowerCase());
-  if (!isPresentation) return -1;
-  let score = 0;
-  if (/\bppt\b/.test(a.text.toLowerCase())) score += 8;
-  if (/presentation/.test(a.href.toLowerCase())) score += 6;
-  if (a.href.toLowerCase().endsWith('.pdf')) score += 5;
-  const year = parseYear(`${a.text} ${a.href}`);
-  if (year) score += year / 10000;
-  return score;
+function extractFirstListAfter(html: string, headingPattern: RegExp): string | null {
+  const headingMatch = headingPattern.exec(html);
+  if (!headingMatch || typeof headingMatch.index !== 'number') return null;
+  const afterHeading = html.slice(headingMatch.index);
+  const listStartOffset = afterHeading.search(/<ul\b/i);
+  if (listStartOffset < 0) return null;
+  const fromList = afterHeading.slice(listStartOffset);
+  const listEndOffset = fromList.search(/<\/ul>/i);
+  if (listEndOffset < 0) return null;
+  return fromList.slice(0, listEndOffset + '</ul>'.length);
 }
 
-function pickBestAnchor(anchors: ParsedAnchor[], scorer: (a: ParsedAnchor) => number): ParsedAnchor | null {
-  let best: ParsedAnchor | null = null;
-  let bestScore = -1;
+function pickLatestAnnualFromSection(html: string, baseUrl: string): ParsedAnchor | null {
+  const listHtml = extractFirstListAfter(html, /<h3[^>]*>\s*Annual reports\s*<\/h3>/i);
+  if (!listHtml) return null;
+  const anchors = parseAnchors(listHtml, baseUrl);
   for (const anchor of anchors) {
-    const score = scorer(anchor);
-    if (score > bestScore) {
-      best = anchor;
-      bestScore = score;
-    }
+    if (isPdfUrl(anchor.href)) return anchor;
   }
-  return best;
+  return anchors[0] ?? null;
+}
+
+function pickLatestPresentationFromConcalls(
+  html: string,
+  baseUrl: string,
+): { anchor: ParsedAnchor; rowYear?: number } | null {
+  const listHtml = extractFirstListAfter(html, /<h3[^>]*>\s*Concalls\s*<\/h3>/i);
+  if (!listHtml) return null;
+
+  const rowRegex = /<li\b[\s\S]*?<\/li>/gi;
+  let rowMatch = rowRegex.exec(listHtml);
+  while (rowMatch) {
+    const rowHtml = rowMatch[0] ?? '';
+    const rowText = stripTags(rowHtml);
+    const rowYear = parseYear(rowText);
+    const anchors = parseAnchors(rowHtml, baseUrl);
+    const pptLink = anchors.find((a) => {
+      const text = a.text.toLowerCase();
+      const haystack = `${a.text} ${a.href}`.toLowerCase();
+      return /\bppt\b/.test(text) || /investor presentation/.test(haystack) || /presentation/.test(a.href.toLowerCase());
+    });
+    if (pptLink && isPdfUrl(pptLink.href)) {
+      return { anchor: pptLink, rowYear };
+    }
+    rowMatch = rowRegex.exec(listHtml);
+  }
+
+  return null;
+}
+
+function pickAnnualFallback(anchors: ParsedAnchor[]): ParsedAnchor | null {
+  for (const anchor of anchors) {
+    const text = anchor.text.toLowerCase();
+    const attrs = anchor.attrs.toLowerCase();
+    if (!isPdfUrl(anchor.href)) continue;
+    if (/annual\s*report|financial year/.test(text) || attrs.includes('annual+report')) return anchor;
+  }
+  return null;
+}
+
+function pickPresentationFallback(anchors: ParsedAnchor[]): ParsedAnchor | null {
+  for (const anchor of anchors) {
+    if (!isPdfUrl(anchor.href)) continue;
+    if (/\bppt\b/i.test(anchor.text)) return anchor;
+  }
+  for (const anchor of anchors) {
+    if (!isPdfUrl(anchor.href)) continue;
+    if (/investor presentation/i.test(anchor.text)) return anchor;
+  }
+  for (const anchor of anchors) {
+    if (!isPdfUrl(anchor.href)) continue;
+    if (/presentation/i.test(anchor.href.toLowerCase())) return anchor;
+  }
+  return null;
 }
 
 function normalizeIndianSymbol(symbol: string) {
@@ -112,13 +151,14 @@ export async function getIndiaDocuments(symbol: string): Promise<DiscoveredDocum
   const baseSymbol = normalizeIndianSymbol(symbol);
   if (!baseSymbol) return [];
 
-  return withServerCache(`india-docs:${baseSymbol}`, 6 * 60 * 60_000, async () => {
+  return withServerCache(`india-docs:v2:${baseSymbol}`, 6 * 60 * 60_000, async () => {
     const pageUrl = `https://www.screener.in/company/${encodeURIComponent(baseSymbol)}/consolidated/`;
     const html = await fetchHtml(pageUrl);
     const anchors = parseAnchors(html, pageUrl);
 
-    const annual = pickBestAnchor(anchors, annualScore);
-    const presentation = pickBestAnchor(anchors, presentationScore);
+    const annual = pickLatestAnnualFromSection(html, pageUrl) ?? pickAnnualFallback(anchors);
+    const latestPresentation = pickLatestPresentationFromConcalls(html, pageUrl);
+    const presentation = latestPresentation?.anchor ?? pickPresentationFallback(anchors);
 
     const out: DiscoveredDocument[] = [];
     if (annual) {
@@ -133,7 +173,7 @@ export async function getIndiaDocuments(symbol: string): Promise<DiscoveredDocum
       });
     }
     if (presentation) {
-      const year = parseYear(`${presentation.text} ${presentation.href}`);
+      const year = latestPresentation?.rowYear ?? parseYear(`${presentation.text} ${presentation.href}`);
       out.push({
         id: `${baseSymbol}-presentation-${year ?? 'latest'}`,
         title: year ? `Investor Presentation ${year}` : 'Investor Presentation',
