@@ -305,6 +305,7 @@ export function buildBeginnerAssessment(input: AiContextInput): BeginnerAssessme
 
 type SeriesPoint = { year: string; value: number };
 type StatementSeries = { label: string; points: SeriesPoint[] };
+type MetricTrendPreference = 'higherBetter' | 'lowerBetter' | 'context';
 
 function formatCompact(value: number): string {
   return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
@@ -322,6 +323,139 @@ function changePct(start: number, end: number): number {
 function cagrPct(start: number, end: number, periods: number): number | undefined {
   if (periods <= 0 || start <= 0 || end <= 0) return undefined;
   return ((end / start) ** (1 / periods) - 1) * 100;
+}
+
+function withSimple(base: string, simple: string): string {
+  return `${base} (${simple})`;
+}
+
+function trendPreference(label: string): MetricTrendPreference {
+  const l = label.toLowerCase();
+  if (/\bdebt\b|\bliabilit|\bfinance cost\b|\binterest\b|\bleverage\b|\bborrowings?\b/.test(l)) return 'lowerBetter';
+  if (/\btax\b/.test(l)) return 'context';
+  if (/\brevenue\b|\bsales\b|\bprofit\b|\bincome\b|\bmargin\b|\beps\b|\bcash from operations\b|\bfree cash flow\b|\bassets?\b|\bequity\b|\bnet worth\b|\breserves?\b/.test(l)) {
+    return 'higherBetter';
+  }
+  return 'context';
+}
+
+function simpleTrendExplanation(label: string, overallChange: number, latestChange: number): string {
+  const preference = trendPreference(label);
+  const flat = Math.abs(overallChange) < 1.5 && Math.abs(latestChange) < 1.5;
+  if (flat) {
+    return 'Simple view: this is mostly flat, so wait for a clearer trend before taking a strong buy/sell decision.';
+  }
+
+  const improving =
+    preference === 'higherBetter' ? overallChange > 0 : preference === 'lowerBetter' ? overallChange < 0 : overallChange > 0 && latestChange > 0;
+  const worsening =
+    preference === 'higherBetter' ? overallChange < 0 : preference === 'lowerBetter' ? overallChange > 0 : overallChange < 0 && latestChange < 0;
+
+  if (improving) {
+    return 'Simple view: this is a good sign and supports a positive view, but still confirm with profit quality, debt, and valuation.';
+  }
+  if (worsening) {
+    return 'Simple view: this is a caution signal and supports a hold/watch approach until the trend improves.';
+  }
+  return 'Simple view: mixed signal; do not decide from this alone and cross-check other statements.';
+}
+
+function simpleToplineExplanation(cagr: number | undefined, latestDelta: number): string {
+  if (cagr !== undefined && cagr >= 10 && latestDelta >= 0) {
+    return 'Simple view: sales are growing well, which is usually positive for future scale and earnings if margins stay healthy.';
+  }
+  if (cagr !== undefined && cagr > 0 && latestDelta < 0) {
+    return 'Simple view: long-term growth is okay, but the latest slowdown needs monitoring before aggressive buying.';
+  }
+  if (cagr !== undefined && cagr < 0) {
+    return 'Simple view: sales trend is weak, so future profit growth may be difficult; stay cautious until recovery appears.';
+  }
+  return latestDelta >= 0
+    ? 'Simple view: recent sales trend is improving, but confirm this strength over more periods.'
+    : 'Simple view: recent sales trend is soft, so wait for stabilization before a strong decision.';
+}
+
+function simpleProfitExplanation(cagr: number | undefined, latestDelta: number, latestValue: number): string {
+  if (latestValue <= 0) {
+    return 'Simple view: current profitability is weak, which is a risk signal; avoid aggressive exposure until profits normalize.';
+  }
+  if (cagr !== undefined && cagr >= 12 && latestDelta >= 0) {
+    return 'Simple view: profit growth is strong and consistent, which supports a constructive long-term view.';
+  }
+  if (cagr !== undefined && cagr < 0) {
+    return 'Simple view: falling profits are a warning sign; prefer caution until earnings recover.';
+  }
+  if (latestDelta < 0) {
+    return 'Simple view: recent profit decline can pressure sentiment; wait for the next result for confirmation.';
+  }
+  return 'Simple view: profit trend is acceptable, but verify if this is supported by cash flow and not one-off items.';
+}
+
+function simpleMarginExplanation(marginDelta: number, latestMargin: number): string {
+  if (marginDelta >= 2 && latestMargin >= 8) {
+    return 'Simple view: margin expansion is positive; the company is keeping more profit from each unit of sales.';
+  }
+  if (marginDelta <= -2) {
+    return 'Simple view: margin compression is a warning; cost pressure may reduce future earnings quality.';
+  }
+  if (latestMargin < 5) {
+    return 'Simple view: low margin gives less safety in weak markets, so keep a conservative view.';
+  }
+  return 'Simple view: margins are relatively stable; look at future consistency for conviction.';
+}
+
+function simpleInterestShareExplanation(interestShare: number): string {
+  if (interestShare > 45) {
+    return 'Simple view: heavy interest burden can cap profit growth and increase risk; stay cautious.';
+  }
+  if (interestShare > 25) {
+    return 'Simple view: interest cost is noticeable; growth needs to remain strong to offset this pressure.';
+  }
+  return 'Simple view: interest burden looks manageable, which is supportive for earnings stability.';
+}
+
+function simpleCoverageExplanation(coverage: number): string {
+  if (coverage < 2) {
+    return 'Simple view: low coverage means profits are only just covering finance cost, which is risky.';
+  }
+  if (coverage < 4) {
+    return 'Simple view: coverage is moderate; not a crisis, but not very comfortable either.';
+  }
+  return 'Simple view: healthy coverage gives better safety against debt-related pressure.';
+}
+
+function simpleTaxExplanation(effectiveTax: number): string {
+  if (effectiveTax > 40) {
+    return 'Simple view: high tax outgo reduces what shareholders keep; this can limit net-profit growth.';
+  }
+  if (effectiveTax < 10) {
+    return 'Simple view: very low tax may include one-time effects; confirm if this is sustainable.';
+  }
+  return 'Simple view: tax level looks normal and does not signal a major concern by itself.';
+}
+
+function simpleMomentumExplanation(revMomentum: number, profitMomentum: number): string {
+  if (revMomentum > 0 && profitMomentum > 0) {
+    return 'Simple view: recent momentum is healthy, which supports a positive near-term stance.';
+  }
+  if (revMomentum < 0 && profitMomentum < 0) {
+    return 'Simple view: both sales and profit are weakening, so a cautious stance is safer.';
+  }
+  if (revMomentum > 0 && profitMomentum < 0) {
+    return 'Simple view: sales are growing but profits are not, so quality of growth is weak right now.';
+  }
+  if (revMomentum < 0 && profitMomentum > 0) {
+    return 'Simple view: profits rose despite weaker sales; verify if this came from temporary cost cuts or one-offs.';
+  }
+  return 'Simple view: mixed short-term trend, so wait for the next quarter for clarity.';
+}
+
+function simpleDecisionExplanation(score: number): string {
+  if (score >= 5) return 'Simple view: income statement signals are strong; positive bias is reasonable, but avoid overpaying on valuation.';
+  if (score >= 2) return 'Simple view: signals are more good than bad; a gradual/controlled approach is better than aggressive entry.';
+  if (score <= -4) return 'Simple view: risk signals dominate; defensive positioning is safer until numbers improve.';
+  if (score < 0) return 'Simple view: below-average quality right now; stay selective and wait for stronger confirmation.';
+  return 'Simple view: mixed setup; prefer hold/watch until clearer trend confirmation.';
 }
 
 function extractSeries(rows: StatementSummaryInput['table']['rows'], yearList: string[], patterns: RegExp[], avoid?: RegExp): StatementSeries | undefined {
@@ -359,14 +493,13 @@ function summarizeGenericStatement(table: StatementSummaryInput['table'], years:
     const last = values[values.length - 1];
     const delta = changePct(first, last);
     const recentDelta = changePct(values[values.length - 2], last);
-    bullets.push(
-      `${row.label}: ${delta >= 0 ? 'up' : 'down'} ${Math.abs(delta).toFixed(1)}% overall, with latest period ${recentDelta >= 0 ? 'up' : 'down'} ${Math.abs(recentDelta).toFixed(1)}%.`,
-    );
+    const base = `${row.label}: ${delta >= 0 ? 'up' : 'down'} ${Math.abs(delta).toFixed(1)}% overall, with latest period ${recentDelta >= 0 ? 'up' : 'down'} ${Math.abs(recentDelta).toFixed(1)}%.`;
+    bullets.push(withSimple(base, simpleTrendExplanation(row.label, delta, recentDelta)));
   }
   if (!bullets.length) {
     bullets.push('No analyzable numeric trends were found in this statement.');
   }
-  bullets.push(`Periods reviewed: ${years.join(', ')}`);
+  bullets.push(withSimple(`Periods reviewed: ${years.join(', ')}`, 'Simple view: more periods usually means a more reliable trend check.'));
   return {
     title: `${table.title} summary`,
     bullets,
@@ -399,9 +532,8 @@ function summarizeIncomeStatement(table: StatementSummaryInput['table'], years: 
     const delta = changePct(first.value, last.value);
     const cagr = cagrPct(first.value, last.value, revenue.points.length - 1);
     const latestDelta = changePct(revenue.points[revenue.points.length - 2].value, last.value);
-    bullets.push(
-      `Topline: ${revenue.label} moved from ${formatCompact(first.value)} (${first.year}) to ${formatCompact(last.value)} (${last.year}), ${formatSigned(delta, 1, '%')} overall${cagr === undefined ? '' : ` (CAGR ${formatSigned(cagr, 1, '%')})`}. Latest period change is ${formatSigned(latestDelta, 1, '%')}.`,
-    );
+    const base = `Topline: ${revenue.label} moved from ${formatCompact(first.value)} (${first.year}) to ${formatCompact(last.value)} (${last.year}), ${formatSigned(delta, 1, '%')} overall${cagr === undefined ? '' : ` (CAGR ${formatSigned(cagr, 1, '%')})`}. Latest period change is ${formatSigned(latestDelta, 1, '%')}.`;
+    bullets.push(withSimple(base, simpleToplineExplanation(cagr, latestDelta)));
     if (cagr !== undefined) {
       if (cagr >= 12) {
         score += 2;
@@ -423,9 +555,8 @@ function summarizeIncomeStatement(table: StatementSummaryInput['table'], years: 
     const delta = changePct(first.value, last.value);
     const cagr = cagrPct(first.value, last.value, netProfit.points.length - 1);
     const latestDelta = changePct(netProfit.points[netProfit.points.length - 2].value, last.value);
-    bullets.push(
-      `Bottom line: ${netProfit.label} moved from ${formatCompact(first.value)} (${first.year}) to ${formatCompact(last.value)} (${last.year}), ${formatSigned(delta, 1, '%')} overall${cagr === undefined ? '' : ` (CAGR ${formatSigned(cagr, 1, '%')})`}. Latest period change is ${formatSigned(latestDelta, 1, '%')}.`,
-    );
+    const base = `Bottom line: ${netProfit.label} moved from ${formatCompact(first.value)} (${first.year}) to ${formatCompact(last.value)} (${last.year}), ${formatSigned(delta, 1, '%')} overall${cagr === undefined ? '' : ` (CAGR ${formatSigned(cagr, 1, '%')})`}. Latest period change is ${formatSigned(latestDelta, 1, '%')}.`;
+    bullets.push(withSimple(base, simpleProfitExplanation(cagr, latestDelta, last.value)));
 
     if (last.value <= 0) {
       score -= 3;
@@ -461,9 +592,8 @@ function summarizeIncomeStatement(table: StatementSummaryInput['table'], years: 
     const first = usableMargin.points[0];
     const last = usableMargin.points[usableMargin.points.length - 1];
     const marginDelta = last.value - first.value;
-    bullets.push(
-      `Profitability quality: ${usableMargin.label} moved from ${first.value.toFixed(1)}% (${first.year}) to ${last.value.toFixed(1)}% (${last.year}), a ${formatSigned(marginDelta, 1, ' ppt')} shift.`,
-    );
+    const base = `Profitability quality: ${usableMargin.label} moved from ${first.value.toFixed(1)}% (${first.year}) to ${last.value.toFixed(1)}% (${last.year}), a ${formatSigned(marginDelta, 1, ' ppt')} shift.`;
+    bullets.push(withSimple(base, simpleMarginExplanation(marginDelta, last.value)));
 
     if (marginDelta >= 2) {
       score += 1;
@@ -483,8 +613,9 @@ function summarizeIncomeStatement(table: StatementSummaryInput['table'], years: 
     const ebitdaLatest = ebitda.points.find((p) => p.year === latestYear)?.value;
     const revLatest = revenue.points.find((p) => p.year === latestYear)?.value;
     if (typeof opLatest === 'number' && typeof ebitdaLatest === 'number' && typeof revLatest === 'number' && revLatest !== 0) {
+      const base = `Operating structure: latest operating income is ${formatCompact(opLatest)} and EBITDA is ${formatCompact(ebitdaLatest)}, implying EBITDA margin near ${((ebitdaLatest / revLatest) * 100).toFixed(1)}%.`;
       bullets.push(
-        `Operating structure: latest operating income is ${formatCompact(opLatest)} and EBITDA is ${formatCompact(ebitdaLatest)}, implying EBITDA margin near ${((ebitdaLatest / revLatest) * 100).toFixed(1)}%.`,
+        withSimple(base, 'Simple view: better operating margin usually means stronger business efficiency and earnings quality.'),
       );
     }
   }
@@ -496,9 +627,8 @@ function summarizeIncomeStatement(table: StatementSummaryInput['table'], years: 
     if (typeof latestPbt === 'number' && latestPbt !== 0) {
       signalCount += 1;
       const interestShare = (Math.abs(latestInterest.value) / Math.abs(latestPbt)) * 100;
-      bullets.push(
-        `Cost pressure: in ${latestInterest.year}, finance cost was ${formatCompact(latestInterest.value)}, about ${interestShare.toFixed(1)}% of pre-tax profit.`,
-      );
+      const base = `Cost pressure: in ${latestInterest.year}, finance cost was ${formatCompact(latestInterest.value)}, about ${interestShare.toFixed(1)}% of pre-tax profit.`;
+      bullets.push(withSimple(base, simpleInterestShareExplanation(interestShare)));
       if (interestShare > 45) {
         score -= 2;
         scoreDrivers.push('interest burden is heavy');
@@ -512,9 +642,8 @@ function summarizeIncomeStatement(table: StatementSummaryInput['table'], years: 
     } else if (typeof latestOperating === 'number' && latestOperating > 0) {
       signalCount += 1;
       const coverage = latestOperating / Math.max(1, Math.abs(latestInterest.value));
-      bullets.push(
-        `Cost pressure: in ${latestInterest.year}, operating income covered finance cost by ~${coverage.toFixed(1)}x.`,
-      );
+      const base = `Cost pressure: in ${latestInterest.year}, operating income covered finance cost by ~${coverage.toFixed(1)}x.`;
+      bullets.push(withSimple(base, simpleCoverageExplanation(coverage)));
       if (coverage < 2) {
         score -= 2;
         scoreDrivers.push('thin interest coverage');
@@ -534,7 +663,8 @@ function summarizeIncomeStatement(table: StatementSummaryInput['table'], years: 
     if (matchedPbt && matchedPbt.value !== 0) {
       signalCount += 1;
       const effectiveTax = (Math.abs(latestTax.value) / Math.abs(matchedPbt.value)) * 100;
-      bullets.push(`Tax check: effective tax rate in ${latestTax.year} is ~${effectiveTax.toFixed(1)}% of pre-tax profit.`);
+      const base = `Tax check: effective tax rate in ${latestTax.year} is ~${effectiveTax.toFixed(1)}% of pre-tax profit.`;
+      bullets.push(withSimple(base, simpleTaxExplanation(effectiveTax)));
       if (effectiveTax > 40) {
         score -= 1;
         scoreDrivers.push('high effective tax drag');
@@ -554,9 +684,8 @@ function summarizeIncomeStatement(table: StatementSummaryInput['table'], years: 
       signalCount += 1;
       const revMomentum = changePct(revPrev, revLatest);
       const profitMomentum = changePct(profitPrev, profitLatest);
-      bullets.push(
-        `Latest momentum (${prevYear} to ${latestYear}): revenue ${formatSigned(revMomentum, 1, '%')}, net profit ${formatSigned(profitMomentum, 1, '%')}.`,
-      );
+      const base = `Latest momentum (${prevYear} to ${latestYear}): revenue ${formatSigned(revMomentum, 1, '%')}, net profit ${formatSigned(profitMomentum, 1, '%')}.`;
+      bullets.push(withSimple(base, simpleMomentumExplanation(revMomentum, profitMomentum)));
       if (revMomentum > 0 && profitMomentum > 0) {
         score += 1;
         scoreDrivers.push('recent momentum is positive');
@@ -587,8 +716,13 @@ function summarizeIncomeStatement(table: StatementSummaryInput['table'], years: 
   }
 
   const driverSuffix = scoreDrivers.length ? ` Key drivers: ${scoreDrivers.slice(0, 3).join(', ')}.` : '';
-  bullets.push(`${decision}${driverSuffix}`);
-  bullets.push('Cross-check this view with balance sheet leverage, cash-flow conversion, and current valuation before acting.');
+  bullets.push(withSimple(`${decision}${driverSuffix}`, simpleDecisionExplanation(score)));
+  bullets.push(
+    withSimple(
+      'Cross-check this view with balance sheet leverage, cash-flow conversion, and current valuation before acting.',
+      'Simple view: one statement alone is not enough; final decision should use all major statements together.',
+    ),
+  );
 
   return {
     title: `${table.title} summary`,
