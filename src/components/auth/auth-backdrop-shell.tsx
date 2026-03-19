@@ -1,6 +1,6 @@
 import Image from 'next/image';
-import { LineChart } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { StockMetricsLogo } from '@/components/common/stock-metrics-logo';
 
 type AuthBackdropMode = 'login' | 'register' | 'account';
 
@@ -37,7 +37,9 @@ export function AuthBackdropShell({ mode, title, subtitle, children, contentClas
         <div className="relative z-10 grid gap-7 px-5 py-7 sm:px-7 md:py-9 lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)] lg:items-center lg:px-10">
           <div className="max-w-xl text-white">
             <p className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-100">
-              <LineChart className="h-3.5 w-3.5" />
+              <span className="grid h-5 w-5 place-items-center rounded-md bg-slate-900/80 p-0.5 ring-1 ring-white/20">
+                <StockMetricsLogo className="h-4 w-4" />
+              </span>
               Stock Metrics
             </p>
             <h1 className="mt-3 text-2xl font-semibold leading-tight text-white sm:text-3xl">{title}</h1>

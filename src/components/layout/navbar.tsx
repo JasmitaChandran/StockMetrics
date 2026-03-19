@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, MoonStar, SunMedium } from 'lucide-react';
+import { MoonStar, SunMedium } from 'lucide-react';
 import { useUiStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils/cn';
 import { PillToggle } from '@/components/common/pill-toggle';
 import { AuthControls } from '@/components/auth/auth-controls';
 import { UniversalSearch } from '@/components/search/universal-search';
+import { StockMetricsLogo } from '@/components/common/stock-metrics-logo';
 
 const tabs = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -29,8 +30,8 @@ export function Navbar() {
       <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-3 px-4 py-3 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
         <div className="order-1 flex w-full min-w-0 items-center gap-3 md:w-auto md:justify-self-start">
           <Link href="/dashboard" className="flex shrink-0 items-center gap-2 rounded-xl px-2 py-1 transition hover:bg-muted/45">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-blue-500 text-white shadow-violet">
-              <BarChart3 className="h-5 w-5" />
+            <div className="grid h-9 w-9 place-items-center rounded-xl bg-white/95 p-1 shadow-violet ring-1 ring-indigo-300/30 dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 dark:ring-slate-500/55">
+              <StockMetricsLogo className="h-7 w-7" />
             </div>
             <div>
               <div className="text-sm font-semibold tracking-tight text-slate-900 dark:text-white">Stock Metrics</div>

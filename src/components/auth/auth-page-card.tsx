@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ArrowRight, AtSign, BarChart3, Eye, EyeOff, KeyRound, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
+import { ArrowRight, AtSign, Eye, EyeOff, KeyRound, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
 import { getAuthAdapter } from '@/lib/auth';
 import { useAuthStore } from '@/stores/auth-store';
+import { StockMetricsLogo } from '@/components/common/stock-metrics-logo';
 
 function isValidEmail(input: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
@@ -121,8 +122,8 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
   return (
     <div className="ui-panel glass mx-auto w-full max-w-md rounded-2xl p-6 shadow-panel">
       <div className="mb-5 flex items-start gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-blue-500 text-white shadow-violet">
-          <BarChart3 className="h-5 w-5" />
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/95 p-1 ring-1 ring-indigo-300/30 shadow-violet dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 dark:ring-slate-500/55">
+          <StockMetricsLogo className="h-8 w-8" />
         </div>
         <div>
           <h1 className="text-xl font-semibold">{mode === 'login' ? 'Login' : 'Register'}</h1>
