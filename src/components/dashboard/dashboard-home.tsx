@@ -242,10 +242,11 @@ export function DashboardHome() {
               {uiMode === 'pro' ? 'Pro Mode' : 'Beginner Mode'}
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-5xl">
-              <span className="title-gradient">Smarter Research Workflows</span>
+              <span className="bg-gradient-to-r from-indigo-600 via-sky-500 to-cyan-400 bg-clip-text font-semibold tracking-[-0.03em] text-transparent">
+                Stock Metrics
+              </span>
               <br />
-              <span className="text-slate-900 dark:text-white">Start with </span>
-              <span className="accent-script">Stock Metrics</span>
+              <span className="title-gradient">Intelligence Beyond Data.</span>
             </h1>
           </div>
 
