@@ -34,7 +34,7 @@ export function Navbar() {
             </div>
             <div>
               <div className="text-sm font-semibold tracking-tight text-slate-900 dark:text-white">Stock Metrics</div>
-              <div className="hidden text-[10px] uppercase tracking-[0.18em] text-slate-500 lg:block">Research Workflows</div>
+              <div className="hidden text-[10px] uppercase tracking-[0.18em] text-slate-500 lg:block">Intelligence Beyond Data.</div>
             </div>
           </Link>
           <div className="min-w-0 flex-1 md:w-[340px] md:flex-none lg:w-[430px] xl:w-[500px]">

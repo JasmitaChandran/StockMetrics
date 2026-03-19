@@ -254,7 +254,7 @@ export function DashboardHome() {
           </div>
 
           <div className="mx-auto max-w-2xl">
-            <div className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dashboard Market Switch</div>
+            <div className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Switch Markets</div>
             <div className="flex justify-center">
               <DashboardMarketTabs />
             </div>
@@ -263,7 +263,7 @@ export function DashboardHome() {
       </motion.section>
 
       {uiMode === 'beginner' ? (
-        <SectionCard title="Beginner Mode Guide" subtitle="Plain-language investing checks instead of financial jargon.">
+        <SectionCard title="Beginner Mode Guide">
           <div className="grid gap-3 md:grid-cols-2">
             {beginnerCards.map(({ title, text, icon: Icon }) => (
               <div key={title} className="surface-hover rounded-xl border border-border/70 bg-card/40 p-3">

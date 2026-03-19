@@ -32,7 +32,7 @@ export default function StockDetailPage({ params }: { params: { market: string; 
       <section className="rounded-2xl border border-border bg-card p-4">
         <div className="space-y-3">
           <div>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Dashboard Market Switch</div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Switch Markets</div>
             <DashboardMarketTabs />
           </div>
           <div>
