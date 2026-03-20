@@ -196,26 +196,32 @@ html:not(.dark) .surface-hover:hover {
   border-color: rgba(129, 140, 248, 0.26);
 }
 
-.dashboard-grid-bg {
-  position: relative;
-}
-
-.dashboard-grid-bg::before {
-  content: '';
+.dashboard-grid-overlay {
   position: absolute;
   inset: 0;
   border-radius: inherit;
   background-image:
-    linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+    linear-gradient(rgba(148, 163, 184, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.09) 1px, transparent 1px);
   background-size: 22px 22px;
-  mask-image: radial-gradient(circle at 50% 35%, black 35%, transparent 90%);
+  -webkit-mask-image: radial-gradient(circle at 50% 35%, black 52%, transparent 98%);
+  mask-image: radial-gradient(circle at 50% 35%, black 52%, transparent 98%);
   pointer-events: none;
-  opacity: 0.35;
+  opacity: 0.48;
 }
 
-html:not(.dark) .dashboard-grid-bg::before {
-  opacity: 0.2;
+.ui-panel > .dashboard-grid-overlay {
+  z-index: 0;
+}
+
+html:not(.dark) .dashboard-grid-overlay {
+  background-image:
+    linear-gradient(rgba(59, 130, 246, 0.24) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 116, 144, 0.2) 1px, transparent 1px);
+  -webkit-mask-image: radial-gradient(circle at 50% 35%, black 70%, transparent 100%);
+  mask-image: radial-gradient(circle at 50% 35%, black 70%, transparent 100%);
+  mix-blend-mode: multiply;
+  opacity: 0.6;
 }
 
 @media (prefers-reduced-motion: reduce) {

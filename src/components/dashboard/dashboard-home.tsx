@@ -231,8 +231,9 @@ export function DashboardHome() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.28, ease: 'easeOut' }}
-        className="ui-panel hero-glow dashboard-grid-bg relative overflow-hidden rounded-3xl px-5 pb-5 pt-2 shadow-panel md:px-6 md:pb-6 md:pt-2"
+        className="ui-panel hero-glow relative overflow-hidden rounded-3xl px-5 pb-5 pt-2 shadow-panel md:px-6 md:pb-6 md:pt-2"
       >
+        <div className="dashboard-grid-overlay" aria-hidden />
         <div className="absolute left-8 top-6 h-28 w-28 rounded-full bg-indigo-500/20 blur-3xl motion-safe:animate-pulseSoft" />
         <div className="absolute right-8 top-8 h-36 w-36 rounded-full bg-blue-500/14 blur-3xl motion-safe:animate-float" />
         <div className="absolute bottom-6 left-1/3 h-24 w-24 rounded-full bg-violet-500/12 blur-2xl motion-safe:animate-driftSlow" />
