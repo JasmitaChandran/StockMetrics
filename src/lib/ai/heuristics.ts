@@ -15,34 +15,122 @@ function getMetric(input: AiContextInput, key: string): number | undefined {
   return input.metrics?.find((m) => m.key === key)?.value;
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function durationDays(start: string, end: string): number {
+  const startTs = Date.parse(start);
+  const endTs = Date.parse(end);
+  if (!Number.isFinite(startTs) || !Number.isFinite(endTs)) return 0;
+  const days = Math.round((endTs - startTs) / (24 * 60 * 60 * 1000));
+  return Number.isFinite(days) ? Math.max(0, days) : 0;
+}
+
+function trendLabel(type: TrendPeriod['type'], returnPct: number): string {
+  if (type === 'bull') {
+    if (returnPct >= 25) return 'Strong Bull Phase';
+    if (returnPct >= 18) return 'Healthy Bull Phase';
+    return 'Early Bull Phase';
+  }
+  if (returnPct <= -25) return 'Sharp Correction';
+  if (returnPct <= -18) return 'Bearish Breakdown';
+  return 'Bearish Pullback';
+}
+
+function trendContext(type: TrendPeriod['type'], returnPct: number, days: number): string {
+  if (type === 'bull') {
+    if (days >= 250) return `${days} days, sustained momentum`;
+    if (days >= 120) return `${days} days, stable uptrend`;
+    return `${days} days, fast recovery move`;
+  }
+  if (Math.abs(returnPct) >= 25) return `${days} days, high-volatility selloff`;
+  if (days >= 120) return `${days} days, prolonged weakness`;
+  return `${days} days, corrective phase`;
+}
+
 function calcTrendPeriods(prices: number[], timestamps: string[]): TrendPeriod[] {
   if (prices.length < 20) return [];
   const out: TrendPeriod[] = [];
   let startIdx = 0;
-  let segmentHigh = prices[0];
-  let segmentLow = prices[0];
   for (let i = 1; i < prices.length; i += 1) {
-    segmentHigh = Math.max(segmentHigh, prices[i]);
-    segmentLow = Math.min(segmentLow, prices[i]);
     const ret = ((prices[i] - prices[startIdx]) / prices[startIdx]) * 100;
     if (Math.abs(ret) >= 15) {
+      const type = ret >= 0 ? 'bull' : 'bear';
+      const days = durationDays(timestamps[startIdx], timestamps[i]);
       out.push({
         start: timestamps[startIdx],
         end: timestamps[i],
         returnPct: Number(ret.toFixed(2)),
-        type: ret >= 0 ? 'bull' : 'bear',
+        type,
+        durationDays: days,
+        phaseLabel: trendLabel(type, ret),
+        context: trendContext(type, ret, days),
       });
       startIdx = i;
-      segmentHigh = prices[i];
-      segmentLow = prices[i];
     }
   }
   return out.slice(-8);
 }
 
+function average(values: number[]): number | undefined {
+  if (!values.length) return undefined;
+  return values.reduce((acc, v) => acc + v, 0) / values.length;
+}
+
+function lookbackReturn(prices: number[], lookback: number): number {
+  if (prices.length < 2) return 0;
+  const end = prices[prices.length - 1];
+  const start = prices[Math.max(0, prices.length - 1 - lookback)];
+  if (!Number.isFinite(end) || !Number.isFinite(start) || start === 0) return 0;
+  return ((end - start) / start) * 100;
+}
+
+function computeTrendSummary(prices: number[], trendPeriods: TrendPeriod[]): AiInsights['trendSummary'] {
+  const bullDurations = trendPeriods.filter((p) => p.type === 'bull').map((p) => p.durationDays ?? 0).filter((d) => d > 0);
+  const bearDurations = trendPeriods.filter((p) => p.type === 'bear').map((p) => p.durationDays ?? 0).filter((d) => d > 0);
+  const oneMonthRet = lookbackReturn(prices, 21);
+  const threeMonthRet = lookbackReturn(prices, 63);
+
+  let currentPhaseLabel = 'Sideways / Transition';
+  let currentPhaseProbability = 50;
+
+  if (oneMonthRet >= 4 && threeMonthRet >= 8) {
+    currentPhaseLabel = 'Early Bull Phase';
+    currentPhaseProbability = clamp(Math.round(58 + oneMonthRet * 1.2 + threeMonthRet * 0.25), 55, 85);
+  } else if (oneMonthRet <= -4 && threeMonthRet <= -8) {
+    currentPhaseLabel = 'Early Bear Phase';
+    currentPhaseProbability = clamp(Math.round(58 + Math.abs(oneMonthRet) * 1.2 + Math.abs(threeMonthRet) * 0.25), 55, 85);
+  } else if (oneMonthRet > 0 && threeMonthRet > 0) {
+    currentPhaseLabel = 'Mild Bullish Phase';
+    currentPhaseProbability = clamp(Math.round(52 + oneMonthRet * 0.9), 50, 72);
+  } else if (oneMonthRet < 0 && threeMonthRet < 0) {
+    currentPhaseLabel = 'Mild Bearish Phase';
+    currentPhaseProbability = clamp(Math.round(52 + Math.abs(oneMonthRet) * 0.9), 50, 72);
+  }
+
+  return {
+    averageBullDurationDays: bullDurations.length ? Number((average(bullDurations) ?? 0).toFixed(0)) : undefined,
+    averageBearDurationDays: bearDurations.length ? Number((average(bearDurations) ?? 0).toFixed(0)) : undefined,
+    currentPhaseLabel,
+    currentPhaseProbability,
+  };
+}
+
 function computeRisk(input: AiContextInput): AiInsights['risk'] {
   const points = input.history?.points ?? [];
-  if (points.length < 5) return { riskLevel: 'Medium', notes: ['Not enough price history for risk analysis.'] };
+  if (points.length < 5) {
+    return {
+      riskLevel: 'Medium',
+      confidence: 'low',
+      notes: ['Not enough price history for risk analysis.'],
+      marketComparison: 'Not enough history for reliable market-relative volatility comparison.',
+      decisionGuide: [
+        'Use smaller position size until more data is available.',
+        'Wait for more price history before using volatility-heavy strategies.',
+      ],
+    };
+  }
   const returns: number[] = [];
   for (let i = 1; i < points.length; i += 1) {
     returns.push((points[i].close - points[i - 1].close) / points[i - 1].close);
@@ -58,11 +146,40 @@ function computeRisk(input: AiContextInput): AiInsights['risk'] {
     maxDd = Math.min(maxDd, dd);
   }
   const riskLevel = volatility > 40 || maxDd < -45 ? 'High' : volatility > 25 || maxDd < -25 ? 'Medium' : 'Low';
+  const confidence: AiInsights['risk']['confidence'] = points.length >= 240 ? 'high' : points.length >= 120 ? 'medium' : 'low';
+  const marketBaselineVol = 18;
+  const relativeVolatility = volatility / marketBaselineVol;
   const notes = [
     `Annualized volatility is approximately ${volatility.toFixed(1)}%.`,
     `Maximum drawdown in available history is ${maxDd.toFixed(1)}%.`,
   ];
-  return { volatility, maxDrawdown: maxDd, riskLevel, notes };
+  const decisionGuide =
+    riskLevel === 'High'
+      ? [
+          'Expect large price swings and deep pullbacks.',
+          'Not ideal for short-term low-risk investors.',
+          'Use tighter risk limits and smaller allocation size.',
+        ]
+      : riskLevel === 'Medium'
+        ? [
+            'Moderate swings are likely; avoid oversized positions.',
+            'Best suited for staggered entry instead of single-entry buying.',
+            'Track drawdown and earnings quality together.',
+          ]
+        : [
+            'Price behavior is relatively stable versus many volatile names.',
+            'Still monitor valuation and business quality before entry.',
+            'Suitable for gradual accumulation if fundamentals remain strong.',
+          ];
+  return {
+    volatility,
+    maxDrawdown: maxDd,
+    riskLevel,
+    confidence,
+    notes,
+    marketComparison: `Volatility is ${relativeVolatility.toFixed(1)}x versus a broad-market baseline (${marketBaselineVol.toFixed(0)}%).`,
+    decisionGuide,
+  };
 }
 
 function computeFraudFlags(input: AiContextInput): FraudFlag[] {
@@ -77,32 +194,40 @@ function computeFraudFlags(input: AiContextInput): FraudFlag[] {
     flags.push({
       id: 'pledge-high',
       severity: 'high',
+      riskScore: 8,
       title: 'High promoter pledge',
       detail: 'Promoter pledged shares are elevated. This can increase financial and governance risk.',
+      suggestedAction: 'Track quarterly pledge trend and avoid aggressive entry until pledge levels normalize.',
     });
   }
   if ((salesGrowth ?? 0) > 12 && (profitGrowth ?? 0) < 0) {
     flags.push({
       id: 'growth-profit-mismatch',
       severity: 'medium',
+      riskScore: 6,
       title: 'Sales up but profit not keeping pace',
       detail: 'Revenue growth without profit growth may indicate margin pressure or aggressive accounting assumptions.',
+      suggestedAction: 'Verify margin trend and cash-flow conversion before assuming growth quality is strong.',
     });
   }
   if ((opm ?? 0) < 5 && (salesGrowth ?? 0) > 10) {
     flags.push({
       id: 'margin-collapse',
       severity: 'medium',
+      riskScore: 6,
       title: 'Low operating margin',
       detail: 'Low or falling operating margin can be a sign of poor pricing power or rising costs.',
+      suggestedAction: 'Monitor margin recovery over the next two results before increasing exposure.',
     });
   }
   if ((debtToEquity ?? 0) > 2.5) {
     flags.push({
       id: 'leverage-high',
       severity: 'medium',
+      riskScore: 7,
       title: 'High leverage',
       detail: 'Debt-to-equity appears high. Verify business model and debt servicing ability before relying on growth assumptions.',
+      suggestedAction: 'Track interest coverage and avoid aggressive averaging when leverage stays elevated.',
     });
   }
   return flags;
@@ -117,26 +242,98 @@ function computeSentiment(input: AiContextInput): AiInsights['sentiment'] {
       buyProbability: 33,
       holdProbability: 34,
       sellProbability: 33,
+      confidence: 'low',
+      buyBias: 'Balanced',
+      suggestedAction: 'No clear news edge. Keep on watchlist and rely more on fundamentals and price trend.',
+      drivers: [{ tone: 'neutral', detail: 'No recent relevant news was available for sentiment scoring.' }],
       rationale: ['No recent relevant news found. Sentiment score is neutral by default.'],
     };
   }
   let score = 0;
+  let positiveHits = 0;
+  let negativeHits = 0;
+  let debtConcernMentions = 0;
+  let positiveEarningsMentions = 0;
+  let mixedOutlookMentions = 0;
   for (const item of articles) {
     const text = `${item.title} ${item.snippet ?? ''}`.toLowerCase();
-    for (const p of POSITIVE_WORDS) if (text.includes(p)) score += 1;
-    for (const n of NEGATIVE_WORDS) if (text.includes(n)) score -= 1;
+    for (const p of POSITIVE_WORDS) {
+      if (text.includes(p)) {
+        score += 1;
+        positiveHits += 1;
+      }
+    }
+    for (const n of NEGATIVE_WORDS) {
+      if (text.includes(n)) {
+        score -= 1;
+        negativeHits += 1;
+      }
+    }
+    if (/\bdebt\b|\bleverage\b|\bborrowings?\b|\binterest\b/.test(text)) debtConcernMentions += 1;
+    if (/\bearnings\b|\bresults\b|\bprofit\b|\brevenue\b/.test(text) && /beat|growth|strong|improve|record/.test(text)) {
+      positiveEarningsMentions += 1;
+    }
+    if (/\boutlook\b|\bguidance\b|\bmixed\b|\buncertain\b|\bvolatile\b/.test(text)) mixedOutlookMentions += 1;
   }
   const label = score > 1 ? 'Bullish' : score < -1 ? 'Bearish' : 'Neutral';
-  const buyProbability = Math.max(5, Math.min(90, Math.round(40 + score * 8)));
-  const sellProbability = Math.max(5, Math.min(90, Math.round(30 - score * 8)));
+  const boundedScore = clamp(score, -8, 8);
+  const buyProbability = clamp(Math.round(35 + boundedScore * 6), 5, 85);
+  const sellProbability = clamp(Math.round(35 - boundedScore * 6), 5, 85);
   const holdProbability = Math.max(5, 100 - buyProbability - sellProbability);
+  const scoreGap = buyProbability - sellProbability;
+  const buyBias: AiInsights['sentiment']['buyBias'] =
+    scoreGap >= 20 ? 'Strong Bullish' : scoreGap >= 8 ? 'Mild Bullish' : scoreGap <= -20 ? 'Strong Bearish' : scoreGap <= -8 ? 'Mild Bearish' : 'Balanced';
+  const confidence: AiInsights['sentiment']['confidence'] =
+    articles.length >= 12 && Math.abs(score) >= 5 ? 'high' : articles.length >= 6 ? 'medium' : 'low';
+  const drivers: AiInsights['sentiment']['drivers'] = [];
+  if (positiveEarningsMentions > 0) {
+    drivers.push({
+      tone: 'positive',
+      detail: `Positive earnings coverage appeared in ${positiveEarningsMentions} recent article${positiveEarningsMentions > 1 ? 's' : ''}.`,
+    });
+  }
+  if (debtConcernMentions > 0) {
+    drivers.push({
+      tone: 'negative',
+      detail: `Debt or leverage concerns were mentioned in ${debtConcernMentions} article${debtConcernMentions > 1 ? 's' : ''}.`,
+    });
+  }
+  if (mixedOutlookMentions > 0) {
+    drivers.push({
+      tone: 'neutral',
+      detail: `Management outlook looked mixed/uncertain in ${mixedOutlookMentions} item${mixedOutlookMentions > 1 ? 's' : ''}.`,
+    });
+  }
+  if (!drivers.length) {
+    drivers.push({
+      tone: label === 'Bullish' ? 'positive' : label === 'Bearish' ? 'negative' : 'neutral',
+      detail: `Headline tone was ${label.toLowerCase()} across ${articles.length} analyzed news item${articles.length > 1 ? 's' : ''}.`,
+    });
+  }
+  const suggestedAction =
+    buyBias === 'Strong Bullish'
+      ? 'Positive sentiment tilt. Consider staggered buy entries near support levels.'
+      : buyBias === 'Mild Bullish'
+        ? 'Mildly positive. Hold or accumulate on dips instead of chasing sharp rallies.'
+        : buyBias === 'Balanced'
+          ? 'Neutral setup. Hold and wait for either stronger earnings confirmation or better valuation.'
+          : buyBias === 'Mild Bearish'
+            ? 'Cautious bias. Keep on watchlist and avoid oversized fresh positions.'
+            : 'Defensive stance. Prefer capital protection until sentiment and fundamentals improve.';
   return {
     score,
     label,
     buyProbability,
     holdProbability,
     sellProbability,
-    rationale: [`Lexicon-based sentiment over ${articles.length} news items.`, 'Use alongside fundamentals and price action.'],
+    confidence,
+    buyBias,
+    suggestedAction,
+    drivers,
+    rationale: [
+      `Lexicon-based sentiment over ${articles.length} news items (${positiveHits} positive hits vs ${negativeHits} negative hits).`,
+      'Use alongside fundamentals and price action.',
+    ],
   };
 }
 
@@ -170,17 +367,38 @@ function buildProsCons(input: AiContextInput, riskLevel: 'Low' | 'Medium' | 'Hig
   const industryPe = getMetric(input, 'industryPe');
   const dividendYield = getMetric(input, 'dividendYield');
 
-  if ((salesGrowth ?? 0) > 10) pros.push('Revenue growth trend looks healthy based on available data.');
-  if ((roe ?? 0) > 15) pros.push('Return on equity is strong, indicating efficient use of capital.');
-  if ((debtToEquity ?? 9) < 0.8) pros.push('Balance sheet leverage appears manageable.');
-  if ((dividendYield ?? 0) > 1) pros.push('Company offers a measurable dividend yield.');
+  if ((salesGrowth ?? 0) > 10) {
+    pros.push('Sales growth is healthy, which supports future scale and earnings potential if margins remain stable.');
+  }
+  if ((roe ?? 0) > 15) {
+    pros.push('Strong ROE indicates efficient capital use, supporting long-term compounding when sustained.');
+  }
+  if ((debtToEquity ?? 9) < 0.8) {
+    pros.push('Debt levels look manageable, which reduces downside pressure during weak business cycles.');
+  }
+  if ((dividendYield ?? 0) > 1) {
+    pros.push('Meaningful dividend adds a cash-return cushion, which can improve total-return stability.');
+  }
 
-  if ((pe ?? 0) > (industryPe ?? Infinity) * 1.2) cons.push('Valuation appears richer than industry average P/E.');
-  if ((debtToEquity ?? 0) > 2) cons.push('High debt load can amplify downside risk in weak cycles.');
-  if (riskLevel === 'High') cons.push('Price volatility/drawdown profile is high in available history.');
-  if (!pros.length) pros.push('No strong metric-based positives were detected from the available dataset.');
-  if (!cons.length) cons.push('No major metric-based concerns were flagged by the current analytical checks.');
-  return { pros, cons };
+  if ((pe ?? 0) > (industryPe ?? Infinity) * 1.2) {
+    cons.push('Valuation is richer than industry average, so downside risk increases if growth slows.');
+  }
+  if ((debtToEquity ?? 0) > 2) {
+    cons.push('High debt can amplify drawdowns in weak cycles and reduce flexibility during slowdowns.');
+  }
+  if (riskLevel === 'High') {
+    cons.push('Price volatility and drawdown profile are high, making timing and position sizing critical.');
+  }
+  if (!pros.length) {
+    pros.push('No major high-confidence positives were detected from currently available metrics.');
+  }
+  if (!cons.length) {
+    cons.push('No major risk flags were triggered by the current metric checks.');
+  }
+  const netScore = pros.length - cons.length + (riskLevel === 'Low' ? 1 : riskLevel === 'High' ? -1 : 0);
+  const netImpact: AiInsights['prosCons']['netImpact'] =
+    netScore >= 2 ? 'Positive' : netScore === 1 ? 'Slightly Positive' : netScore <= -1 ? 'Negative' : 'Neutral';
+  return { pros, cons, netImpact };
 }
 
 function latestFromStatement(input: AiContextInput, labelRegex: RegExp) {
@@ -195,11 +413,434 @@ function latestFromStatement(input: AiContextInput, labelRegex: RegExp) {
   return { values: [], labels: [] as string[] };
 }
 
+function confidenceFromSeriesLength(length: number): AiInsights['confidence'] {
+  if (length >= 6) return 'high';
+  if (length >= 4) return 'medium';
+  return 'low';
+}
+
+function lowerConfidence(base: AiInsights['confidence'], steps = 1): AiInsights['confidence'] {
+  const order: AiInsights['confidence'][] = ['low', 'medium', 'high'];
+  const idx = Math.max(0, order.indexOf(base) - steps);
+  return order[idx];
+}
+
+function confidenceBand(confidence: AiInsights['confidence']): number {
+  if (confidence === 'high') return 8;
+  if (confidence === 'medium') return 13;
+  return 20;
+}
+
+function buildExplainability(input: AiContextInput): AiInsights['explainability'] {
+  const hasMetrics = (input.metrics?.length ?? 0) > 0;
+  const hasNews = (input.news?.length ?? 0) > 0;
+  const hasHistory = (input.history?.points?.length ?? 0) > 30;
+
+  let financialWeight = hasMetrics ? 45 : 30;
+  let sentimentWeight = hasNews ? 30 : 15;
+  let technicalWeight = hasHistory ? 25 : 10;
+
+  const total = financialWeight + sentimentWeight + technicalWeight;
+  financialWeight = Math.round((financialWeight / total) * 100);
+  sentimentWeight = Math.round((sentimentWeight / total) * 100);
+  technicalWeight = 100 - financialWeight - sentimentWeight;
+
+  return [
+    {
+      driver: 'Financials',
+      weight: financialWeight,
+      detail: 'Based on growth, profitability, leverage, and valuation metrics.',
+    },
+    {
+      driver: 'Sentiment',
+      weight: sentimentWeight,
+      detail: 'Based on news tone, recurring themes, and positive/negative article drivers.',
+    },
+    {
+      driver: 'Technical Trend',
+      weight: technicalWeight,
+      detail: 'Based on drawdown, volatility, and observed bull/bear cycle behavior.',
+    },
+  ];
+}
+
+function buildDecisionEngine(
+  input: AiContextInput,
+  risk: AiInsights['risk'],
+  sentiment: AiInsights['sentiment'],
+  trendSummary: AiInsights['trendSummary'],
+): AiInsights['decisionEngine'] {
+  const salesGrowth = getMetric(input, 'salesGrowth');
+  const profitGrowth = getMetric(input, 'profitGrowth');
+  const debtToEquity = getMetric(input, 'debtToEquity');
+  const pe = getMetric(input, 'pe');
+  const industryPe = getMetric(input, 'industryPe');
+  const roe = getMetric(input, 'roe');
+  const points = input.history?.points ?? [];
+  const currentPrice = points.length ? points[points.length - 1].close : undefined;
+
+  let score = 0;
+  let signalCount = 0;
+  const drivers: string[] = [];
+
+  if (typeof salesGrowth === 'number') {
+    signalCount += 1;
+    if (salesGrowth >= 12) {
+      score += 1;
+      drivers.push('healthy sales growth');
+    } else if (salesGrowth < 4) {
+      score -= 1;
+      drivers.push('slow sales growth');
+    }
+  }
+  if (typeof profitGrowth === 'number') {
+    signalCount += 1;
+    if (profitGrowth >= 12) {
+      score += 1;
+      drivers.push('strong profit growth');
+    } else if (profitGrowth < 2) {
+      score -= 1;
+      drivers.push('weak profit trend');
+    }
+  }
+  if (typeof debtToEquity === 'number') {
+    signalCount += 1;
+    if (debtToEquity <= 0.8) {
+      score += 1;
+      drivers.push('manageable leverage');
+    } else if (debtToEquity > 2) {
+      score -= 2;
+      drivers.push('high leverage');
+    }
+  }
+  if (typeof roe === 'number') {
+    signalCount += 1;
+    if (roe >= 15) {
+      score += 1;
+      drivers.push('strong return on equity');
+    } else if (roe < 10) {
+      score -= 1;
+      drivers.push('sub-optimal ROE');
+    }
+  }
+  if (typeof pe === 'number' && typeof industryPe === 'number' && industryPe > 0) {
+    signalCount += 1;
+    if (pe <= industryPe) {
+      score += 1;
+      drivers.push('valuation not above industry average');
+    } else if (pe > industryPe * 1.25) {
+      score -= 1;
+      drivers.push('valuation premium risk');
+    }
+  }
+
+  signalCount += 1;
+  if (risk.riskLevel === 'High') {
+    score -= 2;
+    drivers.push('high volatility and drawdown risk');
+  } else if (risk.riskLevel === 'Low') {
+    score += 1;
+    drivers.push('stable risk profile');
+  }
+
+  signalCount += 1;
+  if (sentiment.buyBias === 'Strong Bullish') {
+    score += 2;
+    drivers.push('strongly positive sentiment');
+  } else if (sentiment.buyBias === 'Mild Bullish') {
+    score += 1;
+    drivers.push('mildly positive sentiment');
+  } else if (sentiment.buyBias === 'Mild Bearish') {
+    score -= 1;
+    drivers.push('mildly negative sentiment');
+  } else if (sentiment.buyBias === 'Strong Bearish') {
+    score -= 2;
+    drivers.push('strongly negative sentiment');
+  }
+
+  signalCount += 1;
+  if (/bull/i.test(trendSummary.currentPhaseLabel)) {
+    score += 1;
+    drivers.push('price trend in bullish phase');
+  } else if (/bear/i.test(trendSummary.currentPhaseLabel)) {
+    score -= 1;
+    drivers.push('price trend in bearish phase');
+  }
+
+  const recommendation: AiInsights['decisionEngine']['recommendation'] = score >= 3 ? 'Buy' : score <= -2 ? 'Reduce' : 'Hold';
+  const confidence: AiInsights['decisionEngine']['confidence'] = signalCount >= 8 ? 'high' : signalCount >= 5 ? 'medium' : 'low';
+  const explanation =
+    recommendation === 'Buy'
+      ? `Constructive setup with ${drivers.slice(0, 3).join(', ')}. Prefer staggered buying over chasing sharp rallies.`
+      : recommendation === 'Reduce'
+        ? `Defensive setup with ${drivers.slice(0, 3).join(', ')}. Capital protection is more important than aggressive entry now.`
+        : `Mixed setup with ${drivers.slice(0, 3).join(', ')}. Hold and wait for stronger confirmation before large action.`;
+
+  const riskBuffer = risk.riskLevel === 'High' ? 0.1 : risk.riskLevel === 'Medium' ? 0.08 : 0.06;
+  const rewardBuffer = risk.riskLevel === 'High' ? 0.13 : 0.1;
+
+  return {
+    recommendation,
+    explanation,
+    confidence,
+    buyBelow: typeof currentPrice === 'number' ? Number((currentPrice * (1 - riskBuffer)).toFixed(2)) : undefined,
+    sellAbove: typeof currentPrice === 'number' ? Number((currentPrice * (1 + rewardBuffer)).toFixed(2)) : undefined,
+    stopLoss: typeof currentPrice === 'number' ? Number((currentPrice * (1 - riskBuffer - 0.04)).toFixed(2)) : undefined,
+  };
+}
+
+function buildHorizonInsights(
+  input: AiContextInput,
+  sentiment: AiInsights['sentiment'],
+  risk: AiInsights['risk'],
+  trendSummary: AiInsights['trendSummary'],
+  forecast: AiInsights['forecast'],
+): AiInsights['horizonInsights'] {
+  const salesGrowth = getMetric(input, 'salesGrowth') ?? 0;
+  const profitGrowth = getMetric(input, 'profitGrowth') ?? 0;
+  const debtToEquity = getMetric(input, 'debtToEquity') ?? 1.2;
+
+  const shortScore = (sentiment.buyProbability - sentiment.sellProbability) / 10 + (/bull/i.test(trendSummary.currentPhaseLabel) ? 1 : /bear/i.test(trendSummary.currentPhaseLabel) ? -1 : 0);
+  const midGrowth = average(
+    forecast
+      .map((f) => f.salesGrowthPct)
+      .filter((v): v is number => typeof v === 'number' && Number.isFinite(v)),
+  ) ?? 0;
+  const midScore = midGrowth >= 10 ? 1 : midGrowth >= 4 ? 0 : -1;
+  const longScore = (salesGrowth >= 10 ? 1 : salesGrowth < 4 ? -1 : 0) + (profitGrowth >= 10 ? 1 : profitGrowth < 4 ? -1 : 0) + (debtToEquity <= 1 ? 1 : debtToEquity > 2 ? -1 : 0);
+
+  const toStance = (score: number): AiInsights['horizonInsights'][number]['stance'] => (score >= 1 ? 'Positive' : score <= -1 ? 'Cautious' : 'Neutral');
+
+  return [
+    {
+      horizon: 'Short-term (0-3M)',
+      stance: toStance(shortScore),
+      detail:
+        shortScore >= 1
+          ? 'News and near-term trend are supportive, but use staged entries due to normal volatility.'
+          : shortScore <= -1
+            ? 'Near-term setup is fragile. Wait for momentum stabilization before fresh aggressive buying.'
+            : 'Near-term signals are mixed; maintain watchlist discipline and focus on risk control.',
+    },
+    {
+      horizon: 'Mid-term (3-12M)',
+      stance: toStance(midScore),
+      detail:
+        midScore >= 1
+          ? 'Baseline forecast suggests improving trajectory if execution remains steady.'
+          : midScore <= -1
+            ? 'Forecast visibility is weak. Prefer conservative expectations and tighter monitoring.'
+            : 'Mid-term outlook is balanced; track quarterly trend consistency.',
+    },
+    {
+      horizon: 'Long-term (1-3Y)',
+      stance: toStance(longScore - (risk.riskLevel === 'High' ? 1 : 0)),
+      detail:
+        longScore >= 2
+          ? 'Business fundamentals support long-term compounding if valuation and debt remain controlled.'
+          : longScore <= 0
+            ? 'Long-term case needs better growth quality or balance-sheet improvement before high conviction.'
+            : 'Long-term setup is acceptable but needs periodic validation from cash flow and profitability quality.',
+    },
+  ];
+}
+
+function buildEntryExitSignals(
+  input: AiContextInput,
+  risk: AiInsights['risk'],
+  sentiment: AiInsights['sentiment'],
+  trendSummary: AiInsights['trendSummary'],
+): AiInsights['entryExit'] {
+  const points = input.history?.points ?? [];
+  if (!points.length) {
+    return {
+      breakoutProbability: 50,
+      note: 'Not enough chart history to estimate buy zone, resistance, or breakout probability.',
+    };
+  }
+  const currentPrice = points[points.length - 1].close;
+  const recentSlice = points.slice(-120);
+  const recentHigh = Math.max(...recentSlice.map((p) => p.close));
+  const riskBuffer = risk.riskLevel === 'High' ? 0.1 : risk.riskLevel === 'Medium' ? 0.08 : 0.06;
+  const buyZoneLow = Number((currentPrice * (1 - riskBuffer)).toFixed(2));
+  const buyZoneHigh = Number((currentPrice * (1 - Math.max(0.03, riskBuffer - 0.03))).toFixed(2));
+  const breakoutProbability = clamp(
+    Math.round(
+      45 +
+        (sentiment.buyProbability - sentiment.sellProbability) * 0.4 +
+        (/bull/i.test(trendSummary.currentPhaseLabel) ? 8 : /bear/i.test(trendSummary.currentPhaseLabel) ? -8 : 0) -
+        (risk.riskLevel === 'High' ? 8 : 0),
+    ),
+    15,
+    85,
+  );
+
+  return {
+    buyZoneLow,
+    buyZoneHigh,
+    resistance: Number(recentHigh.toFixed(2)),
+    breakoutProbability,
+    note:
+      breakoutProbability >= 60
+        ? 'Breakout odds are constructive, but entry quality still matters.'
+        : breakoutProbability <= 40
+          ? 'Breakout odds are weak. Prefer patience and confirmation.'
+          : 'Breakout odds are balanced; use alert-based entry instead of impulse buying.',
+  };
+}
+
+function buildPeerSignals(input: AiContextInput): string[] {
+  const salesGrowth = getMetric(input, 'salesGrowth');
+  const profitGrowth = getMetric(input, 'profitGrowth');
+  const debtToEquity = getMetric(input, 'debtToEquity');
+  const pe = getMetric(input, 'pe');
+  const industryPe = getMetric(input, 'industryPe');
+
+  const signals: string[] = [];
+  if (typeof salesGrowth === 'number') {
+    signals.push(
+      salesGrowth >= 12
+        ? 'Revenue growth appears stronger than many mature peers.'
+        : salesGrowth >= 6
+          ? 'Revenue growth is near peer-average pace.'
+          : 'Revenue growth appears weaker than many growth-oriented peers.',
+    );
+  }
+  if (typeof debtToEquity === 'number') {
+    signals.push(
+      debtToEquity <= 0.8
+        ? 'Leverage profile is healthier than many debt-heavy peers.'
+        : debtToEquity > 2
+          ? 'Leverage is weaker than conservative peers and needs monitoring.'
+          : 'Leverage is moderate versus peers.',
+    );
+  }
+  if (typeof pe === 'number' && typeof industryPe === 'number' && industryPe > 0) {
+    signals.push(
+      pe <= industryPe
+        ? 'Valuation is not above industry average, which supports better entry comfort.'
+        : 'Valuation trades above industry average, so margin of safety is lower.',
+    );
+  }
+  if (typeof profitGrowth === 'number' && signals.length < 4) {
+    signals.push(
+      profitGrowth >= 10
+        ? 'Profit growth quality is competitive versus many peer groups.'
+        : 'Profit growth is modest and may lag stronger peer performers.',
+    );
+  }
+  if (!signals.length) {
+    signals.push('Peer-relative signals are limited because key benchmark metrics are incomplete.');
+  }
+  return signals.slice(0, 4);
+}
+
+function buildPatternSignals(trendPeriods: TrendPeriod[]): string[] {
+  if (!trendPeriods.length) {
+    return ['Not enough trend segments yet for recurring pattern detection.'];
+  }
+  let reboundCount = 0;
+  for (let i = 0; i < trendPeriods.length - 1; i += 1) {
+    const current = trendPeriods[i];
+    const next = trendPeriods[i + 1];
+    if (current.type === 'bear' && current.returnPct <= -15 && next.type === 'bull' && next.returnPct >= 10) {
+      reboundCount += 1;
+    }
+  }
+  const bullStreak = trendPeriods.filter((p) => p.type === 'bull').length;
+  const bearStreak = trendPeriods.filter((p) => p.type === 'bear').length;
+  const patterns: string[] = [];
+  if (reboundCount > 0) {
+    patterns.push(`After sharp corrections, the stock showed rebound behavior ${reboundCount} time${reboundCount > 1 ? 's' : ''} in the available history.`);
+  }
+  patterns.push(
+    bullStreak >= bearStreak
+      ? 'Bull phases outnumber or match bear phases in the recent segmented trend sample.'
+      : 'Bear phases dominate the recent segmented trend sample, so timing discipline is important.',
+  );
+  return patterns.slice(0, 3);
+}
+
+function buildAlertSuggestions(
+  sentiment: AiInsights['sentiment'],
+  entryExit: AiInsights['entryExit'],
+  risk: AiInsights['risk'],
+): string[] {
+  const alerts: string[] = [];
+  if (sentiment.label !== 'Bullish') {
+    alerts.push('Alert if sentiment turns bullish or buy probability rises above 55%.');
+  }
+  if (typeof entryExit.buyZoneHigh === 'number') {
+    alerts.push(`Alert if price enters buy zone near ${entryExit.buyZoneHigh.toFixed(2)} or lower.`);
+  }
+  if (typeof entryExit.resistance === 'number') {
+    alerts.push(`Alert on breakout above resistance around ${entryExit.resistance.toFixed(2)} with strong volume.`);
+  }
+  if (risk.riskLevel === 'High') {
+    alerts.push('Alert if daily drawdown exceeds 5% to control downside risk quickly.');
+  }
+  return alerts.slice(0, 4);
+}
+
+function buildScenarioInsights(forecast: AiInsights['forecast'], risk: AiInsights['risk']): AiInsights['scenarioInsights'] {
+  const baselineSalesGrowth =
+    average(
+      forecast
+        .map((f) => f.salesGrowthPct)
+        .filter((v): v is number => typeof v === 'number' && Number.isFinite(v)),
+    ) ?? 0;
+  const optimisticGrowth = baselineSalesGrowth + 4;
+  const stressedGrowth = baselineSalesGrowth - 6;
+  return [
+    {
+      scenario: 'If revenue grows 10% faster than baseline',
+      expectedImpact: `Earnings trajectory can improve meaningfully; indicative upside bias increases (growth near ${optimisticGrowth.toFixed(1)}%).`,
+      riskChange: risk.riskLevel === 'High' ? 'Risk remains elevated despite higher growth because volatility is already high.' : 'Risk profile may improve slightly if profit conversion remains healthy.',
+    },
+    {
+      scenario: 'If interest rates stay higher for longer',
+      expectedImpact: `Net profit can face pressure, especially for debt-heavy balance sheets (stress growth near ${stressedGrowth.toFixed(1)}%).`,
+      riskChange: 'Downside risk increases if finance costs rise faster than operating profit.',
+    },
+  ];
+}
+
+function buildOverview(
+  risk: AiInsights['risk'],
+  sentiment: AiInsights['sentiment'],
+  prosCons: AiInsights['prosCons'],
+  trendSummary: AiInsights['trendSummary'],
+): string {
+  const riskText = risk.riskLevel === 'High' ? 'high-risk' : risk.riskLevel === 'Medium' ? 'moderate-risk' : 'lower-risk';
+  const growthText =
+    prosCons.netImpact === 'Positive' || prosCons.netImpact === 'Slightly Positive'
+      ? 'moderate-growth'
+      : prosCons.netImpact === 'Negative'
+        ? 'fragile-growth'
+        : 'mixed-growth';
+  const sentimentText = sentiment.buyBias.toLowerCase();
+  return `${riskText}, ${growthText} setup with ${sentimentText} sentiment; current phase is ${trendSummary.currentPhaseLabel.toLowerCase()}. Suitable for disciplined investors who follow risk controls.`;
+}
+
+function computeInsightsConfidence(input: AiContextInput, trendPeriods: TrendPeriod[], forecast: AiInsights['forecast']): AiInsights['confidence'] {
+  let coverage = 0;
+  if ((input.history?.points?.length ?? 0) >= 120) coverage += 1;
+  if ((input.metrics?.length ?? 0) >= 8) coverage += 1;
+  if ((input.news?.length ?? 0) >= 6) coverage += 1;
+  if ((input.statements?.length ?? 0) >= 2) coverage += 1;
+  if (trendPeriods.length >= 4) coverage += 1;
+  if (forecast.some((f) => f.confidence === 'high')) coverage += 1;
+  if (coverage >= 5) return 'high';
+  if (coverage >= 3) return 'medium';
+  return 'low';
+}
+
 export function generateAiInsights(input: AiContextInput): AiInsights {
   const points = input.history?.points ?? [];
   const prices = points.map((p) => p.close);
   const ts = points.map((p) => p.ts);
   const trendPeriods = calcTrendPeriods(prices, ts);
+  const trendSummary = computeTrendSummary(prices, trendPeriods);
   const risk = computeRisk(input);
   const fraudFlags = computeFraudFlags(input);
   const sentiment = computeSentiment(input);
@@ -209,17 +850,66 @@ export function generateAiInsights(input: AiContextInput): AiInsights {
   const salesForecast = linearForecast(salesSeries.values, salesSeries.labels);
   const profitForecast = linearForecast(profitSeries.values, profitSeries.labels);
 
+  const baselineForecastConfidence = confidenceFromSeriesLength(Math.max(salesSeries.values.length, profitSeries.values.length));
+  const forecast: AiInsights['forecast'] = [0, 1].map((i) => {
+    const sales = salesForecast[i]?.value;
+    const profit = profitForecast[i]?.value;
+    const prevSales = i === 0 ? salesSeries.values[salesSeries.values.length - 1] : salesForecast[i - 1]?.value;
+    const prevProfit = i === 0 ? profitSeries.values[profitSeries.values.length - 1] : profitForecast[i - 1]?.value;
+    const salesGrowthPct = typeof sales === 'number' && typeof prevSales === 'number' && prevSales !== 0 ? Number(changePct(prevSales, sales).toFixed(1)) : undefined;
+    const profitGrowthPct =
+      typeof profit === 'number' && typeof prevProfit === 'number' && prevProfit !== 0 ? Number(changePct(prevProfit, profit).toFixed(1)) : undefined;
+    const confidence = lowerConfidence(baselineForecastConfidence, i === 0 ? 0 : 1);
+    const band = confidenceBand(confidence);
+    return {
+      period: salesForecast[i]?.period ?? profitForecast[i]?.period ?? `F+${i + 1}`,
+      sales,
+      profit,
+      salesGrowthPct,
+      profitGrowthPct,
+      confidence,
+      bestCaseSales: typeof sales === 'number' ? Number((sales * (1 + band / 100)).toFixed(2)) : undefined,
+      worstCaseSales: typeof sales === 'number' ? Number((sales * (1 - band / 100)).toFixed(2)) : undefined,
+      bestCaseProfit: typeof profit === 'number' ? Number((profit * (1 + band / 100)).toFixed(2)) : undefined,
+      worstCaseProfit: typeof profit === 'number' ? Number((profit * (1 - band / 100)).toFixed(2)) : undefined,
+    };
+  });
+
+  const prosCons = buildProsCons(input, risk.riskLevel);
+  const decisionEngine = buildDecisionEngine(input, risk, sentiment, trendSummary);
+  const explainability = buildExplainability(input);
+  const horizonInsights = buildHorizonInsights(input, sentiment, risk, trendSummary, forecast);
+  const entryExit = buildEntryExitSignals(input, risk, sentiment, trendSummary);
+  const peerSignals = buildPeerSignals(input);
+  const patternSignals = buildPatternSignals(trendPeriods);
+  const alertSuggestions = buildAlertSuggestions(sentiment, entryExit, risk);
+  const scenarioInsights = buildScenarioInsights(forecast, risk);
+  const confidence = computeInsightsConfidence(input, trendPeriods, forecast);
+  const overview = buildOverview(risk, sentiment, prosCons, trendSummary);
+  const forecastAssumption =
+    risk.riskLevel === 'High'
+      ? 'Key assumption: demand remains stable and financing conditions do not worsen sharply.'
+      : 'Key assumption: demand growth remains in a normal cycle range and margins stay broadly stable.';
+
   return {
+    confidence,
+    overview,
     trendPeriods,
+    trendSummary,
     risk,
     fraudFlags,
     sentiment,
-    forecast: [0, 1].map((i) => ({
-      period: salesForecast[i]?.period ?? profitForecast[i]?.period ?? `F+${i + 1}`,
-      sales: salesForecast[i]?.value,
-      profit: profitForecast[i]?.value,
-    })),
-    prosCons: buildProsCons(input, risk.riskLevel),
+    forecast,
+    forecastAssumption,
+    scenarioInsights,
+    decisionEngine,
+    explainability,
+    horizonInsights,
+    entryExit,
+    prosCons,
+    peerSignals,
+    patternSignals,
+    alertSuggestions,
   };
 }
 

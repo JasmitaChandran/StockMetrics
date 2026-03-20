@@ -634,7 +634,7 @@ function BeginnerPanel({ assessment }: { assessment: BeginnerAssessment | null }
   );
 }
 
-function AiInsightsPanel({ insights }: { insights: AiInsights | null }) {
+function AiInsightsPanel({ insights, currency }: { insights: AiInsights | null; currency?: 'USD' | 'INR' }) {
   if (!insights) {
     return (
       <SectionCard title="AI Insights" subtitle="Automated analytical indicators generated from available data.">
@@ -642,111 +642,378 @@ function AiInsightsPanel({ insights }: { insights: AiInsights | null }) {
       </SectionCard>
     );
   }
+  const confidenceStyle = {
+    high: 'border-emerald-500/35 bg-emerald-500/12 text-emerald-300',
+    medium: 'border-sky-500/35 bg-sky-500/12 text-sky-300',
+    low: 'border-amber-500/35 bg-amber-500/12 text-amber-300',
+  } as const;
+
+  const recommendationStyle = {
+    Buy: 'border-emerald-500/30 bg-emerald-500/12 text-emerald-300',
+    Hold: 'border-amber-500/30 bg-amber-500/12 text-amber-300',
+    Reduce: 'border-rose-500/30 bg-rose-500/12 text-rose-300',
+  } as const;
+
+  const netImpactStyle = {
+    Positive: 'border-emerald-500/30 bg-emerald-500/12 text-emerald-300',
+    'Slightly Positive': 'border-cyan-500/30 bg-cyan-500/12 text-cyan-300',
+    Neutral: 'border-slate-500/30 bg-slate-500/12 text-slate-300',
+    Negative: 'border-rose-500/30 bg-rose-500/12 text-rose-300',
+  } as const;
+
+  const stanceStyle = {
+    Positive: 'border-emerald-500/30 bg-emerald-500/12 text-emerald-300',
+    Neutral: 'border-slate-500/30 bg-slate-500/12 text-slate-300',
+    Cautious: 'border-amber-500/30 bg-amber-500/12 text-amber-300',
+  } as const;
+
+  const formatLevel = (value?: number) => {
+    if (typeof value !== 'number') return '—';
+    if (currency) return formatCurrency(value, currency);
+    return formatNumber(value, 2);
+  };
+
   return (
-    <SectionCard title="AI Insights" subtitle="Automated analytical indicators. For research and education purposes only.">
-      <div className="grid gap-4 xl:grid-cols-2">
-        <div className="space-y-3">
-          <div className="rounded-xl border border-border p-3">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Bull / Bear Periods</div>
-            <div className="space-y-2 text-sm">
-              {insights.trendPeriods.length ? (
-                insights.trendPeriods.map((p) => (
-                  <div key={`${p.start}-${p.end}`} className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-2 py-1.5">
-                    <span className="text-xs text-slate-500">{new Date(p.start).toLocaleDateString()} → {new Date(p.end).toLocaleDateString()}</span>
-                    <span className={cn('inline-flex items-center gap-1 text-sm font-medium', p.type === 'bull' ? 'text-positive' : 'text-negative')}>
-                      {p.type === 'bull' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                      {formatPercent(p.returnPct)}
-                    </span>
+    <SectionCard title="AI Insights" subtitle="Decision-oriented explanation from trend, fundamentals, sentiment, and risk signals.">
+      <div className="space-y-4">
+        <div className="rounded-xl border border-border bg-card/50 p-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Smart Summary</div>
+            <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', confidenceStyle[insights.confidence])}>
+              {insights.confidence} confidence
+            </span>
+          </div>
+          <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-200">{insights.overview}</p>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div className="space-y-3">
+            <div className="rounded-xl border border-border p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">What Should I Do?</div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className={cn('rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-wide', recommendationStyle[insights.decisionEngine.recommendation])}>
+                  Recommendation: {insights.decisionEngine.recommendation}
+                </span>
+                <span className={cn('rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide', confidenceStyle[insights.decisionEngine.confidence])}>
+                  {insights.decisionEngine.confidence} confidence
+                </span>
+              </div>
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{insights.decisionEngine.explanation}</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-2 text-xs">
+                  <div className="text-slate-500">Buy below</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{formatLevel(insights.decisionEngine.buyBelow)}</div>
+                </div>
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-2 text-xs">
+                  <div className="text-slate-500">Sell above</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{formatLevel(insights.decisionEngine.sellAbove)}</div>
+                </div>
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-2 text-xs">
+                  <div className="text-slate-500">Stop loss</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{formatLevel(insights.decisionEngine.stopLoss)}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Trend & Cycles (Bull/Bear)</div>
+              <div className="mb-3 grid gap-2 sm:grid-cols-3">
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-2 text-xs">
+                  <div className="text-slate-500">Current phase</div>
+                  <div className="mt-1 text-sm font-semibold">{insights.trendSummary.currentPhaseLabel}</div>
+                </div>
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-2 text-xs">
+                  <div className="text-slate-500">Phase probability</div>
+                  <div className="mt-1 text-sm font-semibold">{insights.trendSummary.currentPhaseProbability}%</div>
+                </div>
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-2 text-xs">
+                  <div className="text-slate-500">Avg bull / bear duration</div>
+                  <div className="mt-1 text-sm font-semibold">
+                    {insights.trendSummary.averageBullDurationDays ?? '—'}d / {insights.trendSummary.averageBearDurationDays ?? '—'}d
                   </div>
-                ))
+                </div>
+              </div>
+              <div className="space-y-2 text-sm">
+                {insights.trendPeriods.length ? (
+                  insights.trendPeriods.map((p) => (
+                    <div key={`${p.start}-${p.end}`} className="rounded-lg border border-border/70 bg-muted/20 p-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium text-slate-900 dark:text-slate-100">{p.phaseLabel ?? (p.type === 'bull' ? 'Bull Phase' : 'Bear Phase')}</div>
+                          <div className="text-xs text-slate-500">
+                            {new Date(p.start).toLocaleDateString()} → {new Date(p.end).toLocaleDateString()}
+                            {p.context ? ` • ${p.context}` : ''}
+                          </div>
+                        </div>
+                        <span className={cn('inline-flex items-center gap-1 text-sm font-medium', p.type === 'bull' ? 'text-positive' : 'text-negative')}>
+                          {p.type === 'bull' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                          {formatPercent(p.returnPct)}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-slate-500">Not enough history for trend segmentation.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Risk Analysis</div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold">Risk Level: {insights.risk.riskLevel}</span>
+                <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', confidenceStyle[insights.risk.confidence])}>
+                  {insights.risk.confidence} confidence
+                </span>
+              </div>
+              {insights.risk.marketComparison ? <p className="mb-2 text-xs text-slate-500">{insights.risk.marketComparison}</p> : null}
+              <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
+                {insights.risk.notes.map((n) => (
+                  <li key={n}>• {n}</li>
+                ))}
+              </ul>
+              <div className="mt-2 rounded-lg border border-border/70 bg-muted/20 p-2">
+                <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">What this means</div>
+                <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
+                  {insights.risk.decisionGuide.map((line) => (
+                    <li key={line}>• {line}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Fraud / Governance Red Flags</div>
+              {insights.fraudFlags.length ? (
+                <div className="space-y-2">
+                  {insights.fraudFlags.map((flag) => (
+                    <div key={flag.id} className="rounded-lg border border-border p-2 text-sm">
+                      <div className="flex flex-wrap items-center gap-2 font-medium">
+                        <AlertTriangle className="h-4 w-4 text-warning" />
+                        <span>{flag.title}</span>
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">{flag.severity}</span>
+                        <span className="rounded-full border border-border/70 bg-card/60 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                          Risk score {flag.riskScore}/10
+                        </span>
+                      </div>
+                      <p className="mt-1 text-slate-600 dark:text-slate-300">{flag.detail}</p>
+                      <p className="mt-1 text-xs text-slate-500">Suggested action: {flag.suggestedAction}</p>
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <div className="text-slate-500">Not enough history for trend segmentation.</div>
+                <p className="text-sm text-slate-500">No red flags were triggered by the current analytical checks.</p>
               )}
             </div>
           </div>
-          <div className="rounded-xl border border-border p-3">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Risk Analysis</div>
-            <div className="mb-2 text-sm font-medium">Risk Level: {insights.risk.riskLevel}</div>
-            <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
-              {insights.risk.notes.map((n) => (
-                <li key={n}>• {n}</li>
-              ))}
-            </ul>
-          </div>
-          <div className="rounded-xl border border-border p-3">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Fraud / Governance Red Flags</div>
-            {insights.fraudFlags.length ? (
-              <div className="space-y-2">
-                {insights.fraudFlags.map((flag) => (
-                  <div key={flag.id} className="rounded-lg border border-border p-2 text-sm">
-                    <div className="flex items-center gap-2 font-medium">
-                      <AlertTriangle className="h-4 w-4 text-warning" /> {flag.title}
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">{flag.severity}</span>
-                    </div>
-                    <p className="mt-1 text-slate-600 dark:text-slate-300">{flag.detail}</p>
+
+          <div className="space-y-3">
+            <div className="rounded-xl border border-border p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">News Sentiment (Explainable)</div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold">Sentiment: {insights.sentiment.label}</span>
+                <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', confidenceStyle[insights.sentiment.confidence])}>
+                  {insights.sentiment.confidence} confidence
+                </span>
+                <span className="rounded-full border border-border/70 bg-card/60 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                  Buy bias: {insights.sentiment.buyBias}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                <div className="rounded-lg bg-emerald-500/10 p-2">BUY {insights.sentiment.buyProbability}%</div>
+                <div className="rounded-lg bg-amber-500/10 p-2">HOLD {insights.sentiment.holdProbability}%</div>
+                <div className="rounded-lg bg-rose-500/10 p-2">SELL {insights.sentiment.sellProbability}%</div>
+              </div>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{insights.sentiment.suggestedAction}</p>
+              <div className="mt-2 space-y-1 text-sm">
+                {insights.sentiment.drivers.map((driver) => (
+                  <div key={driver.detail} className="flex gap-2">
+                    <span
+                      className={cn('mt-1 h-2 w-2 rounded-full', {
+                        'bg-emerald-400': driver.tone === 'positive',
+                        'bg-rose-400': driver.tone === 'negative',
+                        'bg-slate-400': driver.tone === 'neutral',
+                      })}
+                    />
+                    <p className="text-slate-600 dark:text-slate-300">{driver.detail}</p>
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className="text-sm text-slate-500">No red flags were triggered by the current analytical checks.</p>
-            )}
+            </div>
+
+            <div className="rounded-xl border border-border p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Explainable AI (Why this recommendation)</div>
+              <div className="space-y-2">
+                {insights.explainability.map((part) => (
+                  <div key={part.driver} className="rounded-lg border border-border/70 bg-muted/20 p-2">
+                    <div className="mb-1 flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-500">{part.driver}</span>
+                      <span className="font-semibold text-slate-600 dark:text-slate-300">{part.weight}%</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500" style={{ width: `${part.weight}%` }} />
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">{part.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Forecast (with confidence and range)</div>
+              <div className="overflow-auto rounded-lg border border-border">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-muted/30 text-xs text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Period</th>
+                      <th className="px-3 py-2 text-right">Sales</th>
+                      <th className="px-3 py-2 text-right">Profit</th>
+                      <th className="px-3 py-2 text-right">Growth</th>
+                      <th className="px-3 py-2 text-right">Confidence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {insights.forecast.map((f) => (
+                      <tr key={f.period} className="border-t border-border">
+                        <td className="px-3 py-2">{f.period}</td>
+                        <td className="px-3 py-2 text-right">{typeof f.sales === 'number' ? formatNumber(f.sales) : '—'}</td>
+                        <td className="px-3 py-2 text-right">{typeof f.profit === 'number' ? formatNumber(f.profit) : '—'}</td>
+                        <td className="px-3 py-2 text-right text-xs">
+                          {typeof f.salesGrowthPct === 'number' ? `S ${formatPercent(f.salesGrowthPct)}` : 'S —'} /{' '}
+                          {typeof f.profitGrowthPct === 'number' ? `P ${formatPercent(f.profitGrowthPct)}` : 'P —'}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', confidenceStyle[f.confidence])}>
+                            {f.confidence}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">{insights.forecastAssumption}</p>
+              <div className="mt-2 space-y-1 text-xs text-slate-500">
+                {insights.forecast.map((f) => (
+                  <p key={`${f.period}-range`}>
+                    {f.period} range: Sales {typeof f.worstCaseSales === 'number' ? formatNumber(f.worstCaseSales) : '—'} to{' '}
+                    {typeof f.bestCaseSales === 'number' ? formatNumber(f.bestCaseSales) : '—'}; Profit{' '}
+                    {typeof f.worstCaseProfit === 'number' ? formatNumber(f.worstCaseProfit) : '—'} to{' '}
+                    {typeof f.bestCaseProfit === 'number' ? formatNumber(f.bestCaseProfit) : '—'}.
+                  </p>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Time Horizon Insights</div>
+              <div className="space-y-2">
+                {insights.horizonInsights.map((item) => (
+                  <div key={item.horizon} className="rounded-lg border border-border/70 bg-muted/20 p-2">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{item.horizon}</div>
+                      <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', stanceStyle[item.stance])}>
+                        {item.stance}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600 dark:text-slate-300">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Entry / Exit Signals</div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-2 text-xs">
+                  <div className="text-slate-500">Ideal buy zone</div>
+                  <div className="mt-1 text-sm font-semibold">
+                    {formatLevel(insights.entryExit.buyZoneLow)} - {formatLevel(insights.entryExit.buyZoneHigh)}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-2 text-xs">
+                  <div className="text-slate-500">Resistance level</div>
+                  <div className="mt-1 text-sm font-semibold">{formatLevel(insights.entryExit.resistance)}</div>
+                </div>
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-2 text-xs">
+                  <div className="text-slate-500">Breakout probability</div>
+                  <div className="mt-1 text-sm font-semibold">{insights.entryExit.breakoutProbability}%</div>
+                </div>
+              </div>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{insights.entryExit.note}</p>
+            </div>
           </div>
         </div>
-        <div className="space-y-3">
+
+        <div className="grid gap-3 xl:grid-cols-2">
           <div className="rounded-xl border border-border p-3">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">News Sentiment + BUY/SELL/HOLD Heuristic</div>
-            <div className="mb-2 text-sm font-medium">Sentiment: {insights.sentiment.label}</div>
-            <div className="grid grid-cols-3 gap-2 text-center text-sm">
-              <div className="rounded-lg bg-emerald-500/10 p-2">BUY {insights.sentiment.buyProbability}%</div>
-              <div className="rounded-lg bg-amber-500/10 p-2">HOLD {insights.sentiment.holdProbability}%</div>
-              <div className="rounded-lg bg-rose-500/10 p-2">SELL {insights.sentiment.sellProbability}%</div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Investment Impact</div>
+              <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', netImpactStyle[insights.prosCons.netImpact])}>
+                Net impact: {insights.prosCons.netImpact}
+              </span>
             </div>
-            <ul className="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300">
-              {insights.sentiment.rationale.map((r) => (
-                <li key={r}>• {r}</li>
+            <div className="space-y-2 text-sm">
+              <div>
+                <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-400">Positives</div>
+                <ul className="space-y-1 text-slate-600 dark:text-slate-300">
+                  {insights.prosCons.pros.map((p) => (
+                    <li key={p}>• {p}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-rose-400">Risks</div>
+                <ul className="space-y-1 text-slate-600 dark:text-slate-300">
+                  {insights.prosCons.cons.map((c) => (
+                    <li key={c}>• {c}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border p-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Scenario Simulation</div>
+            <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+              {insights.scenarioInsights.map((scenario) => (
+                <div key={scenario.scenario} className="rounded-lg border border-border/70 bg-muted/20 p-2">
+                  <div className="font-medium text-slate-900 dark:text-slate-100">{scenario.scenario}</div>
+                  <p className="mt-1">{scenario.expectedImpact}</p>
+                  <p className="mt-1 text-xs text-slate-500">Risk impact: {scenario.riskChange}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border p-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Peer Comparison AI</div>
+            <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
+              {insights.peerSignals.map((line) => (
+                <li key={line}>• {line}</li>
               ))}
             </ul>
           </div>
+
           <div className="rounded-xl border border-border p-3">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Forecast (Baseline Trend)</div>
-            <div className="overflow-auto rounded-lg border border-border">
-              <table className="min-w-full text-sm">
-                <thead className="bg-muted/30 text-xs text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Period</th>
-                    <th className="px-3 py-2 text-right">Sales</th>
-                    <th className="px-3 py-2 text-right">Profit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {insights.forecast.map((f) => (
-                    <tr key={f.period} className="border-t border-border">
-                      <td className="px-3 py-2">{f.period}</td>
-                      <td className="px-3 py-2 text-right">{f.sales ? formatNumber(f.sales) : '—'}</td>
-                      <td className="px-3 py-2 text-right">{f.profit ? formatNumber(f.profit) : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Pattern Detection</div>
+            <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
+              {insights.patternSignals.map((line) => (
+                <li key={line}>• {line}</li>
+              ))}
+            </ul>
           </div>
-          <div className="grid gap-3 lg:grid-cols-2">
-            <div className="rounded-xl border border-border p-3">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">AI Pros</div>
-              <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
-                {insights.prosCons.pros.map((p) => (
-                  <li key={p}>• {p}</li>
-                ))}
-              </ul>
+
+          <div className="rounded-xl border border-border p-3 xl:col-span-2">
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <Info className="h-4 w-4" />
+              Alerts & Triggers
             </div>
-            <div className="rounded-xl border border-border p-3">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">AI Cons</div>
-              <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
-                {insights.prosCons.cons.map((c) => (
-                  <li key={c}>• {c}</li>
-                ))}
-              </ul>
-            </div>
+            <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
+              {insights.alertSuggestions.map((line) => (
+                <li key={line}>• {line}</li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>
@@ -1252,7 +1519,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
             {activeStatement ? <StatementTableView table={activeStatement} /> : <p className="text-sm text-slate-500">No statements available.</p>}
           </SectionCard>
 
-          <AiInsightsPanel insights={insights} />
+          <AiInsightsPanel insights={insights} currency={quote.currency} />
           <PeerComparisonPanel bundle={bundle} />
         </div>
 
