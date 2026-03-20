@@ -1541,20 +1541,62 @@ export function suggestPeersHeuristic(input: AiContextInput): PeerSuggestionResu
 export function parseScreenerQueryHeuristic(query: string): { filters: ParsedScreenFilter[]; explanation: string } {
   const q = query.toLowerCase();
   const filters: ParsedScreenFilter[] = [];
+  const push = (field: string, op: ParsedScreenFilter['op'], value: string | number) => {
+    filters.push({ field, op, value });
+  };
 
-  if (q.includes('profitable') || q.includes('profit')) filters.push({ field: 'pat', op: '>', value: 0 });
-  if (q.includes('low debt')) filters.push({ field: 'debtToEquity', op: '<', value: 1 });
-  if (q.includes('rising sales') || q.includes('sales growth')) filters.push({ field: 'salesGrowth', op: '>', value: 10 });
-  if (q.includes('high roe')) filters.push({ field: 'roe', op: '>', value: 15 });
-  if (q.includes('cheap') || q.includes('low pe')) filters.push({ field: 'pe', op: '<', value: 20 });
-  if (q.includes('dividend')) filters.push({ field: 'dividendYield', op: '>', value: 1 });
-  if (q.includes('momentum')) filters.push({ field: 'return6m', op: '>', value: 10 });
-  if (q.includes('large cap')) filters.push({ field: 'marketCap', op: '>', value: 100000 });
+  if (q.includes('profitable') || q.includes('profit')) push('pat', '>', 0);
+  if (q.includes('low debt')) push('debtToEquity', '<', 1);
+  if (q.includes('debt free')) push('debtToEquity', '<', 0.2);
+  if (q.includes('rising sales') || q.includes('sales growth')) push('salesGrowth', '>', 10);
+  if (q.includes('high roe')) push('roe', '>', 15);
+  if (q.includes('high roce')) push('roce', '>', 15);
+  if (q.includes('cheap') || q.includes('low pe')) push('pe', '<', 20);
+  if (q.includes('low pb')) push('pb', '<', 3);
+  if (q.includes('dividend')) push('dividendYield', '>', 1);
+  if (q.includes('momentum')) push('return6m', '>', 10);
+  if (q.includes('large cap')) push('marketCapBucket', '=', 'Largecap');
+  if (q.includes('mid cap')) push('marketCapBucket', '=', 'Midcap');
+  if (q.includes('small cap')) push('marketCapBucket', '=', 'Smallcap');
+  if (q.includes('india stock') || q.includes('indian stock')) push('stockUniverse', '=', 'India Stocks');
+  if (q.includes('us stock') || q.includes('american stock')) push('stockUniverse', '=', 'US Stocks');
+  if (q.includes('high volume')) push('volumeVsAvg1m', '>', 1.2);
+  if (q.includes('low volatility')) push('volatility30d', '<', 25);
+  if (q.includes('above 50 dma') || q.includes('above 50 sma')) push('priceVsSma50', '>', 0);
+  if (q.includes('above 200 dma') || q.includes('above 200 sma')) push('priceVsSma200', '>', 0);
+
+  const numericPatterns: Array<{ re: RegExp; field: string }> = [
+    { re: /\bpe\s*(<=|>=|<|>|=)\s*(\d+(?:\.\d+)?)/g, field: 'pe' },
+    { re: /\bpb\s*(<=|>=|<|>|=)\s*(\d+(?:\.\d+)?)/g, field: 'pb' },
+    { re: /\broe\s*(<=|>=|<|>|=)\s*(\d+(?:\.\d+)?)/g, field: 'roe' },
+    { re: /\broce\s*(<=|>=|<|>|=)\s*(\d+(?:\.\d+)?)/g, field: 'roce' },
+    { re: /\bdividend(?:\s+yield)?\s*(<=|>=|<|>|=)\s*(\d+(?:\.\d+)?)/g, field: 'dividendYield' },
+    { re: /\bmarket\s*cap\s*(<=|>=|<|>|=)\s*(\d+(?:\.\d+)?)/g, field: 'marketCap' },
+    { re: /\bdebt\s*to\s*equity\s*(<=|>=|<|>|=)\s*(\d+(?:\.\d+)?)/g, field: 'debtToEquity' },
+    { re: /\bsales\s*growth\s*(<=|>=|<|>|=)\s*(\d+(?:\.\d+)?)/g, field: 'salesGrowth' },
+    { re: /\bprofit\s*growth\s*(<=|>=|<|>|=)\s*(\d+(?:\.\d+)?)/g, field: 'profitGrowth' },
+  ];
+
+  for (const pattern of numericPatterns) {
+    for (const match of q.matchAll(pattern.re)) {
+      const op = match[1] as ParsedScreenFilter['op'];
+      const value = Number(match[2]);
+      if (Number.isFinite(value)) push(pattern.field, op, value);
+    }
+  }
+
+  const dedup = new Set<string>();
+  const uniqueFilters = filters.filter((filter) => {
+    const key = `${filter.field}:${filter.op}:${String(filter.value).toLowerCase()}`;
+    if (dedup.has(key)) return false;
+    dedup.add(key);
+    return true;
+  });
 
   return {
-    filters,
-    explanation: filters.length
-      ? `Parsed ${filters.length} rule-based filter(s) from natural language.`
+    filters: uniqueFilters,
+    explanation: uniqueFilters.length
+      ? `Parsed ${uniqueFilters.length} rule-based filter(s) from natural language.`
       : 'Could not parse specific filters. Try phrases like “low debt”, “high ROE”, or “rising sales”.',
   };
 }

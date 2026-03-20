@@ -7,21 +7,29 @@ import { cn } from '@/lib/utils/cn';
 export function VirtualizedTable<T extends { id: string }>({
   rows,
   height = 320,
+  estimateRowHeight = 44,
   header,
   renderRow,
+  headerClassName,
+  contentClassName,
+  scrollClassName,
   className,
 }: {
   rows: T[];
   height?: number;
+  estimateRowHeight?: number;
   header?: React.ReactNode;
   renderRow: (row: T) => React.ReactNode;
+  headerClassName?: string;
+  contentClassName?: string;
+  scrollClassName?: string;
   className?: string;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 44,
+    estimateSize: () => estimateRowHeight,
     overscan: 10,
   });
 
@@ -33,9 +41,9 @@ export function VirtualizedTable<T extends { id: string }>({
 
   return (
     <div className={cn('overflow-hidden rounded-xl border border-border', className)}>
-      {header ? <div className="border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium">{header}</div> : null}
-      <div ref={parentRef} style={{ height }} className="overflow-auto">
-        <div>
+      {header ? <div className={cn('border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium', headerClassName)}>{header}</div> : null}
+      <div ref={parentRef} style={{ height }} className={cn('overflow-auto', scrollClassName)}>
+        <div className={contentClassName}>
           {topPaddingHeight > 0 ? <div style={{ height: topPaddingHeight }} /> : null}
           {renderedRows.map((row) => (
             <div key={row.id}>{renderRow(row)}</div>

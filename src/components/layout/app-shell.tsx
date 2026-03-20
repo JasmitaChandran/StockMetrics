@@ -9,7 +9,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="absolute left-1/2 top-1/3 h-80 w-80 -translate-x-1/2 rounded-full bg-violet-500/8 blur-3xl motion-safe:animate-float" />
       </div>
       <Navbar />
-      <main className="mx-auto max-w-[1450px] px-4 py-6 md:px-5">{children}</main>
+      <main className="mx-auto w-full max-w-[1760px] px-3 py-6 md:px-6 lg:px-8">{children}</main>
     </div>
   );
 }
