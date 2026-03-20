@@ -107,7 +107,27 @@ export interface StockIntelligenceReport {
   holdPct: number;
   sellPct: number;
   confidence: 'low' | 'medium' | 'high';
+  confidenceScore: number;
   smartSummary: string;
+  catalysts: string[];
+  whyFitYou: string[];
+  riskRadar: {
+    overall: 'Low' | 'Moderate' | 'High';
+    marketRisk: 'Low' | 'Medium' | 'High';
+    sectorRisk: 'Low' | 'Medium' | 'High';
+    valuationRisk: 'Low' | 'Medium' | 'High';
+  };
+  quantSnapshot: {
+    growthScore: number;
+    qualityScore: number;
+    valueScore: number;
+    momentumScore: number;
+    styleScore: number;
+    sentimentScore: number;
+    riskPenalty: number;
+    personalAdjustment: number;
+    coverageCount: number;
+  };
   trendCycleInsights: string[];
   ratioInsights: string[];
   statementInsights: string[];
@@ -148,6 +168,39 @@ export interface StockIntelligenceReport {
   detailedSummary: string;
 }
 
+export interface AgentExecutionLog {
+  title: string;
+  detail: string;
+  status: 'done' | 'warning';
+}
+
+export interface DataQualitySummary {
+  confidenceScore: number;
+  confidenceLabel: 'low' | 'medium' | 'high';
+  dataFreshness: string;
+  missingData: string[];
+}
+
+export interface PortfolioFixSuggestion {
+  issues: string[];
+  suggestedFixes: string[];
+  simulatedImpact: {
+    diversificationBefore: number;
+    diversificationAfter: number;
+    expectedVolatilityChangePct: number;
+    expectedReturnChangePct: number;
+  };
+}
+
+export interface ActionPanelSummary {
+  primaryAction: string;
+  allocationPct: number;
+  entryRange: { low?: number; high?: number };
+  timeHorizonLabel: string;
+  backupActions: string[];
+  portfolioChanges: string[];
+}
+
 export interface AgenticAnalysisReport {
   generatedAt: string;
   intents: IntentDetection[];
@@ -155,6 +208,10 @@ export interface AgenticAnalysisReport {
   portfolio: PortfolioDiagnostics;
   preferredStockReport?: StockIntelligenceReport;
   suggestedStocks: StockIntelligenceReport[];
+  actionPanel: ActionPanelSummary;
+  executionLog: AgentExecutionLog[];
+  dataQuality: DataQualitySummary;
+  portfolioFixes: PortfolioFixSuggestion;
   summary: string;
 }
 
@@ -555,6 +612,24 @@ function confidenceFromCoverage(coverage: number): 'low' | 'medium' | 'high' {
   return 'low';
 }
 
+function confidenceToScore(confidence: 'low' | 'medium' | 'high'): number {
+  if (confidence === 'high') return 84;
+  if (confidence === 'medium') return 68;
+  return 46;
+}
+
+function formatFreshness(latestTs?: string): string {
+  if (!latestTs) return 'Freshness unavailable';
+  const date = new Date(latestTs);
+  if (Number.isNaN(date.getTime())) return 'Freshness unavailable';
+  const deltaMs = Date.now() - date.getTime();
+  const hours = Math.max(0, Math.round(deltaMs / (1000 * 60 * 60)));
+  if (hours < 1) return 'Updated within the last hour';
+  if (hours < 24) return `Updated about ${hours} hour(s) ago`;
+  const days = Math.round(hours / 24);
+  return `Updated about ${days} day(s) ago`;
+}
+
 async function analyzeSingleStock(
   entity: SearchEntity,
   profile: DynamicInvestorProfile,
@@ -748,6 +823,16 @@ async function analyzeSingleStock(
     ...aiInsights.sentiment.drivers.slice(0, 4).map((driver) => `${driver.tone.toUpperCase()} driver: ${driver.detail}`),
   ];
 
+  const catalysts = [
+    ...(typeof salesGrowth === 'number' && salesGrowth >= 10 ? [`Revenue growth at ${toPct(salesGrowth)} indicates demand momentum.`] : []),
+    ...(typeof profitGrowth === 'number' && profitGrowth >= 10 ? [`Profit growth at ${toPct(profitGrowth)} suggests improving earnings power.`] : []),
+    ...(typeof valuationSpread === 'number' && valuationSpread <= 0 ? ['Valuation is not above industry average, supporting better entry comfort.'] : []),
+    ...(aiInsights.patternSignals.slice(0, 1) ?? []),
+    ...(typeof debtToEquity === 'number' && debtToEquity > 2 ? ['Leverage remains elevated and can amplify downside in weak cycles.'] : []),
+  ]
+    .filter(Boolean)
+    .slice(0, 4);
+
   const forecastRows = aiInsights.forecast.map((point) => ({ ...point }));
   const forecastInsights = [
     ...aiInsights.forecast.slice(0, 3).map((point) => {
@@ -784,6 +869,24 @@ async function analyzeSingleStock(
       .slice(0, 3)
       .map((flag) => `${flag.title} [${flag.severity.toUpperCase()} | ${flag.riskScore}/10]: ${flag.detail} Action: ${flag.suggestedAction}`),
   ];
+
+  const valuationRisk: 'Low' | 'Medium' | 'High' =
+    typeof pe !== 'number' || typeof industryPe !== 'number'
+      ? 'Medium'
+      : pe <= industryPe * 0.95
+        ? 'Low'
+        : pe <= industryPe * 1.25
+          ? 'Medium'
+          : 'High';
+  const sectorRisk: 'Low' | 'Medium' | 'High' = aiInsights.risk.riskLevel === 'High' ? 'High' : aiInsights.risk.riskLevel === 'Medium' ? 'Medium' : 'Low';
+  const marketRisk: 'Low' | 'Medium' | 'High' =
+    typeof aiInsights.risk.volatility !== 'number'
+      ? 'Medium'
+      : aiInsights.risk.volatility <= 20
+        ? 'Low'
+        : aiInsights.risk.volatility <= 35
+          ? 'Medium'
+          : 'High';
 
   const eventInsights = [
     `Quarterly sales growth (YoY): ${typeof getMetric(entity.symbol, 'yoyQuarterlySalesGrowth') === 'number' ? toPct(getMetric(entity.symbol, 'yoyQuarterlySalesGrowth') as number) : 'N/A'}.`,
@@ -844,11 +947,32 @@ async function analyzeSingleStock(
     `Breakout probability: ${aiInsights.entryExit.breakoutProbability}%. ${aiInsights.entryExit.note}`,
   ];
 
+  const whyFitYou = [
+    profile.stylePreferences.includes('quality')
+      ? `Matches your quality preference with ROE ${typeof roe === 'number' ? toPct(roe) : 'N/A'} and ROCE ${typeof roce === 'number' ? toPct(roce) : 'N/A'}.`
+      : `Style fit is driven by ${profile.stylePreferences.join(', ') || 'balanced'} preference.`,
+    profile.investmentHorizon === 'long_term'
+      ? `Fits long-term horizon through business quality and compounding potential.`
+      : profile.investmentHorizon === 'short_term'
+        ? `Use position sizing discipline because short-term horizon is more sensitive to volatility swings.`
+        : `Medium-term fit depends on sustaining trend + earnings delivery.`,
+    profile.riskAppetite === 'low'
+      ? `For your lower risk profile, watch drawdown and avoid oversized entry.`
+      : profile.riskAppetite === 'high'
+        ? `Your high risk appetite can tolerate volatility, but valuation discipline is still required.`
+        : `Moderate risk profile supports staggered entries with predefined stop-loss.`,
+  ];
+
   const smartSummary = `${aiInsights.risk.riskLevel}-risk, ${
     growthScore >= 60 ? 'strong-growth' : growthScore >= 45 ? 'moderate-growth' : 'low-growth'
   } profile with ${qualityScore >= 60 ? 'solid' : 'mixed'} profitability and ${
     debtRisk === 'contained' ? 'controlled leverage' : 'elevated leverage risk'
   }. Suitable for ${profile.investmentHorizon.replace('_', '-')} allocation with risk controls.`;
+
+  const coverageCount =
+    [pe, pb, roe, debtToEquity, salesGrowth, profitGrowth, currentPrice, marketCap].filter((value) => typeof value === 'number').length +
+    (news.length ? 1 : 0) +
+    (statementProfitLoss ? 1 : 0);
 
   const detailedSummary =
     `${entity.name} was evaluated for your profile using fundamental ratios, statement trends, simplified DCF, sentiment, technical context, risk diagnostics, and peer positioning. ` +
@@ -860,16 +984,11 @@ async function analyzeSingleStock(
     `Personal profile adjustments (${personalAdjustment >= 0 ? '+' : ''}${personalAdjustment}) were applied based on age, liabilities, and existing asset mix to keep recommendations aligned to your risk context. ` +
     `AI net impact is ${aiInsights.prosCons.netImpact}, with key positives (${aiInsights.prosCons.pros.slice(0, 2).join('; ') || 'none'}) and key concerns (${aiInsights.prosCons.cons.slice(0, 2).join('; ') || 'none'}). ` +
     `Combining all signals, the model confidence is ${confidenceFromCoverage(
-      [pe, pb, roe, debtToEquity, salesGrowth, profitGrowth, currentPrice, marketCap].filter((value) => typeof value === 'number').length +
-        (news.length ? 1 : 0) +
-        (statementProfitLoss ? 1 : 0),
+      coverageCount,
     )}, and action bias is ${allocation.recommendation} with Buy/Hold/Sell split ${allocation.buy}% / ${allocation.hold}% / ${allocation.sell}%.`;
 
-  const confidence = confidenceFromCoverage(
-    [pe, pb, roe, debtToEquity, salesGrowth, profitGrowth, currentPrice, marketCap].filter((value) => typeof value === 'number').length +
-      (news.length ? 1 : 0) +
-      (statementProfitLoss ? 1 : 0),
-  );
+  const confidence = confidenceFromCoverage(coverageCount);
+  const confidenceScore = confidenceToScore(confidence);
 
   return {
     symbol: entity.symbol,
@@ -884,7 +1003,27 @@ async function analyzeSingleStock(
     holdPct: allocation.hold,
     sellPct: allocation.sell,
     confidence,
+    confidenceScore,
     smartSummary,
+    catalysts,
+    whyFitYou,
+    riskRadar: {
+      overall: aiInsights.risk.riskLevel === 'High' ? 'High' : aiInsights.risk.riskLevel === 'Medium' ? 'Moderate' : 'Low',
+      marketRisk,
+      sectorRisk,
+      valuationRisk,
+    },
+    quantSnapshot: {
+      growthScore: Math.round(growthScore),
+      qualityScore: Math.round(qualityScore),
+      valueScore: Math.round(valueScore),
+      momentumScore: Math.round(momentumScore),
+      styleScore: Math.round(styleScore),
+      sentimentScore: Math.round(sentimentScore),
+      riskPenalty: Math.round(riskPenalty),
+      personalAdjustment,
+      coverageCount,
+    },
     trendCycleInsights,
     ratioInsights,
     statementInsights,
@@ -937,6 +1076,220 @@ function reportSummary(
   return `Primary intent detected: ${intentText}. No stocks satisfied all active constraints; consider relaxing constraints and rerunning analysis.`;
 }
 
+function buildPortfolioFixes(
+  profile: DynamicInvestorProfile,
+  portfolio: PortfolioDiagnostics,
+  suggestions: StockIntelligenceReport[],
+): PortfolioFixSuggestion {
+  if (!portfolio.hasPortfolio) {
+    const starter = suggestions.slice(0, 3);
+    return {
+      issues: ['No existing portfolio found, so diversification and concentration risks cannot be directly measured.'],
+      suggestedFixes: starter.length
+        ? [
+            `Start with staggered allocation across ${starter.map((stock) => stock.displaySymbol).join(', ')} instead of a single concentrated bet.`,
+            `Keep 10-15% cash buffer for volatility and better entry windows.`,
+          ]
+        : ['Relax constraints slightly to identify starter allocations.'],
+      simulatedImpact: {
+        diversificationBefore: 35,
+        diversificationAfter: starter.length ? 64 : 50,
+        expectedVolatilityChangePct: starter.length ? -12 : -4,
+        expectedReturnChangePct: starter.length ? 9 : 4,
+      },
+    };
+  }
+
+  const topSector = portfolio.sectorExposure[0];
+  const issues: string[] = [];
+  if (typeof portfolio.concentrationPct === 'number' && portfolio.concentrationPct > 35) {
+    issues.push(`Single-stock concentration is high at ${toPct(portfolio.concentrationPct)}.`);
+  }
+  if (topSector?.weightPct && topSector.weightPct > 40) {
+    issues.push(`Sector concentration is high in ${topSector.sector} at ${toPct(topSector.weightPct)}.`);
+  }
+  if (portfolio.diversificationScore < 55) {
+    issues.push(`Diversification score ${portfolio.diversificationScore}/100 is below preferred range.`);
+  }
+  if (portfolio.totalPnlPct < -8) {
+    issues.push(`Portfolio drawdown is elevated (${toPct(portfolio.totalPnlPct)}).`);
+  }
+
+  const targetTopSector = Math.min(40, topSector?.weightPct ?? 40);
+  const suggestionSectors = Array.from(new Set(suggestions.slice(0, 5).map((stock) => stock.sector))).slice(0, 3);
+  const suggestedFixes = [
+    topSector?.weightPct && topSector.weightPct > targetTopSector
+      ? `Reduce ${topSector.sector} exposure from ${toPct(topSector.weightPct)} toward ~${toPct(targetTopSector)} over phased rebalancing.`
+      : `Maintain current sector allocation discipline and avoid increasing top-sector concentration.`,
+    suggestionSectors.length
+      ? `Add exposure to ${suggestionSectors.join(', ')} for more balanced sector participation.`
+      : `Add at least one non-core sector to improve diversification.`,
+    profile.riskAppetite === 'low'
+      ? 'Shift 10-15% toward lower-volatility, cash-generative businesses.'
+      : 'Use staggered entries and cap any new single position below 20-25%.',
+  ];
+
+  const diversificationAfter = clamp(
+    Math.round(
+      portfolio.diversificationScore +
+        (topSector?.weightPct && topSector.weightPct > 40 ? 14 : 8) +
+        (issues.length >= 3 ? 8 : 4),
+    ),
+    30,
+    90,
+  );
+  const expectedVolatilityChangePct = -clamp(Math.round((issues.length + 1) * 4), 6, 22);
+  const expectedReturnChangePct = clamp(Math.round((diversificationAfter - portfolio.diversificationScore) * 0.45), 4, 16);
+
+  return {
+    issues: issues.length ? issues : ['No major concentration or diversification issue detected.'],
+    suggestedFixes,
+    simulatedImpact: {
+      diversificationBefore: portfolio.diversificationScore,
+      diversificationAfter,
+      expectedVolatilityChangePct,
+      expectedReturnChangePct,
+    },
+  };
+}
+
+function buildActionPanel(
+  profile: DynamicInvestorProfile,
+  preferredReport: StockIntelligenceReport | undefined,
+  suggestions: StockIntelligenceReport[],
+  portfolio: PortfolioDiagnostics,
+): ActionPanelSummary {
+  const primary = preferredReport ?? suggestions[0];
+  if (!primary) {
+    return {
+      primaryAction: 'HOLD CASH',
+      allocationPct: 0,
+      entryRange: {},
+      timeHorizonLabel: profile.investmentHorizon.replace('_', '-'),
+      backupActions: ['No qualified stock found under current constraints.'],
+      portfolioChanges: ['Relax constraints and rerun analysis.'],
+    };
+  }
+
+  const baseAllocation = primary.recommendation === 'BUY' ? 24 : primary.recommendation === 'HOLD' ? 14 : 6;
+  const riskAdjust = profile.riskAppetite === 'high' ? 5 : profile.riskAppetite === 'low' ? -5 : 0;
+  const allocationPct = clamp(baseAllocation + riskAdjust, 4, 35);
+  const entryLow = primary.decisionPlan.buyBelow ?? primary.dcf.currentPrice;
+  const entryHigh = typeof entryLow === 'number' ? entryLow * 1.04 : undefined;
+
+  const backups = suggestions
+    .filter((stock) => stock.symbol !== primary.symbol)
+    .slice(0, 3)
+    .map((stock) => `${stock.recommendation} ${stock.displaySymbol}`);
+  const avoid = suggestions.find((stock) => stock.recommendation === 'SELL');
+  if (avoid) backups.push(`AVOID ${avoid.displaySymbol} (risk/valuation mismatch)`);
+
+  const portfolioChanges: string[] = [];
+  const topSector = portfolio.sectorExposure[0];
+  if (topSector?.weightPct && topSector.weightPct > 40) {
+    portfolioChanges.push(`Reduce ${topSector.sector} exposure from ${toPct(topSector.weightPct)} toward ~40%.`);
+  }
+  if (typeof portfolio.concentrationPct === 'number' && portfolio.concentrationPct > 35) {
+    portfolioChanges.push(`Trim largest holding from ${toPct(portfolio.concentrationPct)} to below 30%.`);
+  }
+  if (!portfolioChanges.length) {
+    portfolioChanges.push('Current portfolio concentration is acceptable; continue staggered allocation discipline.');
+  }
+
+  return {
+    primaryAction: `${primary.recommendation} ${primary.displaySymbol}`,
+    allocationPct,
+    entryRange: { low: entryLow, high: entryHigh },
+    timeHorizonLabel:
+      profile.investmentHorizon === 'long_term'
+        ? '2-3 years'
+        : profile.investmentHorizon === 'short_term'
+          ? '2-12 weeks'
+          : '6-18 months',
+    backupActions: backups.length ? backups : ['No backup candidates available under current constraints.'],
+    portfolioChanges,
+  };
+}
+
+function buildExecutionLog(
+  intents: IntentDetection[],
+  profile: DynamicInvestorProfile,
+  portfolio: PortfolioDiagnostics,
+  filteredCount: number,
+  shortlistedCount: number,
+): AgentExecutionLog[] {
+  return [
+    {
+      title: 'Detected intent',
+      detail: `${intents[0]?.intent.replace(/_/g, ' ') ?? 'long term ideas'} with ${Math.round((intents[0]?.confidence ?? 0.45) * 100)}% confidence.`,
+      status: 'done',
+    },
+    {
+      title: 'Built investor profile',
+      detail: `Horizon ${profile.investmentHorizon.replace('_', ' ')}, risk ${profile.riskAppetite}, ${profile.inferredFields.length} field(s) inferred.`,
+      status: profile.inferredFields.length > 3 ? 'warning' : 'done',
+    },
+    {
+      title: 'Analyzed portfolio diagnostics',
+      detail: portfolio.hasPortfolio
+        ? `Diversification ${portfolio.diversificationScore}/100 with ${portfolio.holdingsCount} holdings.`
+        : 'No holdings found, so diagnostics run in profile-only mode.',
+      status: portfolio.hasPortfolio ? 'done' : 'warning',
+    },
+    {
+      title: 'Screened stock universe',
+      detail: `Screened ${filteredCount} candidates and shortlisted ${shortlistedCount}.`,
+      status: filteredCount ? 'done' : 'warning',
+    },
+    {
+      title: 'Generated strategy output',
+      detail: 'Computed valuation, quality, sentiment, technical, risk, and action plan with Buy/Hold/Sell split.',
+      status: 'done',
+    },
+  ];
+}
+
+function buildDataQualitySummary(
+  preferredReport: StockIntelligenceReport | undefined,
+  suggestions: StockIntelligenceReport[],
+  intents: IntentDetection[],
+): DataQualitySummary {
+  const anchor = preferredReport ?? suggestions[0];
+  const label = anchor?.confidence ?? 'medium';
+  const confidenceScore = clamp(
+    Math.round((anchor?.confidenceScore ?? confidenceToScore(label)) * 0.7 + (Math.round((intents[0]?.confidence ?? 0.45) * 100) * 0.3)),
+    35,
+    94,
+  );
+  const freshness = (() => {
+    if (!anchor) return 'Freshness unavailable';
+    const history = generateDemoHistory(demoUniverse.find((entity) => entity.symbol === anchor.symbol) ?? demoUniverse[0]).points;
+    const latest = history.length ? history[history.length - 1].ts : undefined;
+    return formatFreshness(latest);
+  })();
+  const missingData: string[] = [];
+  if (anchor) {
+    const fundamentals = demoFundamentalsBySymbol[anchor.symbol];
+    if (!(fundamentals?.statements ?? []).find((statement) => statement.kind === 'profitLoss')) {
+      missingData.push('Income statement coverage is limited.');
+    }
+    if (!getDemoNews(demoUniverse.find((entity) => entity.symbol === anchor.symbol) ?? demoUniverse[0]).length) {
+      missingData.push('No recent news items for sentiment weighting.');
+    }
+    if (!(fundamentals?.peerSymbols ?? []).length) {
+      missingData.push('Peer set is limited for comparison scoring.');
+    }
+  }
+  if (!missingData.length) missingData.push('No critical data gaps detected in current run.');
+
+  return {
+    confidenceScore,
+    confidenceLabel: confidenceScore >= 75 ? 'high' : confidenceScore >= 55 ? 'medium' : 'low',
+    dataFreshness: freshness,
+    missingData,
+  };
+}
+
 export async function generateAgenticAnalysis(input: AgenticFormInput, txns: PortfolioTxn[]): Promise<AgenticAnalysisReport> {
   const holdings = deriveHoldings(txns);
   const intents = detectIntent(input.goal, input.preferredShareMode === 'yes' && Boolean(input.preferredShareSymbol), input.investmentHorizon);
@@ -974,6 +1327,10 @@ export async function generateAgenticAnalysis(input: AgenticFormInput, txns: Por
   const candidateUniverse = preferredEntity ? filtered.filter((entity) => entity.symbol !== preferredEntity.symbol) : filtered;
   const scored = await Promise.all(candidateUniverse.map((entity) => analyzeSingleStock(entity, profile, intents)));
   const suggestedStocks = scored.sort((left, right) => right.suitabilityScore - left.suitabilityScore);
+  const actionPanel = buildActionPanel(profile, preferredStockReport, suggestedStocks, portfolio);
+  const executionLog = buildExecutionLog(intents, profile, portfolio, filtered.length, suggestedStocks.length);
+  const dataQuality = buildDataQualitySummary(preferredStockReport, suggestedStocks, intents);
+  const portfolioFixes = buildPortfolioFixes(profile, portfolio, suggestedStocks);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -982,6 +1339,10 @@ export async function generateAgenticAnalysis(input: AgenticFormInput, txns: Por
     portfolio,
     preferredStockReport,
     suggestedStocks,
+    actionPanel,
+    executionLog,
+    dataQuality,
+    portfolioFixes,
     summary: reportSummary(profile, intents, preferredStockReport, suggestedStocks),
   };
 }

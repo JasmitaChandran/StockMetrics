@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bot, Brain, Briefcase, LineChart, Loader2, Sparkles } from 'lucide-react';
 import { SectionCard } from '@/components/common/section-card';
+import { PillToggle } from '@/components/common/pill-toggle';
 import { demoUniverse } from '@/lib/data/mock/demo-data';
-import { listPortfolioTxns } from '@/lib/storage/repositories';
-import type { PortfolioTxn } from '@/lib/storage/idb';
+import { getKv, listPortfolioTxns, listWatchlists, setKv, upsertWatchlist } from '@/lib/storage/repositories';
+import type { PortfolioTxn, WatchlistRecord } from '@/lib/storage/idb';
 import {
   type AgenticAnalysisReport,
   type AgentIntent,
@@ -102,11 +103,30 @@ function recommendationTone(recommendation: 'BUY' | 'HOLD' | 'SELL') {
   return 'text-rose-500';
 }
 
+type ReportTab = 'summary' | 'portfolio' | 'recommendations' | 'deep';
+type ThinkingMode = 'beginner' | 'pro' | 'quant';
+
+interface AgenticSnapshot {
+  generatedAt: string;
+  topSymbol?: string;
+  topRecommendation?: 'BUY' | 'HOLD' | 'SELL';
+  topScore?: number;
+  diversificationScore?: number;
+}
+
+function getPrimaryStock(report: AgenticAnalysisReport) {
+  return report.preferredStockReport ?? report.suggestedStocks[0] ?? null;
+}
+
 export function AgenticAiWorkbench() {
   const [portfolioTxns, setPortfolioTxns] = useState<PortfolioTxn[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [report, setReport] = useState<AgenticAnalysisReport | null>(null);
+  const [activeTab, setActiveTab] = useState<ReportTab>('summary');
+  const [thinkingMode, setThinkingMode] = useState<ThinkingMode>('pro');
+  const [changeLog, setChangeLog] = useState<string[]>([]);
+  const [watchlistStatus, setWatchlistStatus] = useState('');
   const [form, setForm] = useState<AgenticFormInput>({
     goal: 'I want detailed long-term investing ideas with valuation and risk analysis.',
     preferredShareMode: 'no',
@@ -143,8 +163,9 @@ export function AgenticAiWorkbench() {
     [],
   );
 
-  async function runAgenticAnalysis() {
-    if (!form.goal.trim()) {
+  async function runAgenticAnalysis(goalOverride?: string) {
+    const effectiveGoal = typeof goalOverride === 'string' ? goalOverride : form.goal;
+    if (!effectiveGoal.trim()) {
       setError('Please provide your goal so the agent can detect intent correctly.');
       return;
     }
@@ -153,15 +174,86 @@ export function AgenticAiWorkbench() {
       return;
     }
     setError('');
+    setWatchlistStatus('');
     setLoading(true);
     try {
-      const generated = await generateAgenticAnalysis(form, portfolioTxns);
+      const input = { ...form, goal: effectiveGoal };
+      const generated = await generateAgenticAnalysis(input, portfolioTxns);
+      const primary = getPrimaryStock(generated);
+      const prev = await getKv<AgenticSnapshot>('agentic:last-run');
+      const nextSnapshot: AgenticSnapshot = {
+        generatedAt: generated.generatedAt,
+        topSymbol: primary?.displaySymbol,
+        topRecommendation: primary?.recommendation,
+        topScore: primary?.suitabilityScore,
+        diversificationScore: generated.portfolio.diversificationScore,
+      };
+      const changes: string[] = [];
+      if (prev) {
+        if (prev.topSymbol && nextSnapshot.topSymbol && prev.topSymbol !== nextSnapshot.topSymbol) {
+          changes.push(`Top idea changed: ${prev.topSymbol} → ${nextSnapshot.topSymbol}.`);
+        }
+        if (
+          typeof prev.topScore === 'number' &&
+          typeof nextSnapshot.topScore === 'number' &&
+          Math.abs(nextSnapshot.topScore - prev.topScore) >= 3 &&
+          nextSnapshot.topSymbol === prev.topSymbol
+        ) {
+          const delta = nextSnapshot.topScore - prev.topScore;
+          changes.push(`${nextSnapshot.topSymbol} suitability score moved ${delta >= 0 ? '+' : ''}${delta.toFixed(0)} points.`);
+        }
+        if (
+          typeof prev.diversificationScore === 'number' &&
+          typeof nextSnapshot.diversificationScore === 'number' &&
+          prev.diversificationScore !== nextSnapshot.diversificationScore
+        ) {
+          const diff = nextSnapshot.diversificationScore - prev.diversificationScore;
+          changes.push(`Portfolio diversification score changed ${diff >= 0 ? '+' : ''}${diff} (${prev.diversificationScore} → ${nextSnapshot.diversificationScore}).`);
+        }
+      } else {
+        changes.push('This is your first saved Agentic run in local history.');
+      }
+      setChangeLog(changes);
+      await setKv('agentic:last-run', nextSnapshot);
+      if (goalOverride) {
+        setForm((prev) => ({ ...prev, goal: goalOverride }));
+      }
       setReport(generated);
+      setActiveTab('summary');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate agentic report.');
     } finally {
       setLoading(false);
     }
+  }
+
+  async function saveAutoWatchlist() {
+    if (!report) return;
+    const symbols = Array.from(
+      new Set(
+        [
+          report.preferredStockReport?.symbol,
+          ...report.suggestedStocks.slice(0, 7).map((stock) => stock.symbol),
+        ].filter((symbol): symbol is string => Boolean(symbol)),
+      ),
+    ).slice(0, 8);
+    if (!symbols.length) {
+      setWatchlistStatus('No symbols available to save.');
+      return;
+    }
+    const rows = await listWatchlists();
+    const existing = rows.find((row) => row.name.toLowerCase() === 'agentic ai picks');
+    const record: WatchlistRecord = existing
+      ? { ...existing, symbols, updatedAt: new Date().toISOString() }
+      : {
+          id: crypto.randomUUID(),
+          name: 'Agentic AI Picks',
+          symbols,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+    await upsertWatchlist(record);
+    setWatchlistStatus(`Saved ${symbols.length} symbols to "${record.name}".`);
   }
 
   return (
@@ -518,7 +610,7 @@ export function AgenticAiWorkbench() {
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
                 type="button"
-                onClick={runAgenticAnalysis}
+                onClick={() => runAgenticAnalysis()}
                 disabled={loading}
                 className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-70"
               >
@@ -575,391 +667,446 @@ export function AgenticAiWorkbench() {
         </div>
       </SectionCard>
 
-      {report ? (
-        <div className="space-y-6">
-          <SectionCard title="Agentic Summary" subtitle={`Generated at ${formatDateTime(report.generatedAt)}`}>
-            <p className="text-sm leading-relaxed text-slate-200">{report.summary}</p>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="rounded-xl border border-border bg-card/45 p-3">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Detected Intents</div>
-                <div className="space-y-2">
-                  {report.intents.map((intent) => (
-                    <div key={intent.intent} className="rounded-lg border border-border bg-card/55 p-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-semibold">{INTENT_LABELS[intent.intent]}</span>
-                        <span className="text-slate-400">{Math.round(intent.confidence * 100)}%</span>
-                      </div>
-                      <div className="mt-1 text-xs text-slate-400">{intent.reason}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="rounded-xl border border-border bg-card/45 p-3">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Dynamic Investor Profile</div>
-                <div className="space-y-1.5 text-sm text-slate-300">
-                  <div>Horizon: <span className="font-semibold text-slate-100">{report.profile.investmentHorizon.replace('_', ' ')}</span></div>
-                  <div>Risk: <span className="font-semibold text-slate-100">{report.profile.riskAppetite}</span></div>
-                  <div>Capital: <span className="font-semibold text-slate-100">{report.profile.capitalAmount.toLocaleString('en-IN')}</span></div>
-                  <div>Market: <span className="font-semibold text-slate-100">{report.profile.marketPreference.toUpperCase()}</span></div>
-                  <div>Style: <span className="font-semibold text-slate-100">{report.profile.stylePreferences.join(', ')}</span></div>
-                  <div>Constraints: <span className="font-semibold text-slate-100">{report.profile.constraints.join(', ')}</span></div>
-                  <div>Inferred fields: <span className="font-semibold text-slate-100">{report.profile.inferredFields.length ? report.profile.inferredFields.join(', ') : 'None'}</span></div>
-                </div>
-                <div className="mt-2 rounded-lg border border-border bg-card/60 p-2 text-xs text-slate-400">{report.profile.profileNarrative}</div>
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Portfolio Diagnostics" subtitle="Agentic review of your current holdings and diversification profile.">
-            {report.portfolio.hasPortfolio ? (
-              <div className="space-y-3">
-                <div className="grid gap-3 md:grid-cols-4">
-                  <div className="rounded-xl border border-border bg-card/50 p-3 text-sm">
-                    <div className="text-slate-500">Holdings</div>
-                    <div className="mt-1 text-lg font-semibold">{report.portfolio.holdingsCount}</div>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3 text-sm">
-                    <div className="text-slate-500">Diversification Score</div>
-                    <div className="mt-1 text-lg font-semibold">{report.portfolio.diversificationScore}/100</div>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3 text-sm">
-                    <div className="text-slate-500">Invested</div>
-                    <div className="mt-1 text-lg font-semibold">{formatCurrency(report.portfolio.totalInvested, 'INR')}</div>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3 text-sm">
-                    <div className="text-slate-500">P&L</div>
-                    <div className={cn('mt-1 text-lg font-semibold', report.portfolio.totalPnl >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
-                      {formatCurrency(report.portfolio.totalPnl, 'INR')} ({formatPercent(report.portfolio.totalPnlPct)})
-                    </div>
-                  </div>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Market Exposure</div>
-                    <div className="space-y-1 text-sm">
-                      {report.portfolio.marketExposure.map((entry) => (
-                        <div key={entry.market} className="flex justify-between">
-                          <span>{entry.market.toUpperCase()}</span>
-                          <span className="font-semibold">{entry.weightPct.toFixed(1)}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Sector Exposure</div>
-                    <div className="space-y-1 text-sm">
-                      {report.portfolio.sectorExposure.map((entry) => (
-                        <div key={entry.sector} className="flex justify-between">
-                          <span>{entry.sector}</span>
-                          <span className="font-semibold">{entry.weightPct.toFixed(1)}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <ul className="space-y-1 text-sm text-slate-300">
-                  {report.portfolio.notes.map((note) => (
-                    <li key={note}>• {note}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-border p-3 text-sm text-slate-400">
-                No portfolio records found yet. The report is generated from your profile and selected market universe.
-              </div>
-            )}
-          </SectionCard>
-
-          {report.preferredStockReport ? (
-            <SectionCard
-              title={`Preferred Share Deep Report: ${report.preferredStockReport.displaySymbol}`}
-              subtitle={`${report.preferredStockReport.name} • ${report.preferredStockReport.sector} • ${report.preferredStockReport.industry}`}
-            >
-              <div className="space-y-4">
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="text-xs text-slate-500">Suitability Score</div>
-                    <div className="mt-1 text-xl font-semibold">{report.preferredStockReport.suitabilityScore}/100</div>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="text-xs text-slate-500">Recommendation</div>
-                    <div className={cn('mt-1 text-xl font-semibold', recommendationTone(report.preferredStockReport.recommendation))}>
-                      {report.preferredStockReport.recommendation}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="text-xs text-slate-500">Confidence</div>
-                    <div className={cn('mt-1 text-xl font-semibold capitalize', confidenceTone(report.preferredStockReport.confidence))}>
-                      {report.preferredStockReport.confidence}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="text-xs text-slate-500">Buy / Hold / Sell</div>
-                    <div className="mt-1 text-lg font-semibold">
-                      {report.preferredStockReport.buyPct}% / {report.preferredStockReport.holdPct}% / {report.preferredStockReport.sellPct}%
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="text-xs text-slate-500">Net Impact</div>
-                    <div
-                      className={cn(
-                        'mt-1 text-lg font-semibold',
-                        report.preferredStockReport.prosConsNetImpact === 'Positive' || report.preferredStockReport.prosConsNetImpact === 'Slightly Positive'
-                          ? 'text-emerald-400'
-                          : report.preferredStockReport.prosConsNetImpact === 'Neutral'
-                            ? 'text-amber-400'
-                            : 'text-rose-400',
-                      )}
-                    >
-                      {report.preferredStockReport.prosConsNetImpact}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-accent/40 bg-accent/10 p-3 text-sm leading-relaxed text-slate-100">
-                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-accent">AI Smart Summary</div>
-                  {report.preferredStockReport.smartSummary}
-                </div>
-
-                <div className="rounded-xl border border-border bg-card/60 p-3 text-sm leading-relaxed text-slate-200">
-                  {report.preferredStockReport.detailedSummary}
-                </div>
-
-                <div className="grid gap-3 xl:grid-cols-2">
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Recommendation + Strategy</div>
-                    <div className="space-y-1 text-sm text-slate-300">
+      {report
+        ? (() => {
+            const primary = getPrimaryStock(report);
+            const isBeginner = thinkingMode === 'beginner';
+            const isQuant = thinkingMode === 'quant';
+            return (
+              <div className="space-y-6">
+                <SectionCard
+                  title="Recommended Action"
+                  subtitle={`Generated at ${formatDateTime(report.generatedAt)} • Confidence ${report.dataQuality.confidenceScore}%`}
+                >
+                  <div className="sticky top-[86px] z-20 rounded-2xl border border-accent/40 bg-gradient-to-r from-accent/15 via-accent/10 to-transparent p-4 shadow-violet">
+                    <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr_1fr]">
                       <div>
-                        Recommendation: <span className="font-semibold">{report.preferredStockReport.decisionPlan.recommendation}</span>
+                        <div className="text-xs uppercase tracking-wide text-accent">Primary</div>
+                        <div className="mt-1 text-2xl font-semibold text-slate-100">{report.actionPanel.primaryAction}</div>
+                        <div className="mt-2 text-sm text-slate-200">
+                          Allocation: <span className="font-semibold">{report.actionPanel.allocationPct}%</span> of capital
+                        </div>
+                        <div className="text-sm text-slate-200">
+                          Entry Range:{' '}
+                          <span className="font-semibold">
+                            {typeof report.actionPanel.entryRange.low === 'number'
+                              ? `${report.actionPanel.entryRange.low.toLocaleString('en-IN')} - ${
+                                  typeof report.actionPanel.entryRange.high === 'number' ? report.actionPanel.entryRange.high.toLocaleString('en-IN') : report.actionPanel.entryRange.low.toLocaleString('en-IN')
+                                }`
+                              : 'Use staggered entry'}
+                          </span>
+                        </div>
+                        <div className="text-sm text-slate-200">
+                          Time Horizon: <span className="font-semibold">{report.actionPanel.timeHorizonLabel}</span>
+                        </div>
                       </div>
                       <div>
-                        Confidence:{' '}
-                        <span className={cn('font-semibold capitalize', confidenceTone(report.preferredStockReport.decisionPlan.confidence))}>
-                          {report.preferredStockReport.decisionPlan.confidence}
-                        </span>
+                        <div className="text-xs uppercase tracking-wide text-slate-400">Backup Actions</div>
+                        <ul className="mt-2 space-y-1 text-sm text-slate-200">
+                          {report.actionPanel.backupActions.map((line) => (
+                            <li key={line}>• {line}</li>
+                          ))}
+                        </ul>
                       </div>
-                      <div className="rounded-lg border border-border bg-card/55 p-2 leading-relaxed">{report.preferredStockReport.decisionPlan.explanation}</div>
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div className="rounded-lg border border-border bg-card/55 p-2">
-                          Buy below
-                          <div className="mt-1 text-sm font-semibold">
-                            {typeof report.preferredStockReport.decisionPlan.buyBelow === 'number'
-                              ? report.preferredStockReport.decisionPlan.buyBelow.toLocaleString('en-IN')
-                              : 'N/A'}
-                          </div>
-                        </div>
-                        <div className="rounded-lg border border-border bg-card/55 p-2">
-                          Sell above
-                          <div className="mt-1 text-sm font-semibold">
-                            {typeof report.preferredStockReport.decisionPlan.sellAbove === 'number'
-                              ? report.preferredStockReport.decisionPlan.sellAbove.toLocaleString('en-IN')
-                              : 'N/A'}
-                          </div>
-                        </div>
-                        <div className="rounded-lg border border-border bg-card/55 p-2">
-                          Stop loss
-                          <div className="mt-1 text-sm font-semibold">
-                            {typeof report.preferredStockReport.decisionPlan.stopLoss === 'number'
-                              ? report.preferredStockReport.decisionPlan.stopLoss.toLocaleString('en-IN')
-                              : 'N/A'}
-                          </div>
-                        </div>
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-slate-400">Portfolio Change</div>
+                        <ul className="mt-2 space-y-1 text-sm text-slate-200">
+                          {report.actionPanel.portfolioChanges.map((line) => (
+                            <li key={line}>• {line}</li>
+                          ))}
+                        </ul>
                       </div>
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Explainability (Why This Decision)</div>
-                    <ul className="space-y-1 text-sm text-slate-300">
-                      {report.preferredStockReport.explainabilityInsights.map((line) => (
-                        <li key={line}>• {line}</li>
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {([
+                        ['summary', 'Summary'],
+                        ['portfolio', 'Portfolio'],
+                        ['recommendations', 'Recommendations'],
+                        ['deep', 'Deep Analysis'],
+                      ] as Array<[ReportTab, string]>).map(([tab, label]) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setActiveTab(tab)}
+                          className={cn(
+                            'rounded-xl border px-3 py-1.5 text-sm',
+                            activeTab === tab ? 'border-accent/40 bg-accent/15 text-accent' : 'border-border text-slate-300 hover:bg-muted/50',
+                          )}
+                        >
+                          {label}
+                        </button>
                       ))}
-                    </ul>
+                    </div>
+                    <PillToggle<ThinkingMode>
+                      options={[
+                        { value: 'beginner', label: 'Beginner' },
+                        { value: 'pro', label: 'Pro' },
+                        { value: 'quant', label: 'Quant' },
+                      ]}
+                      value={thinkingMode}
+                      onChange={setThinkingMode}
+                    />
                   </div>
+                </SectionCard>
 
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Trend & Bull/Bear Cycles</div>
-                    <ul className="space-y-1 text-sm text-slate-300">
-                      {report.preferredStockReport.trendCycleInsights.map((line) => (
-                        <li key={line}>• {line}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Forecast + Assumptions</div>
-                    <ul className="space-y-1 text-sm text-slate-300">
-                      {report.preferredStockReport.forecastInsights.map((line) => (
-                        <li key={line}>• {line}</li>
-                      ))}
-                    </ul>
-                    {report.preferredStockReport.forecastRows.length ? (
-                      <div className="mt-2 overflow-auto rounded-lg border border-border">
-                        <table className="min-w-full text-xs">
-                          <thead className="bg-muted/35 text-slate-500">
-                            <tr>
-                              <th className="px-2 py-1.5 text-left">Period</th>
-                              <th className="px-2 py-1.5 text-right">Sales</th>
-                              <th className="px-2 py-1.5 text-right">Profit</th>
-                              <th className="px-2 py-1.5 text-right">Confidence</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {report.preferredStockReport.forecastRows.map((row) => (
-                              <tr key={row.period} className="border-t border-border">
-                                <td className="px-2 py-1.5">{row.period}</td>
-                                <td className="px-2 py-1.5 text-right">
-                                  {typeof row.sales === 'number' ? row.sales.toLocaleString('en-IN') : 'N/A'}
-                                </td>
-                                <td className="px-2 py-1.5 text-right">
-                                  {typeof row.profit === 'number' ? row.profit.toLocaleString('en-IN') : 'N/A'}
-                                </td>
-                                <td className={cn('px-2 py-1.5 text-right capitalize', confidenceTone(row.confidence))}>{row.confidence}</td>
-                              </tr>
+                {activeTab === 'summary' ? (
+                  <SectionCard title="Agent Execution" subtitle="What the agent did for you and why you can trust this run.">
+                    <p className="text-sm leading-relaxed text-slate-200">{report.summary}</p>
+                    <div className="mt-4 grid gap-3 xl:grid-cols-3">
+                      <div className="rounded-xl border border-border bg-card/55 p-3">
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Execution Log</div>
+                        <ul className="space-y-2">
+                          {report.executionLog.map((item) => (
+                            <li key={item.title} className="rounded-lg border border-border bg-card/50 p-2 text-sm">
+                              <div className="flex items-center justify-between font-medium">
+                                <span>{item.title}</span>
+                                <span className={item.status === 'done' ? 'text-emerald-400' : 'text-amber-400'}>{item.status === 'done' ? 'Done' : 'Watch'}</span>
+                              </div>
+                              <div className="mt-1 text-xs text-slate-400">{item.detail}</div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="rounded-xl border border-border bg-card/55 p-3">
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Confidence + Data Quality</div>
+                        <div className="space-y-1 text-sm text-slate-300">
+                          <div>
+                            Confidence Score:{' '}
+                            <span className={cn('font-semibold', confidenceTone(report.dataQuality.confidenceLabel))}>{report.dataQuality.confidenceScore}%</span>
+                          </div>
+                          <div>Data Freshness: <span className="font-semibold">{report.dataQuality.dataFreshness}</span></div>
+                          <div className="pt-1 text-xs uppercase tracking-wide text-slate-500">Missing Data</div>
+                          <ul className="space-y-1 text-xs text-slate-400">
+                            {report.dataQuality.missingData.map((line) => (
+                              <li key={line}>• {line}</li>
                             ))}
-                          </tbody>
-                        </table>
+                          </ul>
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-border bg-card/55 p-3">
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">What Changed Since Last Time</div>
+                        <ul className="space-y-1 text-sm text-slate-300">
+                          {changeLog.length ? (
+                            changeLog.map((line) => <li key={line}>• {line}</li>)
+                          ) : (
+                            <li>• No significant change from previous saved run.</li>
+                          )}
+                        </ul>
+                        <div className="mt-3 text-xs uppercase tracking-wide text-slate-500">Follow-up</div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {['Why not AAPL?', 'Show DCF assumptions', 'Reduce risk further'].map((q) => (
+                            <button
+                              key={q}
+                              type="button"
+                              onClick={() => runAgenticAnalysis(q)}
+                              disabled={loading}
+                              className="rounded-lg border border-border px-2.5 py-1 text-xs hover:bg-muted/50 disabled:opacity-60"
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <div className="rounded-xl border border-border bg-card/45 p-3">
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Detected Intents</div>
+                        <div className="space-y-2">
+                          {report.intents.map((intent) => (
+                            <div key={intent.intent} className="rounded-lg border border-border bg-card/55 p-2">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="font-semibold">{INTENT_LABELS[intent.intent]}</span>
+                                <span className="text-slate-400">{Math.round(intent.confidence * 100)}%</span>
+                              </div>
+                              <div className="mt-1 text-xs text-slate-400">{intent.reason}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-border bg-card/45 p-3">
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Dynamic Investor Profile</div>
+                        <div className="space-y-1.5 text-sm text-slate-300">
+                          <div>Horizon: <span className="font-semibold text-slate-100">{report.profile.investmentHorizon.replace('_', ' ')}</span></div>
+                          <div>Risk: <span className="font-semibold text-slate-100">{report.profile.riskAppetite}</span></div>
+                          <div>Capital: <span className="font-semibold text-slate-100">{report.profile.capitalAmount.toLocaleString('en-IN')}</span></div>
+                          <div>Market: <span className="font-semibold text-slate-100">{report.profile.marketPreference.toUpperCase()}</span></div>
+                          <div>Style: <span className="font-semibold text-slate-100">{report.profile.stylePreferences.join(', ')}</span></div>
+                          <div>Constraints: <span className="font-semibold text-slate-100">{report.profile.constraints.join(', ')}</span></div>
+                          <div>Inferred fields: <span className="font-semibold text-slate-100">{report.profile.inferredFields.length ? report.profile.inferredFields.join(', ') : 'None'}</span></div>
+                        </div>
+                        <div className="mt-2 rounded-lg border border-border bg-card/60 p-2 text-xs text-slate-400">{report.profile.profileNarrative}</div>
+                      </div>
+                    </div>
+                  </SectionCard>
+                ) : null}
+
+                {activeTab === 'portfolio' ? (
+                  <SectionCard title="Portfolio Diagnostics + Fix Suggestions" subtitle="Actionable diagnostics, not just exposure reporting.">
+                    {report.portfolio.hasPortfolio ? (
+                      <div className="space-y-4">
+                        <div className="grid gap-3 md:grid-cols-4">
+                          <div className="rounded-xl border border-border bg-card/50 p-3 text-sm">
+                            <div className="text-slate-500">Holdings</div>
+                            <div className="mt-1 text-lg font-semibold">{report.portfolio.holdingsCount}</div>
+                          </div>
+                          <div className="rounded-xl border border-border bg-card/50 p-3 text-sm">
+                            <div className="text-slate-500">Diversification</div>
+                            <div className="mt-1 text-lg font-semibold">{report.portfolio.diversificationScore}/100</div>
+                          </div>
+                          <div className="rounded-xl border border-border bg-card/50 p-3 text-sm">
+                            <div className="text-slate-500">Invested</div>
+                            <div className="mt-1 text-lg font-semibold">{formatCurrency(report.portfolio.totalInvested, 'INR')}</div>
+                          </div>
+                          <div className="rounded-xl border border-border bg-card/50 p-3 text-sm">
+                            <div className="text-slate-500">P&L</div>
+                            <div className={cn('mt-1 text-lg font-semibold', report.portfolio.totalPnl >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                              {formatCurrency(report.portfolio.totalPnl, 'INR')} ({formatPercent(report.portfolio.totalPnlPct)})
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid gap-3 xl:grid-cols-2">
+                          <div className="rounded-xl border border-border bg-card/50 p-3">
+                            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Market Exposure</div>
+                            <div className="space-y-1 text-sm text-slate-300">
+                              {report.portfolio.marketExposure.map((entry) => (
+                                <div key={entry.market} className="flex justify-between">
+                                  <span>{entry.market.toUpperCase()}</span>
+                                  <span className="font-semibold">{entry.weightPct.toFixed(1)}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="rounded-xl border border-border bg-card/50 p-3">
+                            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Sector Exposure</div>
+                            <div className="space-y-1 text-sm text-slate-300">
+                              {report.portfolio.sectorExposure.map((entry) => (
+                                <div key={entry.sector} className="flex justify-between">
+                                  <span>{entry.sector}</span>
+                                  <span className="font-semibold">{entry.weightPct.toFixed(1)}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="rounded-xl border border-border bg-card/50 p-3">
+                            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Issues Detected</div>
+                            <ul className="space-y-1 text-sm text-slate-300">
+                              {report.portfolioFixes.issues.map((line) => (
+                                <li key={line}>• {line}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div className="rounded-xl border border-border bg-card/50 p-3">
+                            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Suggested Fix</div>
+                            <ul className="space-y-1 text-sm text-slate-300">
+                              {report.portfolioFixes.suggestedFixes.map((line) => (
+                                <li key={line}>• {line}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-accent/40 bg-accent/10 p-3">
+                          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-accent">Scenario Simulation (If You Follow Suggestions)</div>
+                          <div className="grid gap-3 md:grid-cols-4 text-sm">
+                            <div>Diversification: <span className="font-semibold">{report.portfolioFixes.simulatedImpact.diversificationBefore} → {report.portfolioFixes.simulatedImpact.diversificationAfter}</span></div>
+                            <div>Expected Volatility: <span className="font-semibold">{report.portfolioFixes.simulatedImpact.expectedVolatilityChangePct >= 0 ? '+' : ''}{report.portfolioFixes.simulatedImpact.expectedVolatilityChangePct}%</span></div>
+                            <div>Expected Return: <span className="font-semibold">+{report.portfolioFixes.simulatedImpact.expectedReturnChangePct}%</span></div>
+                            <div>Top-sector cap target: <span className="font-semibold">~40%</span></div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="rounded-xl border border-dashed border-border p-3 text-sm text-slate-400">
+                          No portfolio records found yet. Suggestions below are profile-first.
+                        </div>
+                        <ul className="space-y-1 text-sm text-slate-300">
+                          {report.portfolioFixes.suggestedFixes.map((line) => (
+                            <li key={line}>• {line}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </SectionCard>
+                ) : null}
+
+                {activeTab === 'recommendations' ? (
+                  <SectionCard
+                    title={report.preferredStockReport ? 'Alternative Screened Opportunities' : 'Screened Stock Recommendations'}
+                    subtitle="Clear ranking with catalyst, fit, and action probabilities."
+                  >
+                    {primary ? (
+                      <div className="mb-4 grid gap-3 xl:grid-cols-3">
+                        <div className="rounded-xl border border-accent/30 bg-accent/10 p-3 xl:col-span-2">
+                          <div className="text-xs uppercase tracking-wide text-accent">Top Pick Summary</div>
+                          <div className="mt-1 text-lg font-semibold">{primary.displaySymbol} • {primary.recommendation}</div>
+                          <div className="mt-1 text-sm text-slate-200">{primary.smartSummary}</div>
+                          <div className="mt-2 text-xs text-slate-300">Buy/Hold/Sell: {primary.buyPct}% / {primary.holdPct}% / {primary.sellPct}% • Confidence: {primary.confidenceScore}%</div>
+                        </div>
+                        <div className="rounded-xl border border-border bg-card/50 p-3">
+                          <div className="text-xs uppercase tracking-wide text-slate-500">Why this fits YOU</div>
+                          <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                            {(isBeginner ? primary.whyFitYou.slice(0, 2) : primary.whyFitYou).map((line) => (
+                              <li key={line}>• {line}</li>
+                            ))}
+                          </ul>
+                        </div>
                       </div>
                     ) : null}
-                  </div>
 
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Ratio Analysis</div>
-                    <ul className="space-y-1 text-sm text-slate-300">
-                      {report.preferredStockReport.ratioInsights.map((line) => (
-                        <li key={line}>• {line}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Income Statement Analysis</div>
-                    <ul className="space-y-1 text-sm text-slate-300">
-                      {report.preferredStockReport.statementInsights.map((line) => (
-                        <li key={line}>• {line}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Valuation & DCF</div>
-                    <ul className="space-y-1 text-sm text-slate-300">
-                      {report.preferredStockReport.valuationInsights.map((line) => (
-                        <li key={line}>• {line}</li>
-                      ))}
-                    </ul>
-                    <div className="mt-2 rounded-lg border border-border bg-card/60 p-2 text-xs text-slate-300">
-                      <div>DCF verdict: <span className="font-semibold uppercase">{report.preferredStockReport.dcf.verdict}</span> ({report.preferredStockReport.dcf.confidence} confidence)</div>
-                      <div>Growth: {report.preferredStockReport.dcf.growthRatePct.toFixed(1)}% | Discount: {report.preferredStockReport.dcf.discountRatePct.toFixed(1)}%</div>
-                      <div>
-                        Fair Value/Share:{' '}
-                        {typeof report.preferredStockReport.dcf.fairValuePerShare === 'number'
-                          ? report.preferredStockReport.dcf.fairValuePerShare.toLocaleString('en-IN', { maximumFractionDigits: 2 })
-                          : 'N/A'}
-                        {' | '}Upside:
-                        {typeof report.preferredStockReport.dcf.upsidePct === 'number' ? ` ${report.preferredStockReport.dcf.upsidePct.toFixed(1)}%` : ' N/A'}
-                      </div>
+                    <div className="overflow-auto rounded-xl border border-border">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-muted/35 text-xs uppercase tracking-wide text-slate-500">
+                          <tr>
+                            <th className="px-3 py-2 text-left">Stock</th>
+                            <th className="px-3 py-2 text-right">Score</th>
+                            <th className="px-3 py-2 text-right">Recommendation</th>
+                            <th className="px-3 py-2 text-right">Buy%</th>
+                            <th className="px-3 py-2 text-right">Hold%</th>
+                            <th className="px-3 py-2 text-right">Sell%</th>
+                            <th className="px-3 py-2 text-right">Conf.</th>
+                            <th className="px-3 py-2 text-left">Catalyst / Trigger</th>
+                            <th className="px-3 py-2 text-left">Why this fits you</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {report.suggestedStocks.length ? (
+                            report.suggestedStocks.slice(0, 15).map((stock) => (
+                              <tr key={stock.symbol} className="border-t border-border">
+                                <td className="px-3 py-2">
+                                  <div className="font-semibold">{stock.displaySymbol}</div>
+                                  <div className="text-xs text-slate-500">{stock.name}</div>
+                                </td>
+                                <td className="px-3 py-2 text-right font-semibold">{stock.suitabilityScore}</td>
+                                <td className={cn('px-3 py-2 text-right font-semibold', recommendationTone(stock.recommendation))}>{stock.recommendation}</td>
+                                <td className="px-3 py-2 text-right">{stock.buyPct}%</td>
+                                <td className="px-3 py-2 text-right">{stock.holdPct}%</td>
+                                <td className="px-3 py-2 text-right">{stock.sellPct}%</td>
+                                <td className="px-3 py-2 text-right">{stock.confidenceScore}%</td>
+                                <td className="px-3 py-2 text-xs text-slate-300">{stock.catalysts[0] ?? stock.smartSummary}</td>
+                                <td className="px-3 py-2 text-xs text-slate-400">{stock.whyFitYou[0] ?? stock.smartSummary}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={9} className="px-3 py-4 text-center text-slate-500">
+                                No stock matched all active constraints. Relax constraints and rerun.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Sentiment + Technical</div>
-                    <ul className="space-y-1 text-sm text-slate-300">
-                      {[...report.preferredStockReport.sentimentInsights, ...report.preferredStockReport.technicalInsights]
-                        .slice(0, 10)
-                        .map((line) => (
-                          <li key={line}>• {line}</li>
-                        ))}
-                    </ul>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Risk + Governance Flags</div>
-                    <ul className="space-y-1 text-sm text-slate-300">
-                      {report.preferredStockReport.riskInsights.map((line) => (
-                        <li key={line}>• {line}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Peer + Event Analysis</div>
-                    <ul className="space-y-1 text-sm text-slate-300">
-                      {[...report.preferredStockReport.peerInsights, ...report.preferredStockReport.eventInsights].map((line) => (
-                        <li key={line}>• {line}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Time Horizon + Scenarios</div>
-                    <ul className="space-y-1 text-sm text-slate-300">
-                      {[...report.preferredStockReport.horizonInsights, ...report.preferredStockReport.scenarioInsights].map((line) => (
-                        <li key={line}>• {line}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Entry / Exit Signals</div>
-                    <ul className="space-y-1 text-sm text-slate-300">
-                      {report.preferredStockReport.entryExitInsights.map((line) => (
-                        <li key={line}>• {line}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card/50 p-3">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Suggested Alerts</div>
-                    <ul className="space-y-1 text-sm text-slate-300">
-                      {report.preferredStockReport.alerts.map((line) => (
-                        <li key={line}>• {line}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </SectionCard>
-          ) : null}
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={saveAutoWatchlist}
+                        className="rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent hover:bg-accent/20"
+                      >
+                        Build Auto Watchlist
+                      </button>
+                      {watchlistStatus ? <div className="text-sm text-slate-300">{watchlistStatus}</div> : null}
+                    </div>
+                  </SectionCard>
+                ) : null}
 
-          <SectionCard
-            title={report.preferredStockReport ? 'Alternative Screened Opportunities' : 'Screened Stock Recommendations'}
-            subtitle="If no preferred share is provided, these become your primary suggestions."
-          >
-            <div className="overflow-auto rounded-xl border border-border">
-              <table className="min-w-full text-sm">
-                <thead className="bg-muted/35 text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Stock</th>
-                    <th className="px-3 py-2 text-right">Score</th>
-                    <th className="px-3 py-2 text-right">Recommendation</th>
-                    <th className="px-3 py-2 text-right">Buy%</th>
-                    <th className="px-3 py-2 text-right">Hold%</th>
-                    <th className="px-3 py-2 text-right">Sell%</th>
-                    <th className="px-3 py-2 text-left">Why It Fits</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.suggestedStocks.length ? (
-                    report.suggestedStocks.map((stock) => (
-                      <tr key={stock.symbol} className="border-t border-border">
-                        <td className="px-3 py-2">
-                          <div className="font-semibold">{stock.displaySymbol}</div>
-                          <div className="text-xs text-slate-500">{stock.name}</div>
-                        </td>
-                        <td className="px-3 py-2 text-right font-semibold">{stock.suitabilityScore}</td>
-                        <td className={cn('px-3 py-2 text-right font-semibold', recommendationTone(stock.recommendation))}>{stock.recommendation}</td>
-                        <td className="px-3 py-2 text-right">{stock.buyPct}%</td>
-                        <td className="px-3 py-2 text-right">{stock.holdPct}%</td>
-                        <td className="px-3 py-2 text-right">{stock.sellPct}%</td>
-                        <td className="px-3 py-2 text-xs text-slate-400">{stock.smartSummary}</td>
-                      </tr>
-                    ))
+                {activeTab === 'deep' ? (
+                  primary ? (
+                    <SectionCard
+                      title={`Deep Analysis: ${primary.displaySymbol}`}
+                      subtitle={`${primary.name} • ${primary.sector} • ${primary.industry} • Mode: ${thinkingMode.toUpperCase()}`}
+                    >
+                      <div className="space-y-3">
+                        <details className="rounded-xl border border-border bg-card/45 p-3">
+                          <summary className="cursor-pointer text-sm font-semibold">Business Fit + Decision</summary>
+                          <div className="mt-3 space-y-2 text-sm text-slate-300">
+                            <div className="rounded-lg border border-border bg-card/60 p-2">{primary.smartSummary}</div>
+                            <div>Recommendation: <span className={cn('font-semibold', recommendationTone(primary.recommendation))}>{primary.recommendation}</span></div>
+                            <div>Decision engine: {primary.decisionPlan.explanation}</div>
+                            <div>Buy/Hold/Sell: {primary.buyPct}% / {primary.holdPct}% / {primary.sellPct}%</div>
+                            <ul className="space-y-1">{(isBeginner ? primary.whyFitYou.slice(0, 2) : primary.whyFitYou).map((line) => <li key={line}>• {line}</li>)}</ul>
+                          </div>
+                        </details>
+
+                        <details className="rounded-xl border border-border bg-card/45 p-3">
+                          <summary className="cursor-pointer text-sm font-semibold">Risk Radar</summary>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            <div className="rounded-lg border border-border bg-card/60 p-2 text-sm">
+                              Overall Risk: <span className="font-semibold">{primary.riskRadar.overall}</span>
+                            </div>
+                            <div className="rounded-lg border border-border bg-card/60 p-2 text-sm">
+                              Market / Sector / Valuation: <span className="font-semibold">{primary.riskRadar.marketRisk} / {primary.riskRadar.sectorRisk} / {primary.riskRadar.valuationRisk}</span>
+                            </div>
+                            <div className="rounded-lg border border-border bg-card/60 p-2 text-sm sm:col-span-2">
+                              {primary.riskInsights[0]}
+                            </div>
+                          </div>
+                        </details>
+
+                        <details className="rounded-xl border border-border bg-card/45 p-3">
+                          <summary className="cursor-pointer text-sm font-semibold">Fundamentals + Valuation</summary>
+                          <div className="mt-3 grid gap-3 xl:grid-cols-2 text-sm text-slate-300">
+                            <ul className="space-y-1">{(isBeginner ? primary.ratioInsights.slice(0, 2) : primary.ratioInsights).map((line) => <li key={line}>• {line}</li>)}</ul>
+                            <ul className="space-y-1">{(isBeginner ? primary.statementInsights.slice(0, 2) : primary.statementInsights).map((line) => <li key={line}>• {line}</li>)}</ul>
+                            <ul className="space-y-1 xl:col-span-2">{(isBeginner ? primary.valuationInsights.slice(0, 2) : primary.valuationInsights).map((line) => <li key={line}>• {line}</li>)}</ul>
+                            <div className="rounded-lg border border-border bg-card/60 p-2 text-xs xl:col-span-2">
+                              DCF verdict: <span className="font-semibold uppercase">{primary.dcf.verdict}</span> ({primary.dcf.confidence}) •
+                              Fair value/share:{' '}
+                              {typeof primary.dcf.fairValuePerShare === 'number' ? primary.dcf.fairValuePerShare.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : 'N/A'} • Upside:{' '}
+                              {typeof primary.dcf.upsidePct === 'number' ? `${primary.dcf.upsidePct.toFixed(1)}%` : 'N/A'}
+                            </div>
+                          </div>
+                        </details>
+
+                        <details className="rounded-xl border border-border bg-card/45 p-3">
+                          <summary className="cursor-pointer text-sm font-semibold">Forecast + Scenarios + Triggers</summary>
+                          <div className="mt-3 grid gap-3 xl:grid-cols-2 text-sm text-slate-300">
+                            <ul className="space-y-1">{(isBeginner ? primary.forecastInsights.slice(0, 2) : primary.forecastInsights).map((line) => <li key={line}>• {line}</li>)}</ul>
+                            <ul className="space-y-1">{(isBeginner ? primary.scenarioInsights.slice(0, 2) : primary.scenarioInsights).map((line) => <li key={line}>• {line}</li>)}</ul>
+                            <ul className="space-y-1 xl:col-span-2">{primary.entryExitInsights.map((line) => <li key={line}>• {line}</li>)}</ul>
+                          </div>
+                        </details>
+
+                        <details className="rounded-xl border border-border bg-card/45 p-3">
+                          <summary className="cursor-pointer text-sm font-semibold">Sentiment + Trend + Peer + Alerts</summary>
+                          <div className="mt-3 grid gap-3 xl:grid-cols-2 text-sm text-slate-300">
+                            <ul className="space-y-1">{(isBeginner ? primary.sentimentInsights.slice(0, 2) : primary.sentimentInsights).map((line) => <li key={line}>• {line}</li>)}</ul>
+                            <ul className="space-y-1">{(isBeginner ? primary.trendCycleInsights.slice(0, 3) : primary.trendCycleInsights).map((line) => <li key={line}>• {line}</li>)}</ul>
+                            <ul className="space-y-1">{(isBeginner ? primary.peerInsights.slice(0, 2) : primary.peerInsights).map((line) => <li key={line}>• {line}</li>)}</ul>
+                            <ul className="space-y-1">{(isBeginner ? primary.alerts.slice(0, 3) : primary.alerts).map((line) => <li key={line}>• {line}</li>)}</ul>
+                          </div>
+                        </details>
+
+                        {isQuant ? (
+                          <details className="rounded-xl border border-border bg-card/45 p-3">
+                            <summary className="cursor-pointer text-sm font-semibold">Quant Snapshot</summary>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-3 text-sm">
+                              <div className="rounded-lg border border-border bg-card/60 p-2">Growth score: <span className="font-semibold">{primary.quantSnapshot.growthScore}</span></div>
+                              <div className="rounded-lg border border-border bg-card/60 p-2">Quality score: <span className="font-semibold">{primary.quantSnapshot.qualityScore}</span></div>
+                              <div className="rounded-lg border border-border bg-card/60 p-2">Value score: <span className="font-semibold">{primary.quantSnapshot.valueScore}</span></div>
+                              <div className="rounded-lg border border-border bg-card/60 p-2">Momentum score: <span className="font-semibold">{primary.quantSnapshot.momentumScore}</span></div>
+                              <div className="rounded-lg border border-border bg-card/60 p-2">Style score: <span className="font-semibold">{primary.quantSnapshot.styleScore}</span></div>
+                              <div className="rounded-lg border border-border bg-card/60 p-2">Sentiment score: <span className="font-semibold">{primary.quantSnapshot.sentimentScore}</span></div>
+                              <div className="rounded-lg border border-border bg-card/60 p-2">Risk penalty: <span className="font-semibold">{primary.quantSnapshot.riskPenalty}</span></div>
+                              <div className="rounded-lg border border-border bg-card/60 p-2">Personal adjustment: <span className="font-semibold">{primary.quantSnapshot.personalAdjustment}</span></div>
+                              <div className="rounded-lg border border-border bg-card/60 p-2">Coverage count: <span className="font-semibold">{primary.quantSnapshot.coverageCount}</span></div>
+                            </div>
+                          </details>
+                        ) : null}
+                      </div>
+                    </SectionCard>
                   ) : (
-                    <tr>
-                      <td colSpan={7} className="px-3 py-4 text-center text-slate-500">
-                        No stock matched all active constraints. Relax constraints and rerun.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </SectionCard>
-        </div>
-      ) : null}
+                    <SectionCard title="Deep Analysis" subtitle="No primary stock available for deep analysis in this run.">
+                      <div className="rounded-xl border border-dashed border-border p-3 text-sm text-slate-400">Adjust constraints or provide a preferred share and rerun.</div>
+                    </SectionCard>
+                  )
+                ) : null}
+              </div>
+            );
+          })()
+        : null}
     </div>
   );
 }
