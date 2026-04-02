@@ -253,11 +253,15 @@ export async function getSearchIndex(market?: MarketKind): Promise<SearchEntity[
   return [...demoUniverse, ...india, ...us, ...mf];
 }
 
-export async function universalSearch(query: string, opts?: { market?: MarketKind; limit?: number }): Promise<SearchEntity[]> {
+export async function universalSearch(
+  query: string,
+  opts?: { market?: MarketKind; limit?: number; offset?: number },
+): Promise<SearchEntity[]> {
   const limit = opts?.limit ?? 12;
+  const offset = Math.max(0, opts?.offset ?? 0);
   const q = query.trim();
   const base = await getSearchIndex(opts?.market);
-  if (!q) return base.slice(0, limit);
+  if (!q) return base.slice(offset, offset + limit);
 
   const scored = base
     .map((entity) => ({ entity, score: scoreEntity(entity, q) }))
@@ -270,9 +274,9 @@ export async function universalSearch(query: string, opts?: { market?: MarketKin
   const dedup = new Map<string, SearchEntity>();
   for (const item of scored) {
     if (!dedup.has(item.entity.symbol)) dedup.set(item.entity.symbol, item.entity);
-    if (dedup.size >= limit) break;
+    if (dedup.size >= offset + limit) break;
   }
-  return Array.from(dedup.values());
+  return Array.from(dedup.values()).slice(offset, offset + limit);
 }
 
 export async function resolveSearchEntityBySymbol(symbol: string): Promise<SearchEntity | null> {

@@ -6,7 +6,9 @@ export async function GET(req: NextRequest) {
   const symbol = req.nextUrl.searchParams.get('symbol');
   const market = req.nextUrl.searchParams.get('market') as 'us' | 'india' | 'mf' | null;
   const limitParam = Number(req.nextUrl.searchParams.get('limit') ?? '12');
-  const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 50) : 12;
+  const offsetParam = Number(req.nextUrl.searchParams.get('offset') ?? '0');
+  const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 1000) : 12;
+  const offset = Number.isFinite(offsetParam) ? Math.min(Math.max(offsetParam, 0), 100000) : 0;
 
   try {
     if (symbol) {
@@ -16,7 +18,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const results = await universalSearch(q, { market: market ?? undefined, limit });
+    const results = await universalSearch(q, { market: market ?? undefined, limit, offset });
     return NextResponse.json(results, {
       headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' },
     });

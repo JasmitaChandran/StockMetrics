@@ -1014,7 +1014,8 @@ function buildAiFilters(parsedFilters: Array<{ field: string; op: string; value:
 
   const definitionByField = new Map<string, FilterDefinition>();
   for (const definition of FILTER_DEFINITIONS) {
-    if (!definitionByField.has(definition.field)) definitionByField.set(definition.field, definition);
+    const field = definition.field as string;
+    if (!definitionByField.has(field)) definitionByField.set(field, definition);
   }
 
   for (const parsed of parsedFilters) {
@@ -1096,7 +1097,7 @@ function applyAdvancedFilters(rows: ScreenerRow[], activeFilters: ActiveFilter[]
       if (!definition) return true;
 
       if (active.kind === 'numeric' && definition.kind === 'numeric') {
-        const value = row[definition.field];
+        const value = row[definition.field as keyof ScreenerRow];
         if (typeof value !== 'number' || Number.isNaN(value)) return false;
         const min = parseNumber(active.min);
         const max = parseNumber(active.max);
@@ -1107,7 +1108,7 @@ function applyAdvancedFilters(rows: ScreenerRow[], activeFilters: ActiveFilter[]
 
       if (active.kind === 'enum' && definition.kind === 'enum') {
         if (!active.selected.length) return true;
-        const value = row[definition.field];
+        const value = row[definition.field as keyof ScreenerRow];
         if (typeof value !== 'string') return false;
         return active.selected.some((selected) => normalizeForSearch(selected) === normalizeForSearch(value));
       }
@@ -1209,7 +1210,7 @@ export function ScreenerWorkbench() {
       id: [],
       symbol: [],
       name: [],
-    } as Record<EnumField, string[]>;
+    } as Record<string, string[]>;
   }, []);
 
   const categoryCounts = useMemo(
