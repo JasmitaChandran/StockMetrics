@@ -340,17 +340,18 @@ export async function resolveSearchEntityBySymbol(symbol: string): Promise<Searc
   const mfByCode = mf.find((e) => e.displaySymbol.toUpperCase() === target || e.symbol.toUpperCase() === `AMFI:${target}`);
   if (mfByCode) return mfByCode;
 
-  // Final fallback: best-effort US ticker stub for direct symbol URLs.
+  // Final fallback: unverified ticker stub for direct symbol URLs.
   return {
     id: `us:${target}`,
     symbol: target,
     displaySymbol: target,
-    name: target,
+    name: `${target} (Unverified)`,
     market: 'us',
     exchange: 'UNKNOWN',
     country: 'United States',
     currency: 'USD',
     type: 'stock',
-    aliases: [target],
+    aliases: [target, 'unverified'],
+    summary: 'Unverified ticker stub. Use with caution until market identity is confirmed.',
   };
 }

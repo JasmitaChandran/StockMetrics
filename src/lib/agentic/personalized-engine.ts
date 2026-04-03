@@ -1,20 +1,63 @@
 import { heuristicAiProvider } from '@/lib/ai';
-import { getEntityBySymbol, searchEntities } from '@/lib/data/adapters';
+import { getEntityBySymbol, getUsdInrRate, searchEntities } from '@/lib/data/adapters';
 import { fundamentalsAdapter } from '@/lib/data/adapters/fundamentals-adapter';
 import { marketAdapter } from '@/lib/data/adapters/market-adapter';
 import { newsAdapter } from '@/lib/data/adapters/news-adapter';
 import { demoFundamentalsBySymbol, demoUniverse, generateDemoHistory, getDemoNews } from '@/lib/data/mock/demo-data';
 import type { PortfolioTxn } from '@/lib/storage/idb';
 import { formatCurrency, formatPercent } from '@/lib/utils/format';
-import type { FinancialStatementTable, FundamentalsBundle, HistorySeries, MarketKind, SearchEntity } from '@/types';
+import type { FinancialStatementTable, FundamentalsBundle, HistorySeries, MarketKind, NewsItem, Quote, SearchEntity } from '@/types';
 
 export type AnalysisMode = 'suggest' | 'specific';
+export type CountryCode = 'IN' | 'US';
+export type AgentMarketScope = 'india' | 'us' | 'both';
 export type MaritalStatus = 'single' | 'married' | 'divorced';
 export type EmploymentType = 'salaried' | 'self_employed' | 'business_owner';
 export type InvestmentHorizon = 'short' | 'medium' | 'long';
 export type RiskPreference = 'conservative' | 'moderate' | 'aggressive';
 export type LiquidityNeed = 'low' | 'medium' | 'high';
 export type InvestmentGoal = 'wealth_creation' | 'retirement' | 'child_education' | 'house_purchase' | 'income';
+export type DataFreshness = 'Live' | 'Delayed' | 'Demo fallback';
+
+export interface MetricProvenance {
+  source: string;
+  freshness: DataFreshness;
+  timestamp?: string;
+  fallbackReason?: string;
+}
+
+export interface AgenticProgressTelemetry {
+  phase:
+    | 'profile'
+    | 'universe'
+    | 'focus'
+    | 'analysis'
+    | 'scoring'
+    | 'finalizing'
+    | 'completed';
+  analyzed: number;
+  total: number;
+  message: string;
+}
+
+export interface ScoringWeights {
+  stockQuality: number;
+  riskCompatibility: number;
+  portfolioFit: number;
+  lifeStageFit: number;
+}
+
+export interface AgentLearningMemory {
+  runCount?: number;
+  scoringWeights?: Partial<ScoringWeights>;
+  lastOutcomeNote?: string;
+}
+
+export interface AgenticAnalysisOptions {
+  onProgress?: (progress: AgenticProgressTelemetry) => void;
+  signal?: AbortSignal;
+  memory?: AgentLearningMemory;
+}
 
 export interface LoanInput {
   id: string;
@@ -62,6 +105,9 @@ export interface AgenticFormInput {
   expectedReturnTarget: number;
   liquidityNeed: LiquidityNeed;
   country: string;
+  countryCode: CountryCode;
+  marketScope: AgentMarketScope;
+  compareWithAlternatives: boolean;
 }
 
 export interface AllocationWeights {
@@ -83,6 +129,8 @@ export interface PersonalProfileSummary {
   lifeStage: string;
   dependents: number;
   employmentType: EmploymentType;
+  baseCurrency: 'INR' | 'USD';
+  marketScope: AgentMarketScope;
   monthlyIncome: number;
   monthlyCoreSpend: number;
   effectiveTaxRate: number;
@@ -196,6 +244,41 @@ export interface PersonalizedStockRecommendation {
     portfolioFit: number;
     lifeStageFit: number;
     personalizedFit: number;
+    weightedContributions: {
+      stockQuality: number;
+      riskCompatibility: number;
+      portfolioFit: number;
+      lifeStageFit: number;
+    };
+  };
+  confidence: {
+    score: number;
+    label: 'High' | 'Moderate' | 'Low';
+    fitLow: number;
+    fitHigh: number;
+    uncertaintyPct: number;
+    reasons: string[];
+  };
+  dataFreshness: {
+    quote: DataFreshness;
+    history: DataFreshness;
+    fundamentals: DataFreshness;
+    news: DataFreshness;
+    dcf: DataFreshness;
+  };
+  provenance: {
+    quote: MetricProvenance;
+    history: MetricProvenance;
+    fundamentals: MetricProvenance;
+    news: MetricProvenance;
+    dcf: MetricProvenance;
+  };
+  allocation: {
+    baseCurrency: 'INR' | 'USD';
+    baseAmountMonthly: number;
+    securityCurrency: 'INR' | 'USD';
+    securityAmountMonthly: number;
+    usdInrRate: number;
   };
   recommendation: 'BUY' | 'HOLD' | 'AVOID';
   suggestedAllocationMonthly: number;
@@ -206,8 +289,20 @@ export interface PersonalizedStockRecommendation {
   personalityTags: string[];
 }
 
+export type AgenticEngineType =
+  | 'Agentic Orchestrator (Rules + Heuristic AI)'
+  | 'Rules + Heuristic AI';
+
 export interface AgenticAnalysisReport {
   generatedAt: string;
+  engineType: AgenticEngineType;
+  baseCurrency: 'INR' | 'USD';
+  fxContext: {
+    usdInrRate: number;
+    source: string;
+    timestamp: string;
+    stale: boolean;
+  };
   userProfileSummary: PersonalProfileSummary;
   finance: FinancialProfileAnalysis;
   focusStock?: PersonalizedStockRecommendation;
@@ -227,11 +322,17 @@ export interface AgenticAnalysisReport {
     analyzedUsStocks: number;
     analyzedMutualFunds: number;
     displayedStocks: number;
-    marketScope: 'india' | 'us' | 'both';
+    marketScope: AgentMarketScope;
     analysisMode: AnalysisMode;
-    universeSource: 'live_index' | 'demo_fallback';
+    universeSource: 'live_index' | 'demo_fallback' | 'mixed_live_demo';
     universeTruncated: boolean;
   };
+  scoringWeights: ScoringWeights;
+  agentPipeline: Array<{
+    agent: 'Planner' | 'Data Collector' | 'Scorer' | 'Risk Critic' | 'Action Writer';
+    status: 'completed' | 'watch' | 'blocked';
+    summary: string;
+  }>;
   finalRecommendation: {
     headline: string;
     recommendation: string;
@@ -277,11 +378,19 @@ interface TechnicalSnapshot {
 
 interface LoadedRecommendationUniverse {
   entities: SearchEntity[];
-  source: 'live_index' | 'demo_fallback';
+  source: 'live_index' | 'demo_fallback' | 'mixed_live_demo';
   truncated: boolean;
   stockCount: number;
   mutualFundCount: number;
+  marketSources: Partial<Record<MarketKind, 'live_index' | 'demo_fallback'>>;
 }
+
+const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
+  stockQuality: 0.4,
+  riskCompatibility: 0.25,
+  portfolioFit: 0.2,
+  lifeStageFit: 0.15,
+};
 
 const GOAL_LABELS: Record<InvestmentGoal, string> = {
   wealth_creation: 'Wealth creation',
@@ -405,26 +514,159 @@ function getMetricFromBundle(bundle: FundamentalsBundle | undefined, key: string
   return bundle?.keyMetrics.find((metric) => metric.key === key)?.value;
 }
 
-function getDisplayCurrency(country?: string): 'INR' | 'USD' {
-  return /india/i.test(country ?? '') ? 'INR' : 'USD';
+function inferCountryCode(country?: string): CountryCode {
+  if (/india/i.test(country ?? '')) return 'IN';
+  if (/united states|usa|us/i.test(country ?? '')) return 'US';
+  return 'IN';
 }
 
-function getPreferredMarket(country?: string): 'india' | 'us' | 'both' {
-  if (/india/i.test(country ?? '')) return 'india';
-  if (/united states|usa|us/i.test(country ?? '')) return 'us';
-  return 'both';
+function getDisplayCurrency(input: { countryCode?: CountryCode; country?: string }): 'INR' | 'USD' {
+  const countryCode = input.countryCode ?? inferCountryCode(input.country);
+  return countryCode === 'US' ? 'USD' : 'INR';
 }
 
-function getScopedMarkets(preferredMarket: 'india' | 'us' | 'both'): MarketKind[] {
+function getScopedMarkets(preferredMarket: AgentMarketScope): MarketKind[] {
   if (preferredMarket === 'india') return ['india', 'mf'];
   if (preferredMarket === 'us') return ['us'];
   return ['india', 'us', 'mf'];
 }
 
-function isSecurityInScope(entity: SearchEntity, preferredMarket: 'india' | 'us' | 'both') {
+function isSecurityInScope(entity: SearchEntity, preferredMarket: AgentMarketScope) {
   if (preferredMarket === 'india') return entity.market === 'india' || entity.market === 'mf';
   if (preferredMarket === 'us') return entity.market === 'us';
   return entity.market === 'india' || entity.market === 'us' || entity.market === 'mf';
+}
+
+function resolveMarketScope(input: Pick<AgenticFormInput, 'marketScope' | 'countryCode' | 'country'>): AgentMarketScope {
+  if (input.marketScope) return input.marketScope;
+  const countryCode = input.countryCode ?? inferCountryCode(input.country);
+  return countryCode === 'US' ? 'us' : 'india';
+}
+
+function normalizeInput(input: AgenticFormInput): AgenticFormInput {
+  const countryCode = input.countryCode ?? inferCountryCode(input.country);
+  const marketScope = resolveMarketScope({ marketScope: input.marketScope, countryCode, country: input.country });
+  const country = input.country?.trim() || (countryCode === 'US' ? 'United States' : 'India');
+  return {
+    ...input,
+    country,
+    countryCode,
+    marketScope,
+    compareWithAlternatives: input.compareWithAlternatives ?? true,
+  };
+}
+
+function normalizeScoringWeights(weights?: Partial<ScoringWeights>): ScoringWeights {
+  const merged = {
+    ...DEFAULT_SCORING_WEIGHTS,
+    ...(weights ?? {}),
+  };
+  const clamped = {
+    stockQuality: clamp(merged.stockQuality, 0.1, 0.7),
+    riskCompatibility: clamp(merged.riskCompatibility, 0.1, 0.6),
+    portfolioFit: clamp(merged.portfolioFit, 0.05, 0.5),
+    lifeStageFit: clamp(merged.lifeStageFit, 0.05, 0.4),
+  };
+  const total = clamped.stockQuality + clamped.riskCompatibility + clamped.portfolioFit + clamped.lifeStageFit;
+  if (total <= 0) return DEFAULT_SCORING_WEIGHTS;
+  return {
+    stockQuality: clamped.stockQuality / total,
+    riskCompatibility: clamped.riskCompatibility / total,
+    portfolioFit: clamped.portfolioFit / total,
+    lifeStageFit: clamped.lifeStageFit / total,
+  };
+}
+
+function convertCurrency(amount: number, from: 'INR' | 'USD', to: 'INR' | 'USD', usdInrRate: number) {
+  if (from === to) return amount;
+  if (!Number.isFinite(usdInrRate) || usdInrRate <= 0) return amount;
+  if (from === 'USD') return amount * usdInrRate;
+  return amount / usdInrRate;
+}
+
+function classifyFreshness(source?: string, delayed?: boolean): DataFreshness {
+  const sourceText = (source ?? '').toLowerCase();
+  if (sourceText.includes('reference') || sourceText.includes('demo') || sourceText.includes('fallback')) {
+    return 'Demo fallback';
+  }
+  if (delayed) return 'Delayed';
+  return 'Live';
+}
+
+function classifyNewsFreshness(news: NewsItem[]): DataFreshness {
+  if (!news.length) return 'Demo fallback';
+  const demoCount = news.filter((item) => {
+    const source = item.source.toLowerCase();
+    const url = item.url.toLowerCase();
+    return source.includes('market news') || url.includes('example.com');
+  }).length;
+  if (demoCount === news.length) return 'Demo fallback';
+  return 'Delayed';
+}
+
+function validateAgenticInput(input: AgenticFormInput) {
+  const nonNegativeFields: Array<{ label: string; value: number }> = [
+    { label: 'Monthly income', value: input.monthlyIncome },
+    { label: 'Monthly fixed expenses', value: input.monthlyFixedExpenses },
+    { label: 'Monthly discretionary expenses', value: input.monthlyDiscretionaryExpenses },
+    { label: 'Equity assets', value: input.assets.equity },
+    { label: 'Debt assets', value: input.assets.debt },
+    { label: 'Gold assets', value: input.assets.gold },
+    { label: 'Real-estate assets', value: input.assets.realEstate },
+    { label: 'Cash assets', value: input.assets.cash },
+    { label: 'Alternative assets', value: input.assets.alternatives },
+    { label: 'EPF corpus', value: input.retirement.epf },
+    { label: 'PPF corpus', value: input.retirement.ppf },
+    { label: 'NPS corpus', value: input.retirement.nps },
+    { label: 'Other retirement corpus', value: input.retirement.other },
+  ];
+
+  for (const field of nonNegativeFields) {
+    if (!Number.isFinite(field.value) || field.value < 0) {
+      throw new Error(`${field.label} must be a non-negative number.`);
+    }
+  }
+
+  for (const loan of input.loans) {
+    if (loan.outstandingAmount < 0 || loan.monthlyEmi < 0 || loan.interestRate < 0) {
+      throw new Error('Loan values (outstanding, EMI, interest rate) must be non-negative.');
+    }
+  }
+
+  if (input.monthlyIncome <= 0) {
+    throw new Error('Monthly income must be greater than 0.');
+  }
+
+  if (!Number.isFinite(input.effectiveTaxRate) || input.effectiveTaxRate < 0 || input.effectiveTaxRate > 60) {
+    throw new Error('Effective tax rate must be between 0% and 60%.');
+  }
+  if (!Number.isFinite(input.expectedReturnTarget) || input.expectedReturnTarget < 0 || input.expectedReturnTarget > 40) {
+    throw new Error('Expected return target must be between 0% and 40%.');
+  }
+  if (!Number.isFinite(input.dependentsKids) || input.dependentsKids < 0 || input.dependentsKids > 10) {
+    throw new Error('Dependents (kids) must be between 0 and 10.');
+  }
+  if (!Number.isFinite(input.dependentsParents) || input.dependentsParents < 0 || input.dependentsParents > 10) {
+    throw new Error('Dependents (parents) must be between 0 and 10.');
+  }
+  if (!Number.isFinite(input.emergencyFundMonths) || input.emergencyFundMonths < 0 || input.emergencyFundMonths > 36) {
+    throw new Error('Emergency fund coverage must be between 0 and 36 months.');
+  }
+  if (!Number.isFinite(input.age) || input.age < 18 || input.age > 100) {
+    throw new Error('Age must be between 18 and 100.');
+  }
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (!signal?.aborted) return;
+  throw new DOMException('Analysis cancelled by user.', 'AbortError');
+}
+
+function emitProgress(
+  options: AgenticAnalysisOptions | undefined,
+  next: AgenticProgressTelemetry,
+) {
+  options?.onProgress?.(next);
 }
 
 async function fetchUniversePage(market: MarketKind, limit: number, offset: number): Promise<SearchEntity[]> {
@@ -470,13 +712,15 @@ async function loadUniverseForMarket(market: MarketKind): Promise<{ entities: Se
   return { entities, truncated };
 }
 
-async function loadRecommendationUniverse(preferredMarket: 'india' | 'us' | 'both'): Promise<LoadedRecommendationUniverse> {
+async function loadRecommendationUniverse(preferredMarket: AgentMarketScope): Promise<LoadedRecommendationUniverse> {
   const markets = getScopedMarkets(preferredMarket);
   const settled = await Promise.allSettled(markets.map((market) => loadUniverseForMarket(market)));
 
   const merged = new Map<string, SearchEntity>();
-  let hasLiveData = false;
+  let liveMarkets = 0;
+  let demoFallbackMarkets = 0;
   let truncated = false;
+  const marketSources: Partial<Record<MarketKind, 'live_index' | 'demo_fallback'>> = {};
 
   for (let index = 0; index < settled.length; index += 1) {
     const outcome = settled[index];
@@ -487,8 +731,12 @@ async function loadRecommendationUniverse(preferredMarket: 'india' | 'us' | 'bot
         : DEMO_SECURITIES_UNIVERSE.filter((entity) => entity.market === market);
 
     if (outcome.status === 'fulfilled') {
-      hasLiveData = true;
+      liveMarkets += 1;
+      marketSources[market] = 'live_index';
       truncated = truncated || outcome.value.truncated;
+    } else {
+      demoFallbackMarkets += 1;
+      marketSources[market] = 'demo_fallback';
     }
 
     for (const entity of sourceEntities) {
@@ -501,10 +749,16 @@ async function loadRecommendationUniverse(preferredMarket: 'india' | 'us' | 'bot
 
   return {
     entities,
-    source: hasLiveData ? 'live_index' : 'demo_fallback',
+    source:
+      liveMarkets === 0
+        ? 'demo_fallback'
+        : demoFallbackMarkets === 0
+          ? 'live_index'
+          : 'mixed_live_demo',
     truncated,
     stockCount: entities.filter((entity) => entity.type === 'stock').length,
     mutualFundCount: entities.filter((entity) => entity.type === 'mutual_fund').length,
+    marketSources,
   };
 }
 
@@ -545,7 +799,7 @@ function scorePreScreenCandidate(
   entity: SearchEntity,
   input: AgenticFormInput,
   finance: FinancialProfileAnalysis,
-  preferredMarket: 'india' | 'us' | 'both',
+  preferredMarket: AgentMarketScope,
 ) {
   let score = 50;
   const primaryGap = finance.allocationGap.find((gap) => gap.action === 'increase');
@@ -599,7 +853,7 @@ function selectCandidatesForDeepAnalysis(
   universe: SearchEntity[],
   input: AgenticFormInput,
   finance: FinancialProfileAnalysis,
-  preferredMarket: 'india' | 'us' | 'both',
+  preferredMarket: AgentMarketScope,
 ) {
   const scored = universe
     .map((entity) => ({
@@ -654,7 +908,10 @@ async function findEntityByTicker(query?: string) {
         direct.market === 'us' &&
         direct.exchange === 'UNKNOWN' &&
         direct.symbol.toUpperCase() === normalizedQuery &&
-        direct.name.toUpperCase() === normalizedQuery;
+        (direct.name.toUpperCase() === normalizedQuery ||
+          /unverified/i.test(direct.name) ||
+          /unverified/i.test(direct.summary ?? '') ||
+          (direct.aliases ?? []).some((alias) => /unverified/i.test(alias)));
       if (!looksLikeFallbackStub) return direct;
     }
   } catch {
@@ -686,7 +943,7 @@ async function findEntityByTicker(query?: string) {
   });
 }
 
-function deriveHoldings(txns: PortfolioTxn[]): HoldingSnapshot[] {
+async function deriveHoldings(txns: PortfolioTxn[]): Promise<HoldingSnapshot[]> {
   const map = new Map<string, { qty: number; invested: number; market: 'india' | 'us' | 'mf' }>();
 
   for (const txn of txns) {
@@ -702,18 +959,31 @@ function deriveHoldings(txns: PortfolioTxn[]): HoldingSnapshot[] {
     map.set(txn.symbol, current);
   }
 
-  return Array.from(map.entries())
-    .filter(([, value]) => value.qty > 0)
-    .map(([symbol, value]) => {
-      const entity = demoUniverse.find((candidate) => candidate.symbol === symbol);
-      const currentPrice = getMetric(symbol, 'currentPrice') ?? 0;
+  const openPositions = Array.from(map.entries()).filter(([, value]) => value.qty > 0);
+  const resolved = await Promise.all(
+    openPositions.map(async ([symbol, value]) => {
+      const entity =
+        (await getEntityBySymbol(symbol).catch(() => null)) ??
+        demoUniverse.find((candidate) => candidate.symbol === symbol) ??
+        null;
+      const priceFromQuote =
+        entity
+          ? await marketAdapter
+              .getQuote(entity)
+              .then((quote) => (typeof quote.price === 'number' ? quote.price : undefined))
+              .catch(() => undefined)
+          : undefined;
+      const fallbackPrice = getMetric(symbol, 'currentPrice') ?? (value.qty > 0 ? value.invested / value.qty : 0);
+      const currentPrice = priceFromQuote ?? fallbackPrice;
       return {
         symbol,
-        market: value.market,
+        market: entity?.market ?? value.market,
         currentValue: currentPrice * value.qty,
         sector: entity?.sector ?? 'Unknown',
-      };
-    });
+      } satisfies HoldingSnapshot;
+    }),
+  );
+  return resolved;
 }
 
 function getSectorExposure(holdings: HoldingSnapshot[]) {
@@ -1176,8 +1446,7 @@ function buildFinancialProfile(input: AgenticFormInput, holdings: HoldingSnapsho
     debtBurdenRatioPct > 40 ? 'High' : debtBurdenRatioPct > 25 ? 'Watch' : 'Healthy';
 
   const totalRetirementCorpus = sum(Object.values(input.retirement));
-  const totalAssets =
-    sum(Object.values(input.assets)) + totalRetirementCorpus + emergencyFundCurrentValue;
+  const totalAssets = sum(Object.values(input.assets)) + totalRetirementCorpus;
   const totalLiabilities = sum(input.loans.map((loan) => loan.outstandingAmount));
   const netWorth = totalAssets - totalLiabilities;
 
@@ -1357,21 +1626,33 @@ async function analyzeStock(
   entity: SearchEntity,
   input: AgenticFormInput,
   finance: FinancialProfileAnalysis,
+  context: { baseCurrency: 'INR' | 'USD'; usdInrRate: number; scoringWeights: ScoringWeights },
 ): Promise<PersonalizedStockRecommendation> {
   const [liveFundamentals, liveQuote] = await Promise.all([
     fundamentalsAdapter.getFundamentals(entity).catch(() => undefined),
     marketAdapter.getQuote(entity).catch(() => undefined),
   ]);
-  const fundamentalsBundle =
-    liveFundamentals && (liveFundamentals.keyMetrics.length || liveFundamentals.statements.length)
-      ? liveFundamentals
-      : demoFundamentalsBySymbol[entity.symbol];
+  const liveFundamentalsUsable =
+    !!liveFundamentals &&
+    (liveFundamentals.keyMetrics.length > 0 || liveFundamentals.statements.length > 0) &&
+    !/reference fundamentals dataset/i.test((liveFundamentals.source ?? '').toLowerCase());
+  const fundamentalsBundle = liveFundamentalsUsable ? liveFundamentals : demoFundamentalsBySymbol[entity.symbol];
+  const fundamentalsFreshness: DataFreshness = liveFundamentalsUsable ? 'Live' : 'Demo fallback';
+  const quoteFreshness = liveQuote ? classifyFreshness(liveQuote.source, liveQuote.delayed) : ('Demo fallback' as const);
   const metric = (key: string) => getMetricFromBundle(fundamentalsBundle, key) ?? getMetric(entity.symbol, key);
 
   const [history, news] = await Promise.all([
     marketAdapter.getHistory(entity, 'max').catch(() => generateDemoHistory(entity)),
     newsAdapter.getNews(entity).catch(() => getDemoNews(entity)),
   ]);
+  const historyFreshness = classifyFreshness(history.source, history.delayed);
+  const newsFreshness = classifyNewsFreshness(news);
+  const latestHistoryTs = history.points[history.points.length - 1]?.ts;
+  const latestNewsTs = news
+    .map((item) => item.publishedAt)
+    .filter((value): value is string => typeof value === 'string')
+    .sort()
+    .at(-1);
   const aiMarket: 'india' | 'us' = entity.market === 'us' ? 'us' : 'india';
   const aiInsights = await heuristicAiProvider.generateInsights({
     companyName: entity.name,
@@ -1469,7 +1750,7 @@ async function analyzeStock(
   if (input.investmentGoal === 'income' && (dividendYieldPct ?? 0) >= 1.2) portfolioFit += 8;
   if (input.investmentGoal === 'wealth_creation' && (revenueGrowthPct ?? 0) >= 12 && (profitGrowthPct ?? 0) >= 12) portfolioFit += 6;
   if (finance.debtBurdenFlag === 'High' && riskSnapshot.level === 'High') portfolioFit -= 24;
-  if (isSecurityInScope(entity, getPreferredMarket(input.country))) portfolioFit += 4;
+  if (isSecurityInScope(entity, resolveMarketScope(input))) portfolioFit += 4;
   portfolioFit = clamp(portfolioFit, 0, 100);
 
   let lifeStageFit = 50;
@@ -1486,7 +1767,10 @@ async function analyzeStock(
   lifeStageFit = clamp(lifeStageFit, 0, 100);
 
   let personalizedFit = round(
-    stockQuality * 0.4 + riskCompatibility * 0.25 + portfolioFit * 0.2 + lifeStageFit * 0.15,
+    stockQuality * context.scoringWeights.stockQuality +
+      riskCompatibility * context.scoringWeights.riskCompatibility +
+      portfolioFit * context.scoringWeights.portfolioFit +
+      lifeStageFit * context.scoringWeights.lifeStageFit,
     0,
   );
   if (finance.debtBurdenFlag === 'High' && riskSnapshot.level === 'High') personalizedFit = Math.min(personalizedFit, 54);
@@ -1506,6 +1790,97 @@ async function analyzeStock(
     finance.investableSurplusMonthly * allocationRatio * (input.liquidityNeed === 'high' ? 0.8 : 1),
     2,
   );
+  const securityCurrency = entity.currency ?? 'INR';
+  const suggestedAllocationSecurityMonthly = round(
+    convertCurrency(suggestedAllocationMonthly, context.baseCurrency, securityCurrency, context.usdInrRate),
+    2,
+  );
+  const weightedContributions = {
+    stockQuality: round(stockQuality * context.scoringWeights.stockQuality, 1),
+    riskCompatibility: round(riskCompatibility * context.scoringWeights.riskCompatibility, 1),
+    portfolioFit: round(portfolioFit * context.scoringWeights.portfolioFit, 1),
+    lifeStageFit: round(lifeStageFit * context.scoringWeights.lifeStageFit, 1),
+  };
+  const dcfFreshness: DataFreshness =
+    dcf.valuationLabel === 'Insufficient Data'
+      ? fundamentalsFreshness === 'Demo fallback'
+        ? 'Demo fallback'
+        : 'Delayed'
+      : fundamentalsFreshness === 'Live'
+        ? 'Live'
+        : 'Delayed';
+  const missingMetricCount = [pe, eps, revenueGrowthPct, profitGrowthPct, roePct].filter(
+    (value) => typeof value !== 'number',
+  ).length;
+  const demoSignalCount = [quoteFreshness, historyFreshness, fundamentalsFreshness, newsFreshness].filter(
+    (freshness) => freshness === 'Demo fallback',
+  ).length;
+  const delayedSignalCount = [quoteFreshness, historyFreshness, fundamentalsFreshness, newsFreshness].filter(
+    (freshness) => freshness === 'Delayed',
+  ).length;
+  const uncertaintyPct = clamp(demoSignalCount * 14 + delayedSignalCount * 6 + missingMetricCount * 5, 6, 45);
+  const confidenceScore = round(100 - uncertaintyPct * 1.6, 0);
+  const confidenceLabel: PersonalizedStockRecommendation['confidence']['label'] =
+    confidenceScore >= 75 ? 'High' : confidenceScore >= 52 ? 'Moderate' : 'Low';
+  const confidenceReasons = [
+    demoSignalCount > 0 ? `${demoSignalCount} metric channel(s) relied on demo fallback data.` : 'Core channels used live/delayed market data.',
+    missingMetricCount > 0 ? `${missingMetricCount} fundamental metric(s) were unavailable.` : 'Required valuation and growth metrics were available.',
+    dcf.valuationLabel === 'Insufficient Data'
+      ? 'DCF confidence is limited due to insufficient cash-flow inputs.'
+      : 'DCF was computed from available cash-flow and valuation inputs.',
+  ];
+  const confidence = {
+    score: confidenceScore,
+    label: confidenceLabel,
+    fitLow: clamp(round(personalizedFit - uncertaintyPct * 0.55, 0), 0, 100),
+    fitHigh: clamp(round(personalizedFit + uncertaintyPct * 0.4, 0), 0, 100),
+    uncertaintyPct: round(uncertaintyPct, 1),
+    reasons: confidenceReasons,
+  };
+  const quoteProvenance: MetricProvenance = {
+    source: liveQuote?.source ?? 'Unavailable',
+    freshness: quoteFreshness,
+    timestamp: liveQuote?.timestamp ?? latestHistoryTs,
+    fallbackReason:
+      quoteFreshness === 'Demo fallback'
+        ? 'Live quote could not be fetched for this symbol; a reference quote was used.'
+        : undefined,
+  };
+  const historyProvenance: MetricProvenance = {
+    source: history.source,
+    freshness: historyFreshness,
+    timestamp: latestHistoryTs,
+    fallbackReason:
+      historyFreshness === 'Demo fallback'
+        ? 'Live historical candles were unavailable; generated reference history was used.'
+        : undefined,
+  };
+  const fundamentalsProvenance: MetricProvenance = {
+    source: fundamentalsBundle?.source ?? 'Fundamentals unavailable',
+    freshness: fundamentalsFreshness,
+    fallbackReason:
+      fundamentalsFreshness === 'Demo fallback'
+        ? 'Live fundamentals were unavailable or incomplete; fallback fundamentals were used.'
+        : undefined,
+  };
+  const newsProvenance: MetricProvenance = {
+    source: news[0]?.source ?? 'News unavailable',
+    freshness: newsFreshness,
+    timestamp: latestNewsTs,
+    fallbackReason:
+      newsFreshness === 'Demo fallback'
+        ? 'Relevant live news was unavailable; reference headlines were used.'
+        : undefined,
+  };
+  const dcfProvenance: MetricProvenance = {
+    source: fundamentalsProvenance.source,
+    freshness: dcfFreshness,
+    timestamp: fundamentalsProvenance.timestamp,
+    fallbackReason:
+      dcf.valuationLabel === 'Insufficient Data'
+        ? 'Insufficient FCF/share-count inputs prevented reliable DCF output.'
+        : undefined,
+  };
 
   const dividendSuitability = buildDividendSuitability(
     input,
@@ -1623,6 +1998,29 @@ async function analyzeStock(
       portfolioFit: round(portfolioFit, 0),
       lifeStageFit: round(lifeStageFit, 0),
       personalizedFit,
+      weightedContributions,
+    },
+    confidence,
+    dataFreshness: {
+      quote: quoteFreshness,
+      history: historyFreshness,
+      fundamentals: fundamentalsFreshness,
+      news: newsFreshness,
+      dcf: dcfFreshness,
+    },
+    provenance: {
+      quote: quoteProvenance,
+      history: historyProvenance,
+      fundamentals: fundamentalsProvenance,
+      news: newsProvenance,
+      dcf: dcfProvenance,
+    },
+    allocation: {
+      baseCurrency: context.baseCurrency,
+      baseAmountMonthly: suggestedAllocationMonthly,
+      securityCurrency,
+      securityAmountMonthly: suggestedAllocationSecurityMonthly,
+      usdInrRate: context.usdInrRate,
     },
     recommendation,
     suggestedAllocationMonthly,
@@ -1634,12 +2032,14 @@ async function analyzeStock(
   };
 }
 
-function buildUserProfileSummary(input: AgenticFormInput): PersonalProfileSummary {
+function buildUserProfileSummary(input: AgenticFormInput, baseCurrency: 'INR' | 'USD'): PersonalProfileSummary {
   const dependents = input.dependentsKids + input.dependentsParents;
   return {
     lifeStage: `${RISK_LABELS[input.riskPreference]} ${input.maritalStatus} investor, age ${input.age}, ${dependents} dependent${dependents === 1 ? '' : 's'}`,
     dependents,
     employmentType: input.employmentType,
+    baseCurrency,
+    marketScope: resolveMarketScope(input),
     monthlyIncome: input.monthlyIncome,
     monthlyCoreSpend: input.monthlyFixedExpenses + input.monthlyDiscretionaryExpenses,
     effectiveTaxRate: input.effectiveTaxRate,
@@ -1683,6 +2083,24 @@ function buildFinalRecommendation(
     };
   }
 
+  const freshnessGuardrailTriggered =
+    primary.confidence.score < 45 ||
+    primary.dataFreshness.quote === 'Demo fallback' ||
+    primary.dataFreshness.history === 'Demo fallback';
+  if (freshnessGuardrailTriggered) {
+    return {
+      headline: 'Hold deployment until data confidence improves',
+      recommendation: 'HOLD CASH',
+      subject: primary.displaySymbol,
+      suggestedAllocationMonthly: 0,
+      holdingPeriod: holdingPeriodFromHorizon(input.investmentHorizon),
+      taxNote: 'Delay fresh entries when data confidence is low or fallback-heavy.',
+      keyReason:
+        'Policy guardrail blocked an allocation because market/fundamental freshness is insufficient for a reliable recommendation.',
+      portfolioGapCallout: finance.portfolioGapSummary,
+    };
+  }
+
   const investNowCandidate = stockRecommendations.find((candidate) => candidate.recommendation === 'BUY');
   const betterPrimary = focusStock ? focusStock : investNowCandidate ?? primary;
   const betterAlternative =
@@ -1710,8 +2128,9 @@ function buildExportJson(
   finance: FinancialProfileAnalysis,
   primary: PersonalizedStockRecommendation | undefined,
   finalRecommendation: AgenticAnalysisReport['finalRecommendation'],
+  baseCurrency: 'INR' | 'USD',
 ) {
-  const displayCurrency = getDisplayCurrency(input.country);
+  const displayCurrency = baseCurrency;
   const lifeStage = `${input.maritalStatus}, ${input.dependentsKids + input.dependentsParents} dependents, ${HORIZON_LABELS[input.investmentHorizon]}`;
 
   return {
@@ -1741,7 +2160,11 @@ function buildExportJson(
       ? {
           fit_score: primary.scores.personalizedFit,
           recommendation: finalRecommendation.recommendation,
-          suggested_allocation: `${formatCurrency(primary.suggestedAllocationMonthly, displayCurrency, false)}/month`,
+          suggested_allocation: `${formatCurrency(primary.allocation.baseAmountMonthly, displayCurrency, false)}/month`,
+          suggested_allocation_security_currency:
+            primary.allocation.baseCurrency === primary.allocation.securityCurrency
+              ? null
+              : `${formatCurrency(primary.allocation.securityAmountMonthly, primary.allocation.securityCurrency, false)}/month`,
           expected_holding_period: primary.expectedHoldingPeriod,
           tax_note: primary.taxImpact.note,
           key_reason: finalRecommendation.keyReason,
@@ -1760,30 +2183,111 @@ function buildExportJson(
 export async function generatePersonalizedAgenticAnalysis(
   input: AgenticFormInput,
   txns: PortfolioTxn[],
+  options?: AgenticAnalysisOptions,
 ): Promise<AgenticAnalysisReport> {
-  const holdings = deriveHoldings(txns);
-  const finance = buildFinancialProfile(input, holdings);
-  const userProfileSummary = buildUserProfileSummary(input);
+  emitProgress(options, {
+    phase: 'profile',
+    analyzed: 0,
+    total: 0,
+    message: 'Validating profile input and computing household context.',
+  });
+  throwIfAborted(options?.signal);
 
-  const userPreferredMarket = getPreferredMarket(input.country);
-  const preferredMarket = input.analysisMode === 'suggest' ? 'both' : userPreferredMarket;
+  const normalizedInput = normalizeInput(input);
+  validateAgenticInput(normalizedInput);
+
+  const [holdings, fxSnapshot] = await Promise.all([
+    deriveHoldings(txns),
+    getUsdInrRate().catch(() => ({
+      rate: Number.NaN,
+      source: 'FX unavailable',
+      timestamp: new Date().toISOString(),
+      stale: true,
+    })),
+  ]);
+  throwIfAborted(options?.signal);
+  const usdInrRate =
+    Number.isFinite(fxSnapshot.rate) && fxSnapshot.rate > 0 ? fxSnapshot.rate : Number.NaN;
+  const baseCurrency = getDisplayCurrency(normalizedInput);
+  const scoringWeights = normalizeScoringWeights(options?.memory?.scoringWeights);
+
+  const finance = buildFinancialProfile(normalizedInput, holdings);
+  const userProfileSummary = buildUserProfileSummary(normalizedInput, baseCurrency);
+
+  const preferredMarket = resolveMarketScope(normalizedInput);
+  emitProgress(options, {
+    phase: 'universe',
+    analyzed: 0,
+    total: 0,
+    message: `Loading universe for ${preferredMarket.toUpperCase()} scope.`,
+  });
+  throwIfAborted(options?.signal);
   const focusEntity =
-    input.analysisMode === 'specific' ? await findEntityByTicker(input.targetTicker) : undefined;
+    normalizedInput.analysisMode === 'specific' ? await findEntityByTicker(normalizedInput.targetTicker) : undefined;
 
-  if (input.analysisMode === 'specific' && !focusEntity) {
+  if (normalizedInput.analysisMode === 'specific' && !focusEntity) {
     throw new Error('Please enter a valid stock or mutual fund ticker/name (for India, US, or AMFI scheme code).');
   }
 
   const loadedUniverse = await loadRecommendationUniverse(preferredMarket);
+  throwIfAborted(options?.signal);
   const candidateUniverse = loadedUniverse.entities.filter((entity) => {
     if (focusEntity && entity.symbol === focusEntity.symbol && entity.market === focusEntity.market) return false;
     return isSecurityInScope(entity, preferredMarket);
   });
-  const deepAnalysisUniverse = selectCandidatesForDeepAnalysis(candidateUniverse, input, finance, preferredMarket);
+  let deepAnalysisUniverse = selectCandidatesForDeepAnalysis(candidateUniverse, normalizedInput, finance, preferredMarket);
+  if (normalizedInput.analysisMode === 'specific') {
+    if (!normalizedInput.compareWithAlternatives) deepAnalysisUniverse = [];
+    else deepAnalysisUniverse = deepAnalysisUniverse.slice(0, TOP_PER_POOL * 2);
+  }
 
-  const analyzedCandidates = await Promise.all(
-    deepAnalysisUniverse.map((entity) => analyzeStock(entity, input, finance)),
-  );
+  const analysisContext = { baseCurrency, usdInrRate, scoringWeights };
+  const totalAnalysisCount = deepAnalysisUniverse.length + (focusEntity ? 1 : 0);
+  let analyzedCount = 0;
+  emitProgress(options, {
+    phase: focusEntity ? 'focus' : 'analysis',
+    analyzed: analyzedCount,
+    total: Math.max(totalAnalysisCount, 1),
+    message: focusEntity
+      ? `Analyzing selected security ${focusEntity.displaySymbol}.`
+      : `Analyzing ${deepAnalysisUniverse.length} shortlisted securities.`,
+  });
+  throwIfAborted(options?.signal);
+
+  const focusStock = focusEntity
+    ? await analyzeStock(focusEntity, normalizedInput, finance, analysisContext)
+    : undefined;
+  if (focusStock) {
+    analyzedCount += 1;
+    emitProgress(options, {
+      phase: 'analysis',
+      analyzed: analyzedCount,
+      total: Math.max(totalAnalysisCount, 1),
+      message: `Completed selected security ${focusStock.displaySymbol}.`,
+    });
+  }
+
+  const analyzedCandidates: PersonalizedStockRecommendation[] = [];
+  for (const entity of deepAnalysisUniverse) {
+    throwIfAborted(options?.signal);
+    const analyzed = await analyzeStock(entity, normalizedInput, finance, analysisContext);
+    analyzedCandidates.push(analyzed);
+    analyzedCount += 1;
+    emitProgress(options, {
+      phase: 'analysis',
+      analyzed: analyzedCount,
+      total: Math.max(totalAnalysisCount, 1),
+      message: `Analyzed ${analyzedCount}/${Math.max(totalAnalysisCount, 1)} securities.`,
+    });
+  }
+
+  emitProgress(options, {
+    phase: 'scoring',
+    analyzed: analyzedCount,
+    total: Math.max(totalAnalysisCount, 1),
+    message: 'Ranking candidates and applying risk policy guardrails.',
+  });
+
   const rankedAllCandidates = analyzedCandidates
     .slice()
     .sort((left, right) => right.scores.personalizedFit - left.scores.personalizedFit);
@@ -1798,16 +2302,31 @@ export async function generatePersonalizedAgenticAnalysis(
       .filter((candidate) => candidate.securityType === 'mutual_fund')
       .slice(0, TOP_PER_POOL),
   };
-  const stockRecommendations = [
+  let stockRecommendations = [
     ...topPools.indiaStocks,
     ...topPools.usStocks,
     ...topPools.mutualFunds,
   ]
     .sort((left, right) => right.scores.personalizedFit - left.scores.personalizedFit)
     .slice(0, MAX_DISPLAYED_RECOMMENDATIONS);
+  if (focusStock) {
+    const hasFocusInRecommendations = stockRecommendations.some(
+      (candidate) => candidate.symbol === focusStock.symbol && candidate.market === focusStock.market,
+    );
+    if (!hasFocusInRecommendations) {
+      stockRecommendations = [focusStock, ...stockRecommendations]
+        .sort((left, right) => right.scores.personalizedFit - left.scores.personalizedFit)
+        .slice(0, MAX_DISPLAYED_RECOMMENDATIONS);
+    }
+  }
+  if (!stockRecommendations.length && focusStock) stockRecommendations = [focusStock];
 
-  const focusStock = focusEntity ? await analyzeStock(focusEntity, input, finance) : stockRecommendations[0];
-  const finalRecommendation = buildFinalRecommendation(input, finance, focusEntity ? focusStock : undefined, stockRecommendations);
+  const finalRecommendation = buildFinalRecommendation(
+    normalizedInput,
+    finance,
+    normalizedInput.analysisMode === 'specific' ? focusStock : undefined,
+    stockRecommendations,
+  );
   const primary = focusStock ?? stockRecommendations[0];
 
   const executionTrail = [
@@ -1819,12 +2338,17 @@ export async function generatePersonalizedAgenticAnalysis(
     {
       phase: 'Phase 2',
       headline: 'Household financial score computed',
-      detail: `Investable surplus is ${formatCurrency(finance.investableSurplusMonthly, getDisplayCurrency(input.country), false)}/month with debt burden at ${formatPercent(finance.debtBurdenRatioPct)} and risk profile ${finance.riskProfileLabel}.`,
+      detail: `Investable surplus is ${formatCurrency(finance.investableSurplusMonthly, baseCurrency, false)}/month with debt burden at ${formatPercent(finance.debtBurdenRatioPct)} and risk profile ${finance.riskProfileLabel}.`,
     },
     {
       phase: 'Phase 3',
       headline: 'Security engine applied',
-      detail: `Screened ${candidateUniverse.length} eligible securities and deep-analyzed ${deepAnalysisUniverse.length} names on fundamentals, technicals, sentiment, risk, and DCF where available.`,
+      detail:
+        normalizedInput.analysisMode === 'specific'
+          ? normalizedInput.compareWithAlternatives
+            ? `Analyzed selected security first, then compared it against ${deepAnalysisUniverse.length} alternatives for context.`
+            : `Analyzed selected security first without alternative comparison.`
+          : `Screened ${candidateUniverse.length} eligible securities and deep-analyzed ${deepAnalysisUniverse.length} names on fundamentals, technicals, sentiment, risk, and DCF where available.`,
     },
     {
       phase: 'Phase 4',
@@ -1841,7 +2365,15 @@ export async function generatePersonalizedAgenticAnalysis(
   const notes = [
     loadedUniverse.source === 'live_index'
       ? 'This run used the live searchable market index (all stocks + mutual funds), then applied a shortlist before deep scoring.'
+      : loadedUniverse.source === 'mixed_live_demo'
+        ? `Universe used mixed sources: ${Object.entries(loadedUniverse.marketSources)
+            .map(([market, source]) => `${market.toUpperCase()}: ${source === 'live_index' ? 'live' : 'demo fallback'}`)
+            .join(', ')}.`
       : 'Live market index was unavailable for this run, so the engine fell back to the bundled demo universe.',
+    'Sentiment and narrative fields are generated through a deterministic heuristic model by default unless an external LLM provider is explicitly configured.',
+    Number.isFinite(usdInrRate)
+      ? `Base currency for planning is ${baseCurrency}; cross-market allocations are converted using USD/INR ${round(usdInrRate, 4)}.`
+      : `Base currency for planning is ${baseCurrency}; live FX was unavailable, so cross-currency amounts are shown without conversion.`,
     'Tax rates shown here are illustrative planning estimates tied to the user-entered effective tax rate. Actual capital-gains taxation depends on jurisdiction, holding period, and prevailing law.',
     finance.debtBurdenFlag === 'High'
       ? 'High debt burden is active, so aggressive high-volatility names are intentionally capped in the fit scoring.'
@@ -1851,8 +2383,23 @@ export async function generatePersonalizedAgenticAnalysis(
       : 'Universe fetch completed within configured scan limits for this run.',
   ];
 
-  return {
+  emitProgress(options, {
+    phase: 'finalizing',
+    analyzed: analyzedCount,
+    total: Math.max(totalAnalysisCount, 1),
+    message: 'Assembling final recommendation and export payload.',
+  });
+
+  const report: AgenticAnalysisReport = {
     generatedAt: new Date().toISOString(),
+    engineType: 'Agentic Orchestrator (Rules + Heuristic AI)',
+    baseCurrency,
+    fxContext: {
+      usdInrRate: Number.isFinite(usdInrRate) ? round(usdInrRate, 6) : 0,
+      source: fxSnapshot.source ?? 'Reference FX rate',
+      timestamp: fxSnapshot.timestamp ?? new Date().toISOString(),
+      stale: !!fxSnapshot.stale,
+    },
     userProfileSummary,
     finance,
     focusStock,
@@ -1863,19 +2410,79 @@ export async function generatePersonalizedAgenticAnalysis(
       totalMutualFundsInDataset: loadedUniverse.mutualFundCount,
       eligibleStocks: candidateUniverse.filter((entity) => entity.type === 'stock').length,
       eligibleMutualFunds: candidateUniverse.filter((entity) => entity.type === 'mutual_fund').length,
-      analyzedSecurities: deepAnalysisUniverse.length,
-      analyzedIndiaStocks: analyzedCandidates.filter((entity) => entity.securityType === 'stock' && entity.market === 'india').length,
-      analyzedUsStocks: analyzedCandidates.filter((entity) => entity.securityType === 'stock' && entity.market === 'us').length,
-      analyzedMutualFunds: analyzedCandidates.filter((entity) => entity.securityType === 'mutual_fund').length,
+      analyzedSecurities: analyzedCandidates.length + (focusStock ? 1 : 0),
+      analyzedIndiaStocks:
+        analyzedCandidates.filter((entity) => entity.securityType === 'stock' && entity.market === 'india').length +
+        (focusStock?.securityType === 'stock' && focusStock.market === 'india' ? 1 : 0),
+      analyzedUsStocks:
+        analyzedCandidates.filter((entity) => entity.securityType === 'stock' && entity.market === 'us').length +
+        (focusStock?.securityType === 'stock' && focusStock.market === 'us' ? 1 : 0),
+      analyzedMutualFunds:
+        analyzedCandidates.filter((entity) => entity.securityType === 'mutual_fund').length +
+        (focusStock?.securityType === 'mutual_fund' ? 1 : 0),
       displayedStocks: stockRecommendations.length,
       marketScope: preferredMarket,
-      analysisMode: input.analysisMode,
+      analysisMode: normalizedInput.analysisMode,
       universeSource: loadedUniverse.source,
       universeTruncated: loadedUniverse.truncated,
     },
+    scoringWeights,
+    agentPipeline: [
+      {
+        agent: 'Planner',
+        status: 'completed',
+        summary: `Profile mapped for ${normalizedInput.investmentGoal.replace(/_/g, ' ')} with ${finance.riskProfileLabel.toLowerCase()} risk stance.`,
+      },
+      {
+        agent: 'Data Collector',
+        status: loadedUniverse.source === 'demo_fallback' ? 'watch' : 'completed',
+        summary:
+          loadedUniverse.source === 'mixed_live_demo'
+            ? 'Universe loaded with mixed live/demo sources; freshness guardrails active.'
+            : loadedUniverse.source === 'demo_fallback'
+              ? 'Live universe unavailable, running demo-fallback inputs.'
+              : 'Universe and market channels loaded from live index feeds.',
+      },
+      {
+        agent: 'Scorer',
+        status: 'completed',
+        summary: `Weighted fit using Quality ${round(scoringWeights.stockQuality * 100, 0)}%, Risk ${round(scoringWeights.riskCompatibility * 100, 0)}%, Portfolio ${round(scoringWeights.portfolioFit * 100, 0)}%, Life-stage ${round(scoringWeights.lifeStageFit * 100, 0)}%.`,
+      },
+      {
+        agent: 'Risk Critic',
+        status: finalRecommendation.recommendation === 'HOLD CASH' ? 'blocked' : 'completed',
+        summary:
+          finalRecommendation.recommendation === 'HOLD CASH'
+            ? 'Guardrail blocked deployment due to low confidence/freshness.'
+            : 'Risk policy accepted recommendation within household constraints.',
+      },
+      {
+        agent: 'Action Writer',
+        status: 'completed',
+        summary: `Action plan generated for ${finalRecommendation.subject} with ${formatCurrency(finalRecommendation.suggestedAllocationMonthly, baseCurrency, false)}/month guidance.`,
+      },
+    ],
     finalRecommendation,
     executionTrail,
     notes,
-    exportJson: buildExportJson(input, finance, primary, finalRecommendation),
+    exportJson: buildExportJson(normalizedInput, finance, primary, finalRecommendation, baseCurrency),
   };
+
+  emitProgress(options, {
+    phase: 'completed',
+    analyzed: Math.max(totalAnalysisCount, analyzedCount),
+    total: Math.max(totalAnalysisCount, 1),
+    message: 'Analysis completed.',
+  });
+
+  return report;
 }
+
+export const personalizedEngineTestables = {
+  normalizeInput,
+  resolveMarketScope,
+  validateAgenticInput,
+  buildFinancialProfile,
+  convertCurrency,
+  classifyFreshness,
+};

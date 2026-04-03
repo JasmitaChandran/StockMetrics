@@ -14,7 +14,12 @@ export const fxAdapter: FxAdapter = {
     } catch {
       const cached = await getKv<{ rate: number; source: string; timestamp: string }>(FX_KV_KEY);
       if (cached) return { ...cached, stale: true };
-      return { rate: 83.0, source: 'Reference FX rate', timestamp: new Date().toISOString(), stale: true };
+      return {
+        rate: Number.NaN,
+        source: 'FX feed unavailable',
+        timestamp: new Date().toISOString(),
+        stale: true,
+      };
     }
   },
 };

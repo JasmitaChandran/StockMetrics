@@ -13,8 +13,20 @@ function rangeToYahoo(range: string) {
       return { range: '5y', interval: '1wk' };
     case 'max':
     default:
-      return { range: '10y', interval: '1wk' };
+      return { range: 'max', interval: '1wk' };
   }
+}
+
+function mapYahooExchange(exchangeName: string | undefined, market: 'us' | 'india' | 'mf'): Quote['exchange'] {
+  const exchange = (exchangeName ?? '').toUpperCase();
+  if (market === 'mf') return 'MF';
+  if (exchange.includes('NASDAQ') || exchange === 'NMS') return 'NASDAQ';
+  if (exchange.includes('NYSE') || exchange === 'NYQ') return 'NYSE';
+  if (exchange.includes('AMEX') || exchange === 'ASE') return 'AMEX';
+  if (exchange.includes('NSE')) return 'NSE';
+  if (exchange.includes('BSE')) return 'BSE';
+  if (market === 'india') return 'NSE';
+  return 'UNKNOWN';
 }
 
 interface YahooChartResponse {
@@ -141,7 +153,7 @@ export async function getYahooQuote(symbol: string, market: 'us' | 'india' | 'mf
       timestamp: typeof freshestTimestampMs === 'number' ? new Date(freshestTimestampMs).toISOString() : null,
       source: 'Yahoo Finance',
       delayed: true,
-      exchange: market === 'india' ? 'NSE' : market === 'us' ? 'NASDAQ' : 'MF',
+      exchange: mapYahooExchange(meta.exchangeName, market),
     };
   });
 }

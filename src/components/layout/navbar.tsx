@@ -13,7 +13,7 @@ import { StockMetricsLogo } from '@/components/common/stock-metrics-logo';
 const tabs = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/screener', label: 'Screener' },
-  { href: '/agentic', label: 'Agentic AI Mode' },
+  { href: '/agentic', label: 'Personalized Agent' },
   { href: '/watchlist', label: 'Watchlist' },
   { href: '/portfolio', label: 'Portfolio' },
   { href: '/learning', label: 'Learning' },

@@ -6,6 +6,17 @@ import { fetchJsonWithTtl } from './fetch-cache';
 export const fundamentalsAdapter: FundamentalsAdapter = {
   async getFundamentals(entity: SearchEntity): Promise<FundamentalsBundle> {
     const demo = demoFundamentalsBySymbol[entity.symbol];
+    const withDemoFallback = (bundle: FundamentalsBundle | undefined, reason: string): FundamentalsBundle | undefined => {
+      if (!bundle) return undefined;
+      return {
+        ...bundle,
+        source: `Demo fallback fundamentals (${reason})`,
+        notes: [
+          ...(bundle.notes ?? []),
+          `This fundamentals view is running on demo fallback data because ${reason.toLowerCase()}.`,
+        ],
+      };
+    };
 
     if (entity.market === 'us') {
       try {
@@ -22,11 +33,13 @@ export const fundamentalsAdapter: FundamentalsAdapter = {
           notes: [...(live.notes ?? []), ...(demo?.notes ?? [])],
         };
       } catch {
-        if (demo) return demo;
+        const fallback = withDemoFallback(demo, 'US fundamentals endpoint was unavailable');
+        if (fallback) return fallback;
       }
     }
 
-    if (demo) return demo;
+    const demoFallback = withDemoFallback(demo, 'live fundamentals coverage for this market is currently limited');
+    if (demoFallback) return demoFallback;
 
     return {
       companyId: entity.id,
@@ -39,7 +52,7 @@ export const fundamentalsAdapter: FundamentalsAdapter = {
       currency: entity.currency ?? 'INR',
       keyMetrics: [],
       statements: [],
-      source: 'Fundamentals currently unavailable',
+      source: 'Fundamentals unavailable',
       notes: ['Price and historical data are available, but fundamental data is not currently available for this security.'],
     };
   },

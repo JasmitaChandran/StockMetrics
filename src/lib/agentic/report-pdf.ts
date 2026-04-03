@@ -5,7 +5,7 @@ const PAGE_MARGIN = 44;
 const LINE_HEIGHT = 15;
 
 function currencyForReport(report: AgenticAnalysisReport): 'INR' | 'USD' {
-  return report.focusStock?.currency ?? report.stockRecommendations[0]?.currency ?? 'INR';
+  return report.baseCurrency ?? report.userProfileSummary.baseCurrency ?? 'INR';
 }
 
 export async function downloadPersonalizedReportPdf(report: AgenticAnalysisReport) {
@@ -95,12 +95,17 @@ export async function downloadPersonalizedReportPdf(report: AgenticAnalysisRepor
 
   writeSection('User Profile Summary');
   writeLabelValue('Life stage', report.userProfileSummary.lifeStage);
+  writeLabelValue('Market scope', report.userProfileSummary.marketScope.toUpperCase());
   writeLabelValue('Goal', report.userProfileSummary.investmentGoal.replace(/_/g, ' '));
   writeLabelValue('Horizon', report.userProfileSummary.investmentHorizon);
   writeLabelValue('Risk preference', report.userProfileSummary.riskPreference);
   writeLabelValue('Liquidity need', report.userProfileSummary.liquidityNeed);
   writeLabelValue('Monthly income', formatCurrency(report.userProfileSummary.monthlyIncome, moneyCurrency, false));
   writeLabelValue('Monthly spend', formatCurrency(report.userProfileSummary.monthlyCoreSpend, moneyCurrency, false));
+  writeLabelValue(
+    'FX context',
+    `USD/INR ${Number.isFinite(report.fxContext.usdInrRate) && report.fxContext.usdInrRate > 0 ? report.fxContext.usdInrRate.toFixed(4) : 'Unavailable'} (${report.fxContext.stale ? 'cached reference' : 'live cache'} • ${report.fxContext.source})`,
+  );
 
   writeSection('Household Financial Score');
   writeLabelValue('Investable surplus', `${formatCurrency(report.finance.investableSurplusMonthly, moneyCurrency, false)}/month`);
@@ -115,7 +120,16 @@ export async function downloadPersonalizedReportPdf(report: AgenticAnalysisRepor
     writeLabelValue('Stock', `${primary.displaySymbol} (${primary.name})`);
     writeLabelValue('Recommendation', primary.recommendation);
     writeLabelValue('Personalized fit', `${primary.scores.personalizedFit}/100`);
-    writeLabelValue('Suggested allocation', `${formatCurrency(primary.suggestedAllocationMonthly, primary.currency, false)}/month`);
+    writeLabelValue(
+      'Suggested allocation (base)',
+      `${formatCurrency(primary.allocation.baseAmountMonthly, primary.allocation.baseCurrency, false)}/month`,
+    );
+    if (primary.allocation.baseCurrency !== primary.allocation.securityCurrency) {
+      writeLabelValue(
+        'Suggested allocation (security)',
+        `${formatCurrency(primary.allocation.securityAmountMonthly, primary.allocation.securityCurrency, false)}/month`,
+      );
+    }
     writeLabelValue('Holding period', primary.expectedHoldingPeriod);
     writeLabelValue(
       'DCF view',
