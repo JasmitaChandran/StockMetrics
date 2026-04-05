@@ -29,15 +29,20 @@ export interface MetricProvenance {
 export interface AgenticProgressTelemetry {
   phase:
     | 'profile'
+    | 'cashflow'
     | 'universe'
     | 'focus'
     | 'analysis'
+    | 'sentiment'
     | 'scoring'
     | 'finalizing'
     | 'completed';
   analyzed: number;
   total: number;
   message: string;
+  screenedTotal?: number;
+  deepAnalyzed?: number;
+  deepTotal?: number;
 }
 
 export interface ScoringWeights {
@@ -451,7 +456,7 @@ const MAX_UNIVERSE_PER_MARKET: Record<MarketKind, number> = {
   mf: 40000,
 };
 const TOP_PER_POOL = 10;
-const DEEP_ANALYSIS_BUFFER_PER_POOL = 8;
+const DEEP_ANALYSIS_BUFFER_PER_POOL = 14;
 const DEEP_ANALYSIS_TARGETS = {
   indiaStocks: TOP_PER_POOL + DEEP_ANALYSIS_BUFFER_PER_POOL,
   usStocks: TOP_PER_POOL + DEEP_ANALYSIS_BUFFER_PER_POOL,
@@ -2244,6 +2249,14 @@ export async function generatePersonalizedAgenticAnalysis(
   const finance = buildFinancialProfile(normalizedInput, holdings);
   const userProfileSummary = buildUserProfileSummary(normalizedInput, baseCurrency);
 
+  emitProgress(options, {
+    phase: 'cashflow',
+    analyzed: 0,
+    total: 0,
+    message: `Cash-flow stress test complete: surplus ${formatCurrency(finance.investableSurplusMonthly, baseCurrency, false)}/month, debt burden ${formatPercent(finance.debtBurdenRatioPct)}.`,
+  });
+  throwIfAborted(options?.signal);
+
   const preferredMarket = resolveMarketScope(normalizedInput);
   emitProgress(options, {
     phase: 'universe',
@@ -2278,9 +2291,12 @@ export async function generatePersonalizedAgenticAnalysis(
     phase: focusEntity ? 'focus' : 'analysis',
     analyzed: analyzedCount,
     total: Math.max(totalAnalysisCount, 1),
+    screenedTotal: candidateUniverse.length,
+    deepAnalyzed: analyzedCount,
+    deepTotal: Math.max(totalAnalysisCount, 1),
     message: focusEntity
-      ? `Analyzing selected security ${focusEntity.displaySymbol}.`
-      : `Analyzing ${deepAnalysisUniverse.length} shortlisted securities.`,
+      ? `Screened ${candidateUniverse.length} eligible securities. Analyzing selected security ${focusEntity.displaySymbol}${deepAnalysisUniverse.length ? ` + ${deepAnalysisUniverse.length} contextual alternatives` : ''}.`
+      : `Screened ${candidateUniverse.length} eligible securities. Deep-analyzing ${deepAnalysisUniverse.length} shortlisted names.`,
   });
   throwIfAborted(options?.signal);
 
@@ -2293,6 +2309,9 @@ export async function generatePersonalizedAgenticAnalysis(
       phase: 'analysis',
       analyzed: analyzedCount,
       total: Math.max(totalAnalysisCount, 1),
+      screenedTotal: candidateUniverse.length,
+      deepAnalyzed: analyzedCount,
+      deepTotal: Math.max(totalAnalysisCount, 1),
       message: `Completed selected security ${focusStock.displaySymbol}.`,
     });
   }
@@ -2307,14 +2326,31 @@ export async function generatePersonalizedAgenticAnalysis(
       phase: 'analysis',
       analyzed: analyzedCount,
       total: Math.max(totalAnalysisCount, 1),
-      message: `Analyzed ${analyzedCount}/${Math.max(totalAnalysisCount, 1)} securities.`,
+      screenedTotal: candidateUniverse.length,
+      deepAnalyzed: analyzedCount,
+      deepTotal: Math.max(totalAnalysisCount, 1),
+      message: `Screened ${candidateUniverse.length} total. Deep-analyzed ${analyzedCount}/${Math.max(totalAnalysisCount, 1)}.`,
     });
   }
+
+  emitProgress(options, {
+    phase: 'sentiment',
+    analyzed: analyzedCount,
+    total: Math.max(totalAnalysisCount, 1),
+    screenedTotal: candidateUniverse.length,
+    deepAnalyzed: analyzedCount,
+    deepTotal: Math.max(totalAnalysisCount, 1),
+    message: 'Synthesizing news sentiment, headline polarity, and narrative drivers.',
+  });
+  throwIfAborted(options?.signal);
 
   emitProgress(options, {
     phase: 'scoring',
     analyzed: analyzedCount,
     total: Math.max(totalAnalysisCount, 1),
+    screenedTotal: candidateUniverse.length,
+    deepAnalyzed: analyzedCount,
+    deepTotal: Math.max(totalAnalysisCount, 1),
     message: 'Ranking candidates and applying risk policy guardrails.',
   });
 
@@ -2367,32 +2403,51 @@ export async function generatePersonalizedAgenticAnalysis(
     },
     {
       phase: 'Phase 2',
-      headline: 'Household financial score computed',
+      headline: 'Cash-flow and debt stress tested',
       detail: `Investable surplus is ${formatCurrency(finance.investableSurplusMonthly, baseCurrency, false)}/month with debt burden at ${formatPercent(finance.debtBurdenRatioPct)} and risk profile ${finance.riskProfileLabel}.`,
     },
     {
       phase: 'Phase 3',
-      headline: 'Security engine applied',
+      headline: 'Market universe screened',
       detail:
         normalizedInput.analysisMode === 'specific'
           ? normalizedInput.compareWithAlternatives
-            ? `Analyzed selected security first, then compared it against ${deepAnalysisUniverse.length} alternatives for context.`
-            : `Analyzed selected security first without alternative comparison.`
-          : `Screened ${candidateUniverse.length} eligible securities and deep-analyzed ${deepAnalysisUniverse.length} names on fundamentals, technicals, sentiment, risk, and DCF where available.`,
+            ? `Screened ${candidateUniverse.length} eligible securities and shortlisted ${deepAnalysisUniverse.length} alternatives around the selected ticker.`
+            : `Screened ${candidateUniverse.length} eligible securities and focused only on the selected ticker.`
+          : `Screened ${candidateUniverse.length} eligible securities and shortlisted ${deepAnalysisUniverse.length} names for deep modeling.`,
     },
     {
       phase: 'Phase 4',
+      headline: 'Deep security analysis completed',
+      detail:
+        normalizedInput.analysisMode === 'specific'
+          ? `Analyzed selected security first${normalizedInput.compareWithAlternatives ? `, then compared it against ${deepAnalysisUniverse.length} alternatives` : ''} on fundamentals, technicals, risk, and valuation.`
+          : `Each shortlisted name was analyzed on fundamentals, technicals, risk, and DCF where available.`,
+    },
+    {
+      phase: 'Phase 5',
+      headline: 'News sentiment synthesized',
+      detail: `Headline polarity, analyst tone, and narrative drivers were blended into BUY/HOLD/SELL sentiment probabilities per security.`,
+    },
+    {
+      phase: 'Phase 6',
       headline: 'Personalized fit scoring applied',
       detail: `Risk compatibility, portfolio gap, and life-stage fit were layered on top of security quality to create a person-specific score.`,
     },
     {
-      phase: 'Phase 5',
+      phase: 'Phase 7',
+      headline: 'Recommendation drafted',
+      detail: `Final recommendation, allocation band, expected holding period, and caution points were generated from the top-ranked candidate set.`,
+    },
+    {
+      phase: 'Phase 8',
       headline: 'Actionable output generated',
       detail: `Produced top 10 India stocks, top 10 US stocks, and top 10 mutual funds with allocation guidance, holding period, and tax-aware notes.`,
     },
   ];
 
   const notes = [
+    `Universe screening reviewed ${candidateUniverse.length} eligible securities. Deep modeling ran on ${deepAnalysisUniverse.length}${focusEntity ? ' shortlisted alternatives plus the selected security' : ' shortlisted names'} to balance breadth and runtime.`,
     loadedUniverse.source === 'live_index'
       ? 'This run used the live searchable market index (all stocks + mutual funds), then applied a shortlist before deep scoring.'
       : loadedUniverse.source === 'mixed_live_demo'
@@ -2417,6 +2472,9 @@ export async function generatePersonalizedAgenticAnalysis(
     phase: 'finalizing',
     analyzed: analyzedCount,
     total: Math.max(totalAnalysisCount, 1),
+    screenedTotal: candidateUniverse.length,
+    deepAnalyzed: analyzedCount,
+    deepTotal: Math.max(totalAnalysisCount, 1),
     message: 'Assembling final recommendation and export payload.',
   });
 
@@ -2502,6 +2560,9 @@ export async function generatePersonalizedAgenticAnalysis(
     phase: 'completed',
     analyzed: Math.max(totalAnalysisCount, analyzedCount),
     total: Math.max(totalAnalysisCount, 1),
+    screenedTotal: candidateUniverse.length,
+    deepAnalyzed: Math.max(totalAnalysisCount, analyzedCount),
+    deepTotal: Math.max(totalAnalysisCount, 1),
     message: 'Analysis completed.',
   });
 

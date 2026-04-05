@@ -129,16 +129,28 @@ const PROCESSING_STEPS = [
     detail: 'Computing investable surplus, EMI burden, and emergency-fund gap.',
   },
   {
-    title: 'Scanning stocks and funds against your profile',
-    detail: 'Filtering ideas that do not match your market, risk, and life stage.',
+    title: 'Screening full market universe',
+    detail: 'Filtering all eligible stocks and funds by your market, risk, and life stage.',
   },
   {
-    title: 'Running valuation and risk models',
-    detail: 'Blending DCF, technicals, sentiment, and stock-level risk signals.',
+    title: 'Deep-analyzing shortlisted securities',
+    detail: 'Running fundamentals, technicals, risk, and valuation checks name by name.',
   },
   {
-    title: 'Preparing the final recommendation',
-    detail: 'Translating fit score into allocation, holding period, and next action.',
+    title: 'Running sentiment analysis from news',
+    detail: 'Scoring headlines and narrative tone into buy, hold, and sell probabilities.',
+  },
+  {
+    title: 'Applying personalized fit scoring',
+    detail: 'Blending quality, risk compatibility, portfolio gap, and life-stage fit.',
+  },
+  {
+    title: 'Drafting recommendation and allocation',
+    detail: 'Preparing the ranked shortlist, action notes, and suggested monthly split.',
+  },
+  {
+    title: 'Packaging final output',
+    detail: 'Assembling report cards, execution trail, and export-ready payload.',
   },
 ] as const;
 
@@ -400,16 +412,21 @@ function phaseIndex(progress: AgenticProgressTelemetry | null) {
   switch (progress?.phase) {
     case 'profile':
       return 0;
-    case 'universe':
+    case 'cashflow':
       return 1;
+    case 'universe':
+      return 2;
     case 'focus':
     case 'analysis':
-      return 2;
-    case 'scoring':
       return 3;
-    case 'finalizing':
-    case 'completed':
+    case 'sentiment':
       return 4;
+    case 'scoring':
+      return 5;
+    case 'finalizing':
+      return 6;
+    case 'completed':
+      return 7;
     default:
       return 0;
   }
@@ -1511,6 +1528,10 @@ export function AgenticAiWorkbench() {
   const progressPct = progressPercent(progress);
   const eta = formatEta(progress, elapsedMs);
   const activePhaseIndex = phaseIndex(progress);
+  const progressIsComplete = progress?.phase === 'completed';
+  const screenedTotal = typeof progress?.screenedTotal === 'number' ? progress.screenedTotal : null;
+  const deepAnalyzed = progress?.deepAnalyzed ?? progress?.analyzed ?? 0;
+  const deepTotal = progress?.deepTotal ?? progress?.total ?? 0;
 
   function updateField<K extends keyof AgenticFormInput>(key: K, value: AgenticFormInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -2389,7 +2410,8 @@ export function AgenticAiWorkbench() {
                   />
                 </div>
                 <div className="mt-3 grid gap-2 text-xs text-slate-500 dark:text-slate-400 sm:grid-cols-2">
-                  <div>Progress: {progress?.analyzed ?? 0}/{progress?.total ?? 0} analyzed</div>
+                  <div>Screened: {screenedTotal === null ? 'Preparing universe...' : `${formatNumber(screenedTotal)} total`}</div>
+                  <div>Deep-analyzed: {deepAnalyzed}/{deepTotal}</div>
                   <div>Elapsed: {formatElapsed(elapsedMs)}</div>
                   <div>Phase: {(progress?.phase ?? 'profile').toUpperCase()}</div>
                   <div>ETA: {eta ?? 'Estimating...'}</div>
@@ -2412,19 +2434,19 @@ export function AgenticAiWorkbench() {
                 <div
                   key={step.title}
                   className={cn(
-                    'rounded-[24px] border bg-white/70 p-4 dark:bg-slate-950/60',
-                    index < activePhaseIndex
-                      ? 'border-emerald-300 dark:border-emerald-900/40'
+                    'agentic-progress-step rounded-[24px] border bg-white/70 p-4 dark:bg-slate-950/60',
+                    progressIsComplete || index < activePhaseIndex
+                      ? 'is-done border-emerald-300 dark:border-emerald-900/40'
                       : index === activePhaseIndex
-                        ? 'border-cyan-300 dark:border-cyan-900/40'
-                        : 'border-slate-200 dark:border-slate-800',
+                        ? 'is-active border-cyan-300 dark:border-cyan-900/40'
+                        : 'is-todo border-slate-200 dark:border-slate-800',
                   )}
                 >
                   <div className="flex items-start gap-3">
                     <div
                       className={cn(
-                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                        index < activePhaseIndex
+                        'agentic-progress-step-dot flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+                        progressIsComplete || index < activePhaseIndex
                           ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                           : index === activePhaseIndex
                             ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300'
