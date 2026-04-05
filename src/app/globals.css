@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -224,10 +226,320 @@ html:not(.dark) .dashboard-grid-overlay {
   opacity: 0.6;
 }
 
+@keyframes agenticSweep {
+  0%,
+  100% {
+    transform: translateX(-18%) translateY(0%);
+    opacity: 0.48;
+  }
+  50% {
+    transform: translateX(12%) translateY(-2%);
+    opacity: 0.88;
+  }
+}
+
+@keyframes agenticPulseRing {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.04);
+  }
+}
+
+.agentic-studio {
+  position: relative;
+  isolation: isolate;
+  font-family: 'Manrope', 'Avenir Next', 'Segoe UI', sans-serif;
+}
+
+.agentic-studio::before {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 7% 4%, rgba(14, 165, 233, 0.2), transparent 30%),
+    radial-gradient(circle at 92% 3%, rgba(16, 185, 129, 0.15), transparent 34%),
+    radial-gradient(circle at 75% 92%, rgba(245, 158, 11, 0.12), transparent 30%);
+  filter: blur(34px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.agentic-studio > * {
+  position: relative;
+  z-index: 1;
+}
+
+.agentic-studio h1,
+.agentic-studio h2,
+.agentic-studio h3,
+.agentic-studio h4 {
+  font-family: 'Sora', 'Manrope', 'Avenir Next', sans-serif;
+  letter-spacing: -0.015em;
+}
+
+.agentic-section {
+  border-radius: 1.35rem;
+  border-color: rgba(56, 189, 248, 0.22);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.12), transparent 44%),
+    radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.1), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 251, 255, 0.92));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.82) inset,
+    0 24px 44px -32px rgba(2, 132, 199, 0.44);
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.agentic-section:hover {
+  transform: translateY(-2px);
+  border-color: rgba(14, 165, 233, 0.38);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 32px 56px -36px rgba(2, 132, 199, 0.56);
+}
+
+html.dark .agentic-section {
+  border-color: rgba(103, 232, 249, 0.18);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.14), transparent 45%),
+    radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.09), transparent 42%),
+    linear-gradient(180deg, rgba(8, 20, 42, 0.9), rgba(7, 17, 34, 0.88));
+  box-shadow:
+    0 1px 0 rgba(148, 163, 184, 0.08) inset,
+    0 24px 48px -30px rgba(3, 105, 161, 0.62);
+}
+
+.agentic-engine-pill {
+  border-color: rgba(56, 189, 248, 0.36);
+  background: linear-gradient(140deg, rgba(6, 182, 212, 0.18), rgba(14, 165, 233, 0.08));
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.2) inset;
+}
+
+.agentic-hero {
+  border-color: rgba(56, 189, 248, 0.4);
+  background:
+    radial-gradient(circle at 10% 12%, rgba(14, 165, 233, 0.2), transparent 34%),
+    radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.16), transparent 38%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(12, 20, 35, 0.92));
+  color: #e2e8f0;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 34px 60px -34px rgba(2, 6, 23, 0.84);
+}
+
+.agentic-hero::before {
+  content: '';
+  position: absolute;
+  inset: -20% -15%;
+  background: linear-gradient(100deg, rgba(56, 189, 248, 0.04), rgba(56, 189, 248, 0.32), rgba(16, 185, 129, 0.08));
+  filter: blur(18px);
+  animation: agenticSweep 10.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.agentic-hero h1 {
+  color: #f8fafc;
+}
+
+.agentic-hero p {
+  color: rgba(226, 232, 240, 0.88);
+}
+
+.agentic-workflow-rail {
+  display: grid;
+  gap: 0.55rem;
+}
+
+@media (min-width: 768px) {
+  .agentic-workflow-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.agentic-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.36);
+  padding: 0.58rem 0.72rem;
+  overflow: hidden;
+}
+
+.agentic-stage-node {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.5rem;
+  width: 1.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  color: rgba(241, 245, 249, 0.9);
+  background: rgba(30, 41, 59, 0.72);
+}
+
+.agentic-stage-label {
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(241, 245, 249, 0.95);
+}
+
+.agentic-stage-detail {
+  margin-top: 1px;
+  font-size: 0.74rem;
+  color: rgba(203, 213, 225, 0.9);
+}
+
+.agentic-stage.is-done {
+  border-color: rgba(74, 222, 128, 0.5);
+  background: linear-gradient(130deg, rgba(16, 185, 129, 0.24), rgba(15, 23, 42, 0.4));
+}
+
+.agentic-stage.is-done .agentic-stage-node {
+  border-color: rgba(74, 222, 128, 0.7);
+  background: rgba(5, 150, 105, 0.42);
+}
+
+.agentic-stage.is-active {
+  border-color: rgba(56, 189, 248, 0.56);
+  background: linear-gradient(130deg, rgba(14, 165, 233, 0.26), rgba(15, 23, 42, 0.4));
+}
+
+.agentic-stage.is-active .agentic-stage-node {
+  border-color: rgba(56, 189, 248, 0.8);
+  background: rgba(2, 132, 199, 0.45);
+  animation: agenticPulseRing 2.8s ease-in-out infinite;
+}
+
+.agentic-stage.is-todo {
+  opacity: 0.82;
+}
+
+.agentic-note {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: linear-gradient(120deg, rgba(15, 23, 42, 0.58), rgba(15, 23, 42, 0.36));
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.agentic-panel,
+.agentic-panel-tight {
+  border-radius: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.08), transparent 44%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(246, 250, 255, 0.86));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.86) inset,
+    0 16px 30px -26px rgba(14, 116, 144, 0.34);
+}
+
+.agentic-highlight-card {
+  border-radius: 1.35rem;
+  border: 1px solid rgba(56, 189, 248, 0.44);
+  background:
+    radial-gradient(circle at 10% 15%, rgba(14, 165, 233, 0.2), transparent 38%),
+    radial-gradient(circle at 88% 85%, rgba(16, 185, 129, 0.18), transparent 42%),
+    linear-gradient(135deg, rgba(248, 253, 255, 0.96), rgba(241, 249, 255, 0.9));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.82) inset,
+    0 30px 50px -38px rgba(14, 116, 144, 0.48);
+}
+
+.agentic-highlight-card--subtle {
+  background:
+    radial-gradient(circle at 8% 10%, rgba(14, 165, 233, 0.2), transparent 34%),
+    radial-gradient(circle at 95% 90%, rgba(16, 185, 129, 0.14), transparent 44%),
+    linear-gradient(140deg, rgba(243, 251, 255, 0.95), rgba(241, 248, 255, 0.88));
+}
+
+.agentic-final-card {
+  border-radius: 1.45rem;
+  border: 1px solid rgba(56, 189, 248, 0.46);
+  background:
+    radial-gradient(circle at 12% 10%, rgba(14, 165, 233, 0.22), transparent 38%),
+    radial-gradient(circle at 88% 76%, rgba(16, 185, 129, 0.18), transparent 40%),
+    linear-gradient(140deg, rgba(250, 254, 255, 0.96), rgba(239, 249, 255, 0.9));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.86) inset,
+    0 34px 56px -38px rgba(14, 116, 144, 0.52);
+}
+
+.agentic-input {
+  border-color: rgba(125, 211, 252, 0.42);
+  background: rgba(248, 252, 255, 0.92);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+.agentic-input:focus {
+  border-color: rgba(14, 165, 233, 0.72);
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.32), 0 12px 24px -18px rgba(2, 132, 199, 0.45);
+}
+
+.agentic-metric-card {
+  min-height: 7.7rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.agentic-metric-card::before {
+  content: '';
+  position: absolute;
+  width: 58%;
+  height: 58%;
+  right: -20%;
+  top: -30%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.34), transparent 70%);
+  pointer-events: none;
+}
+
+html.dark .agentic-panel,
+html.dark .agentic-panel-tight {
+  border-color: rgba(103, 232, 249, 0.18);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.13), transparent 44%),
+    linear-gradient(180deg, rgba(8, 19, 39, 0.88), rgba(7, 17, 35, 0.86));
+  box-shadow:
+    0 1px 0 rgba(148, 163, 184, 0.07) inset,
+    0 16px 34px -24px rgba(2, 132, 199, 0.5);
+}
+
+html.dark .agentic-highlight-card,
+html.dark .agentic-highlight-card--subtle,
+html.dark .agentic-final-card {
+  border-color: rgba(103, 232, 249, 0.25);
+  background:
+    radial-gradient(circle at 10% 15%, rgba(6, 182, 212, 0.2), transparent 36%),
+    radial-gradient(circle at 90% 82%, rgba(16, 185, 129, 0.16), transparent 38%),
+    linear-gradient(140deg, rgba(8, 20, 41, 0.94), rgba(7, 17, 34, 0.9));
+}
+
+html.dark .agentic-input {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(7, 17, 35, 0.78);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .surface-hover,
-  .surface-hover:hover {
+  .surface-hover:hover,
+  .agentic-section,
+  .agentic-section:hover,
+  .agentic-stage.is-active .agentic-stage-node,
+  .agentic-hero::before {
     transition: none;
     transform: none;
+    animation: none;
   }
 }

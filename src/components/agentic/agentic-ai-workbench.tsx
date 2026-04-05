@@ -849,7 +849,7 @@ function FieldShell({
 }) {
   return (
     <label className="block text-sm">
-      <span className="mb-1.5 block font-medium text-slate-700 dark:text-slate-200">{label}</span>
+      <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">{label}</span>
       {children}
       {hint ? <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{hint}</span> : null}
     </label>
@@ -902,7 +902,7 @@ function NumberField({
           value={value === 0 ? '' : value}
           onChange={(event) => onChange(parseNumber(event.target.value))}
           className={cn(
-            'w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none',
+            'agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none',
             'focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950',
             suffix ? 'pr-12' : '',
           )}
@@ -935,7 +935,7 @@ function SelectField<T extends string>({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value as T)}
-        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
+        className="agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -960,16 +960,20 @@ function MetricCard({
 }) {
   const toneStyles =
     tone === 'emerald'
-      ? 'border-emerald-200 bg-emerald-500/5'
+      ? 'border-emerald-300/40 bg-emerald-500/10'
       : tone === 'amber'
-        ? 'border-amber-200 bg-amber-500/5'
+        ? 'border-amber-300/40 bg-amber-500/10'
         : tone === 'slate'
-          ? 'border-slate-200 bg-slate-500/5'
-          : 'border-cyan-200 bg-cyan-500/5';
+          ? 'border-slate-300/45 bg-slate-500/10'
+          : 'border-cyan-300/45 bg-cyan-500/10';
+  const toneDot = tone === 'emerald' ? 'bg-emerald-400' : tone === 'amber' ? 'bg-amber-400' : tone === 'slate' ? 'bg-slate-400' : 'bg-cyan-400';
 
   return (
-    <div className={cn('rounded-3xl border p-4', toneStyles, 'dark:border-slate-700 dark:bg-slate-900/70')}>
-      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{label}</div>
+    <div className={cn('agentic-metric-card rounded-3xl border p-4', toneStyles, 'dark:border-slate-700 dark:bg-slate-900/70')}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{label}</div>
+        <span className={cn('h-2.5 w-2.5 rounded-full shadow-[0_0_0_4px_rgba(15,23,42,0.1)] dark:shadow-[0_0_0_4px_rgba(6,182,212,0.14)]', toneDot)} />
+      </div>
       <div className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{value}</div>
       <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">{note}</div>
     </div>
@@ -1017,9 +1021,13 @@ function ScorePill({
   recommendation?: string;
 }) {
   const tone =
-    value >= 75 ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : value >= 60 ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-rose-500/10 text-rose-700 dark:text-rose-300';
+    value >= 75
+      ? 'border-emerald-300/60 bg-emerald-500/15 text-emerald-800 dark:border-emerald-800/60 dark:text-emerald-300'
+      : value >= 60
+        ? 'border-amber-300/60 bg-amber-500/15 text-amber-800 dark:border-amber-800/60 dark:text-amber-300'
+        : 'border-rose-300/60 bg-rose-500/15 text-rose-800 dark:border-rose-800/60 dark:text-rose-300';
   return (
-    <span className={cn('inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold', tone)}>
+    <span className={cn('inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold backdrop-blur', tone)}>
       {value}/100{recommendation ? ` • ${recommendation}` : ''}
     </span>
   );
@@ -1037,7 +1045,7 @@ function SecurityPoolTable({
   baseCurrency: 'INR' | 'USD';
 }) {
   return (
-    <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+    <div className="agentic-panel p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h4>
@@ -1634,20 +1642,48 @@ export function AgenticAiWorkbench() {
   const whatIfRecommendation = whatIfFit >= 58 ? 'BUY' : whatIfFit >= 42 ? 'HOLD' : 'AVOID';
   const whatIfAllocationRatio = whatIfRecommendation === 'BUY' ? (whatIfFit >= 86 ? 0.35 : 0.25) : whatIfRecommendation === 'HOLD' ? 0.12 : 0;
   const whatIfAllocation = round(whatIfSurplus * whatIfAllocationRatio, 2);
+  const hasCoreProfile = form.age > 0 && form.monthlyIncome > 0 && (form.monthlyFixedExpenses > 0 || form.monthlyDiscretionaryExpenses > 0);
+  const workflowStages: Array<{ id: string; label: string; detail: string; state: 'todo' | 'active' | 'done' }> = [
+    {
+      id: 'intake',
+      label: 'Intake',
+      detail: 'Capture household profile',
+      state: hasCoreProfile ? 'done' : 'active',
+    },
+    {
+      id: 'model',
+      label: 'Analyze',
+      detail: 'Compute risk and surplus',
+      state: report ? 'done' : loading ? 'active' : hasCoreProfile ? 'active' : 'todo',
+    },
+    {
+      id: 'recommend',
+      label: 'Recommend',
+      detail: 'Rank matching securities',
+      state: report ? 'done' : loading ? 'active' : 'todo',
+    },
+    {
+      id: 'track',
+      label: 'Track',
+      detail: 'Mission and monitoring loop',
+      state: report ? 'active' : 'todo',
+    },
+  ];
 
   return (
-    <div className="space-y-6">
+    <div className="agentic-studio space-y-6">
       <SectionCard
         title="Personalized Investment Workbench"
         subtitle="Profile-first scoring with live/delayed data, explicit guardrails, and monitoring."
+        className="agentic-section"
         action={
-          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-sm font-medium text-cyan-700 dark:text-cyan-300">
+          <div className="agentic-engine-pill inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-sm font-medium text-cyan-700 dark:text-cyan-300">
             <Bot className="h-4 w-4" />
             {report?.engineType ?? 'Agentic Orchestrator (Rules + Heuristic AI)'}
           </div>
         }
       >
-        <div className="relative overflow-hidden rounded-[30px] border border-cyan-200/60 bg-gradient-to-br from-cyan-500/10 via-emerald-500/10 to-amber-500/10 p-6 dark:border-cyan-900/40">
+        <div className="agentic-hero relative overflow-hidden rounded-[30px] border border-cyan-200/60 bg-gradient-to-br from-cyan-500/10 via-emerald-500/10 to-amber-500/10 p-6 dark:border-cyan-900/40">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.16),transparent_35%)]" />
           <div className="relative grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
             <div>
@@ -1661,7 +1697,24 @@ export function AgenticAiWorkbench() {
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300 md:text-base">
                 We compute surplus, debt burden, emergency readiness, and risk first, then rank securities and produce an action plan.
               </p>
-              <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-white/70 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+              <div className="agentic-workflow-rail mt-6">
+                {workflowStages.map((stage, index) => (
+                  <div
+                    key={stage.id}
+                    className={cn(
+                      'agentic-stage',
+                      stage.state === 'done' ? 'is-done' : stage.state === 'active' ? 'is-active' : 'is-todo',
+                    )}
+                  >
+                    <div className="agentic-stage-node">{index + 1}</div>
+                    <div>
+                      <div className="agentic-stage-label">{stage.label}</div>
+                      <div className="agentic-stage-detail">{stage.detail}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="agentic-note mt-5 rounded-2xl border border-dashed border-slate-200 bg-white/70 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
                 Start with a template or fill only the essentials first. You can run once and refine with what-if changes.
               </div>
             </div>
@@ -1695,10 +1748,10 @@ export function AgenticAiWorkbench() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Personal Financial Profiling" subtitle="Start with essentials, then expand details as needed.">
+      <SectionCard title="Personal Financial Profiling" subtitle="Start with essentials, then expand details as needed." className="agentic-section">
         <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-5">
-            <div className="rounded-[28px] border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/70">
+            <div className="agentic-panel p-4">
               <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Profile wizard</div>
               <div className="mb-3 grid gap-2 md:grid-cols-3">
                 {PROFILE_TEMPLATES.map((template) => (
@@ -1737,7 +1790,7 @@ export function AgenticAiWorkbench() {
               </div>
             </div>
             <StepPanel stepId={1} activeStep={profileStep} className="space-y-5">
-              <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+              <div className="agentic-panel p-5">
                 <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                   <Briefcase className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
                   Demographics & Life Stage
@@ -1767,7 +1820,7 @@ export function AgenticAiWorkbench() {
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+              <div className="agentic-panel p-5">
                 <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                   <Wallet className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
                   Income & Expenses
@@ -1794,7 +1847,7 @@ export function AgenticAiWorkbench() {
             <StepPanel
               stepId={2}
               activeStep={profileStep}
-              className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70"
+              className="agentic-panel p-5"
             >
               <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                 <Landmark className="h-4 w-4 text-amber-600 dark:text-amber-300" />
@@ -1890,7 +1943,7 @@ export function AgenticAiWorkbench() {
             <StepPanel
               stepId={3}
               activeStep={profileStep}
-              className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70"
+              className="agentic-panel p-5"
             >
               <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                 <Target className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
@@ -1939,7 +1992,7 @@ export function AgenticAiWorkbench() {
                   <select
                     value={form.analysisMode}
                     onChange={(event) => updateField('analysisMode', event.target.value as AgenticFormInput['analysisMode'])}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
+                    className="agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
                   >
                     <option value="suggest">Let the agent suggest stocks + funds</option>
                     <option value="specific">Analyze a specific stock or fund</option>
@@ -1961,7 +2014,7 @@ export function AgenticAiWorkbench() {
                     onChange={(event) => updateField('targetTicker', event.target.value)}
                     list="agentic-tickers"
                     disabled={form.analysisMode !== 'specific'}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
+                    className="agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
                   />
                   <datalist id="agentic-tickers">
                     {stockSuggestions.map((stock) => (
@@ -1996,7 +2049,7 @@ export function AgenticAiWorkbench() {
             <StepPanel
               stepId={4}
               activeStep={profileStep}
-              className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70"
+              className="agentic-panel p-5"
             >
               <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Review before run</div>
               <div className="grid gap-3 md:grid-cols-2">
@@ -2020,7 +2073,7 @@ export function AgenticAiWorkbench() {
               </div>
             </StepPanel>
 
-            <div className="flex items-center justify-between rounded-[24px] border border-slate-200 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/70">
+            <div className="agentic-panel-tight flex items-center justify-between px-4 py-3">
               <button
                 type="button"
                 onClick={() => setProfileStep((step) => Math.max(1, step - 1))}
@@ -2044,7 +2097,7 @@ export function AgenticAiWorkbench() {
           </div>
 
           <div className="space-y-5 xl:sticky xl:top-[84px] xl:self-start">
-            <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+            <div className="agentic-panel p-5">
               <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                 <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
                 Draft Status
@@ -2059,7 +2112,7 @@ export function AgenticAiWorkbench() {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+            <div className="agentic-panel p-5">
               <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                 <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
                 Live Profile Preview
@@ -2191,9 +2244,10 @@ export function AgenticAiWorkbench() {
         <SectionCard
           title="Agent In Progress"
           subtitle="Real-time telemetry from the running analysis. You can cancel and rerun at any point."
+          className="agentic-section"
         >
           <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-[30px] border border-cyan-200 bg-gradient-to-br from-cyan-500/10 via-white to-emerald-500/10 p-6 dark:border-cyan-900/40 dark:from-cyan-950/30 dark:via-slate-950 dark:to-emerald-950/20">
+            <div className="agentic-highlight-card p-6">
               <div className="flex items-center gap-3">
                 <Loader2 className="h-5 w-5 animate-spin text-cyan-600 dark:text-cyan-300" />
                 <div>
@@ -2273,6 +2327,7 @@ export function AgenticAiWorkbench() {
             title="Personal Financial Score"
             subtitle={`Generated ${formatDateTime(report.generatedAt)} • Portfolio gap and risk capacity were computed before stock selection.`}
             action={<ScorePill value={report.finance.riskProfileScore} recommendation={report.finance.riskProfileLabel} />}
+            className="agentic-section"
           >
             <div className="grid gap-4 lg:grid-cols-5">
               <MetricCard
@@ -2307,7 +2362,7 @@ export function AgenticAiWorkbench() {
             </div>
 
             <div className="mt-5 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-              <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+              <div className="agentic-panel p-5">
                 <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Why the risk score landed here</div>
                 <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
                   {report.finance.riskProfileNotes.map((note) => (
@@ -2332,7 +2387,7 @@ export function AgenticAiWorkbench() {
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+              <div className="agentic-panel p-5">
                 <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Current vs ideal allocation</div>
                 <div className="space-y-3">
                   {report.finance.allocationGap.map((gap) => (
@@ -2361,9 +2416,13 @@ export function AgenticAiWorkbench() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Adaptive Agent Control" subtitle="Planner, scorer, risk critic, and monitoring agents with memory across runs.">
+          <SectionCard
+            title="Adaptive Agent Control"
+            subtitle="Planner, scorer, risk critic, and monitoring agents with memory across runs."
+            className="agentic-section"
+          >
             <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-              <div className="rounded-[24px] border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+              <div className="agentic-panel-tight p-4">
                 <div className="mb-2 inline-flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                   <Bot className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
                   Multi-agent pipeline
@@ -2393,7 +2452,7 @@ export function AgenticAiWorkbench() {
               </div>
 
               <div className="space-y-4">
-                <div className="rounded-[24px] border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+                <div className="agentic-panel-tight p-4">
                   <div className="mb-2 inline-flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                     <BrainCircuit className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
                     Outcome-learning memory
@@ -2417,7 +2476,7 @@ export function AgenticAiWorkbench() {
                   </div>
                 </div>
 
-                <div className="rounded-[24px] border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+                <div className="agentic-panel-tight p-4">
                   <div className="mb-2 inline-flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                     <BellRing className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
                     Monitoring agent
@@ -2498,9 +2557,9 @@ export function AgenticAiWorkbench() {
           </SectionCard>
 
           {changeAudit ? (
-            <SectionCard title={changeAudit.title} subtitle="Audit agent explains what changed vs the prior run.">
+            <SectionCard title={changeAudit.title} subtitle="Audit agent explains what changed vs the prior run." className="agentic-section">
               <div className="grid gap-4 xl:grid-cols-2">
-                <div className="rounded-[24px] border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+                <div className="agentic-panel-tight p-4">
                   <div className="mb-2 inline-flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                     <History className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
                     What changed
@@ -2513,7 +2572,7 @@ export function AgenticAiWorkbench() {
                     ))}
                   </ul>
                 </div>
-                <div className="rounded-[24px] border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+                <div className="agentic-panel-tight p-4">
                   <div className="mb-2 inline-flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                     <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-300" />
                     Causal factors
@@ -2534,6 +2593,7 @@ export function AgenticAiWorkbench() {
             <SectionCard
               title="What-if Simulator"
               subtitle="Adjust income, EMI, and risk preference to compare deltas before rerunning full analysis."
+              className="agentic-section"
             >
               <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
                 <div className="grid gap-4 md:grid-cols-3">
@@ -2543,7 +2603,7 @@ export function AgenticAiWorkbench() {
                       value={whatIfIncomeDelta}
                       step={1000}
                       onChange={(event) => setWhatIfIncomeDelta(parseNumber(event.target.value))}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
+                      className="agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
                     />
                   </FieldShell>
                   <FieldShell label="EMI delta / month" hint="Positive means higher obligations">
@@ -2552,7 +2612,7 @@ export function AgenticAiWorkbench() {
                       value={whatIfEmiDelta}
                       step={1000}
                       onChange={(event) => setWhatIfEmiDelta(parseNumber(event.target.value))}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
+                      className="agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
                     />
                   </FieldShell>
                   <SelectField
@@ -2608,8 +2668,9 @@ export function AgenticAiWorkbench() {
               title="Security Analysis Engine"
               subtitle="Fundamentals, technicals, sentiment, risk, DCF valuation (where available), dividend suitability, and tax impact."
               action={<ScorePill value={primaryStock.scores.personalizedFit} recommendation={primaryStock.recommendation} />}
+              className="agentic-section"
             >
-              <div className="rounded-[30px] border border-cyan-200 bg-gradient-to-r from-cyan-500/10 via-emerald-500/10 to-transparent p-5 dark:border-cyan-900/40">
+              <div className="agentic-highlight-card agentic-highlight-card--subtle p-5">
                 <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
                   <div>
                     <div className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-300">
@@ -2681,7 +2742,7 @@ export function AgenticAiWorkbench() {
                 <MetricCard label="Stock Risk" value={`${primaryStock.scores.stockRisk}/100`} note={`${primaryStock.risk.level} standalone risk at the stock level.`} tone="emerald" />
               </div>
 
-              <div className="mt-5 rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+              <div className="mt-5 agentic-panel p-5">
                 <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Per-metric provenance</div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                   {[
@@ -2705,7 +2766,7 @@ export function AgenticAiWorkbench() {
               </div>
 
               <div className="mt-5 grid gap-4 xl:grid-cols-3">
-                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+                <div className="agentic-panel p-5">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                     <LineChart className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
                     Fundamentals Snapshot
@@ -2720,7 +2781,7 @@ export function AgenticAiWorkbench() {
                   </div>
                 </div>
 
-                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+                <div className="agentic-panel p-5">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                     <ArrowRight className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
                     Technical Context
@@ -2735,7 +2796,7 @@ export function AgenticAiWorkbench() {
                   </div>
                 </div>
 
-                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+                <div className="agentic-panel p-5">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                     <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-300" />
                     Risk, DCF & Tax
@@ -2752,7 +2813,7 @@ export function AgenticAiWorkbench() {
               </div>
 
               <div className="mt-5 grid gap-4 xl:grid-cols-2">
-                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+                <div className="agentic-panel p-5">
                   <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Why this name works for the profile</div>
                   <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
                     {primaryStock.supportPoints.map((point) => (
@@ -2762,7 +2823,7 @@ export function AgenticAiWorkbench() {
                     ))}
                   </ul>
                 </div>
-                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+                <div className="agentic-panel p-5">
                   <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">What still needs caution</div>
                   <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
                     {primaryStock.cautionPoints.map((point) => (
@@ -2779,7 +2840,11 @@ export function AgenticAiWorkbench() {
             </SectionCard>
           ) : null}
 
-          <SectionCard title="Personalized Fit Scoring" subtitle="Curated top pools: 10 India stocks, 10 US stocks, and 10 mutual funds from the full universe.">
+          <SectionCard
+            title="Personalized Fit Scoring"
+            subtitle="Curated top pools: 10 India stocks, 10 US stocks, and 10 mutual funds from the full universe."
+            className="agentic-section"
+          >
             {primaryStock ? (
               <div className="grid gap-4 lg:grid-cols-5">
                 <MetricCard
@@ -2888,6 +2953,7 @@ export function AgenticAiWorkbench() {
           <SectionCard
             title="Final Recommendation"
             subtitle="A client-friendly action plan with a real downloadable PDF report."
+            className="agentic-section"
             action={
               <button
                 type="button"
@@ -2901,7 +2967,7 @@ export function AgenticAiWorkbench() {
             }
           >
             <div className="space-y-5">
-              <div className="rounded-[32px] border border-cyan-200 bg-gradient-to-br from-cyan-500/10 via-white to-emerald-500/10 p-6 dark:border-cyan-900/40 dark:from-cyan-950/30 dark:via-slate-950 dark:to-emerald-950/20">
+              <div className="agentic-final-card p-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="max-w-3xl">
                     <div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700 dark:text-cyan-300">Final recommendation</div>
@@ -2947,7 +3013,7 @@ export function AgenticAiWorkbench() {
               </div>
 
               {missionPlan.length ? (
-                <div className="rounded-[30px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+                <div className="agentic-panel p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
@@ -3009,7 +3075,7 @@ export function AgenticAiWorkbench() {
               ) : null}
 
               <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-                <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+                <div className="agentic-panel p-5">
                   <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Why the agent landed here</div>
                   <div className="grid gap-3 md:grid-cols-2">
                     {report.executionTrail.map((step) => (
@@ -3023,7 +3089,7 @@ export function AgenticAiWorkbench() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+                  <div className="agentic-panel p-5">
                     <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Best alternatives right now</div>
                     {alternativeStocks.length ? (
                       <div className="space-y-3">
@@ -3047,7 +3113,7 @@ export function AgenticAiWorkbench() {
                     )}
                   </div>
 
-                  <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+                  <div className="agentic-panel p-5">
                     <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Important Notes</div>
                     <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
                       {report.notes.map((note) => (
