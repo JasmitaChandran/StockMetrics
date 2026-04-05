@@ -250,33 +250,59 @@ html:not(.dark) .dashboard-grid-overlay {
   }
 }
 
-@keyframes agenticStepGlow {
+@keyframes agenticStepCorePulse {
   0%,
   100% {
     box-shadow:
-      0 0 0 1px rgba(14, 165, 233, 0.34),
-      0 0 0 0 rgba(6, 182, 212, 0.36);
+      0 0 0 1px rgba(34, 211, 238, 0.62),
+      0 0 14px rgba(6, 182, 212, 0.34),
+      0 0 0 0 rgba(34, 211, 238, 0.42);
     transform: translateY(0);
   }
   50% {
     box-shadow:
-      0 0 0 1px rgba(6, 182, 212, 0.56),
-      0 0 0 10px rgba(6, 182, 212, 0);
-    transform: translateY(-1px);
+      0 0 0 1px rgba(34, 211, 238, 0.92),
+      0 0 28px rgba(6, 182, 212, 0.6),
+      0 0 0 12px rgba(34, 211, 238, 0);
+    transform: translateY(-2px) scale(1.06);
   }
 }
 
-@keyframes agenticDoneGlow {
+@keyframes agenticStepHaloPulse {
   0%,
-  100% {
-    box-shadow:
-      0 0 0 1px rgba(16, 185, 129, 0.45),
-      0 0 0 0 rgba(16, 185, 129, 0.3);
+  30% {
+    opacity: 0.9;
+    transform: scale(0.92);
   }
-  50% {
-    box-shadow:
-      0 0 0 1px rgba(16, 185, 129, 0.55),
-      0 0 0 8px rgba(16, 185, 129, 0);
+  100% {
+    opacity: 0;
+    transform: scale(1.38);
+  }
+}
+
+@keyframes agenticStepOrbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes agenticStepCardSweep {
+  0% {
+    transform: translateX(-56%) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.48;
+  }
+  60% {
+    opacity: 0.26;
+  }
+  100% {
+    transform: translateX(58%) rotate(180deg);
+    opacity: 0;
   }
 }
 
@@ -475,11 +501,27 @@ html.dark .agentic-section {
   transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
 }
 
+.agentic-progress-step > * {
+  position: relative;
+  z-index: 1;
+}
+
 .agentic-progress-step.is-active {
   border-color: rgba(56, 189, 248, 0.52);
   box-shadow:
-    0 0 0 1px rgba(14, 165, 233, 0.2),
-    0 18px 34px -28px rgba(8, 145, 178, 0.5);
+    0 0 0 1px rgba(34, 211, 238, 0.35),
+    0 22px 42px -26px rgba(8, 145, 178, 0.68);
+}
+
+.agentic-progress-step.is-active::before {
+  content: '';
+  position: absolute;
+  inset: -42% -24%;
+  border-radius: 999px;
+  background: linear-gradient(110deg, rgba(34, 211, 238, 0), rgba(34, 211, 238, 0.28), rgba(56, 189, 248, 0));
+  filter: blur(18px);
+  animation: agenticStepCardSweep 3.2s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .agentic-progress-step.is-done {
@@ -490,21 +532,68 @@ html.dark .agentic-section {
 }
 
 .agentic-progress-step-dot {
+  position: relative;
+  isolation: isolate;
   border: 1px solid rgba(148, 163, 184, 0.45);
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.36);
+}
+
+.agentic-progress-step-dot::before,
+.agentic-progress-step-dot::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
 }
 
 .agentic-progress-step.is-active .agentic-progress-step-dot {
-  border-color: rgba(6, 182, 212, 0.84);
-  animation: agenticStepGlow 1.8s ease-in-out infinite;
+  border-color: rgba(34, 211, 238, 0.96);
+  background: radial-gradient(circle at 34% 30%, rgba(103, 232, 249, 0.48), rgba(6, 182, 212, 0.3));
+  color: rgba(207, 250, 254, 1);
+  animation: agenticStepCorePulse 1.35s ease-in-out infinite;
+}
+
+.agentic-progress-step.is-active .agentic-progress-step-dot::before {
+  inset: -6px;
+  border: 2px solid rgba(34, 211, 238, 0.74);
+  animation: agenticStepHaloPulse 1.45s ease-out infinite;
+  opacity: 1;
+}
+
+.agentic-progress-step.is-active .agentic-progress-step-dot::after {
+  inset: -10px;
+  border: 1px dashed rgba(56, 189, 248, 0.76);
+  animation: agenticStepOrbit 2.4s linear infinite;
+  opacity: 0.84;
 }
 
 .agentic-progress-step.is-done .agentic-progress-step-dot {
-  border-color: rgba(16, 185, 129, 0.75);
-  animation: agenticDoneGlow 2.3s ease-in-out infinite;
+  border-color: rgba(74, 222, 128, 0.85);
+  background: radial-gradient(circle at 38% 30%, rgba(110, 231, 183, 0.38), rgba(16, 185, 129, 0.24));
+  box-shadow:
+    0 0 0 1px rgba(16, 185, 129, 0.36),
+    0 0 12px rgba(16, 185, 129, 0.28);
+}
+
+.agentic-progress-step.is-done .agentic-progress-step-dot::before {
+  inset: -4px;
+  border: 1px solid rgba(74, 222, 128, 0.48);
+  opacity: 0.74;
 }
 
 .agentic-progress-step.is-todo {
   opacity: 0.9;
+}
+
+.agentic-progress-step.is-active .agentic-progress-title {
+  text-shadow:
+    0 0 16px rgba(34, 211, 238, 0.38),
+    0 0 6px rgba(56, 189, 248, 0.28);
+}
+
+.agentic-progress-step.is-active .agentic-progress-detail {
+  color: rgba(203, 213, 225, 0.96);
 }
 
 .agentic-panel,
@@ -627,8 +716,10 @@ html.dark .agentic-mode-toggle {
   .agentic-section,
   .agentic-section:hover,
   .agentic-stage.is-active .agentic-stage-node,
+  .agentic-progress-step.is-active::before,
   .agentic-progress-step.is-active .agentic-progress-step-dot,
-  .agentic-progress-step.is-done .agentic-progress-step-dot,
+  .agentic-progress-step.is-active .agentic-progress-step-dot::before,
+  .agentic-progress-step.is-active .agentic-progress-step-dot::after,
   .agentic-hero::before {
     transition: none;
     transform: none;

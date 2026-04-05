@@ -2430,38 +2430,42 @@ export function AgenticAiWorkbench() {
             </div>
 
             <div className="grid gap-3">
-              {PROCESSING_STEPS.map((step, index) => (
-                <div
-                  key={step.title}
-                  className={cn(
-                    'agentic-progress-step rounded-[24px] border bg-white/70 p-4 dark:bg-slate-950/60',
-                    progressIsComplete || index < activePhaseIndex
-                      ? 'is-done border-emerald-300 dark:border-emerald-900/40'
-                      : index === activePhaseIndex
-                        ? 'is-active border-cyan-300 dark:border-cyan-900/40'
-                        : 'is-todo border-slate-200 dark:border-slate-800',
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={cn(
-                        'agentic-progress-step-dot flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                        progressIsComplete || index < activePhaseIndex
-                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                          : index === activePhaseIndex
-                            ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300'
-                            : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-                      )}
-                    >
-                      {index + 1}
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900 dark:text-white">{step.title}</div>
-                      <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">{step.detail}</div>
+              {PROCESSING_STEPS.map((step, index) => {
+                const isDone = progressIsComplete || index < activePhaseIndex;
+                const isActive = !progressIsComplete && index === activePhaseIndex;
+                return (
+                  <div
+                    key={step.title}
+                    className={cn(
+                      'agentic-progress-step rounded-[24px] border bg-white/70 p-4 dark:bg-slate-950/60',
+                      isDone
+                        ? 'is-done border-emerald-300 dark:border-emerald-900/40'
+                        : isActive
+                          ? 'is-active border-cyan-300 dark:border-cyan-900/40'
+                          : 'is-todo border-slate-200 dark:border-slate-800',
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          'agentic-progress-step-dot flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+                          isDone
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                            : isActive
+                              ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300'
+                              : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+                        )}
+                      >
+                        {isDone ? '✓' : index + 1}
+                      </div>
+                      <div>
+                        <div className="agentic-progress-title text-sm font-semibold text-slate-900 dark:text-white">{step.title}</div>
+                        <div className="agentic-progress-detail mt-1 text-sm text-slate-600 dark:text-slate-300">{step.detail}</div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </SectionCard>
