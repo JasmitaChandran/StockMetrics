@@ -2328,8 +2328,8 @@ export async function generatePersonalizedAgenticAnalysis(
     deepAnalyzed: analyzedCount,
     deepTotal: Math.max(totalAnalysisCount, 1),
     message: focusEntity
-      ? `Screened ${candidateUniverse.length} eligible securities. Analyzing selected security ${focusEntity.displaySymbol}${deepAnalysisUniverse.length ? ` + ${deepAnalysisUniverse.length} contextual alternatives` : ''}.`
-      : `Screened ${candidateUniverse.length} eligible securities. Deep-analyzing ${deepAnalysisUniverse.length} shortlisted names.`,
+      ? `Screened ${candidateUniverse.length} eligible securities. Analysing stocks and mutual funds deeply...`
+      : `Screened ${candidateUniverse.length} eligible securities. Analysing stocks and mutual funds deeply...`,
   });
   throwIfAborted(options?.signal);
 
@@ -2362,7 +2362,7 @@ export async function generatePersonalizedAgenticAnalysis(
       screenedTotal: candidateUniverse.length,
       deepAnalyzed: analyzedCount,
       deepTotal: Math.max(totalAnalysisCount, 1),
-      message: `Screened ${candidateUniverse.length} total. Deep-analyzed ${analyzedCount}/${Math.max(totalAnalysisCount, 1)}.`,
+      message: `Screened ${candidateUniverse.length} total. Analysing stocks and mutual funds deeply...`,
     });
   }
 
@@ -2448,16 +2448,16 @@ export async function generatePersonalizedAgenticAnalysis(
       detail:
         normalizedInput.analysisMode === 'specific'
           ? normalizedInput.compareWithAlternatives
-            ? `Screened ${candidateUniverse.length} eligible securities and shortlisted ${deepAnalysisUniverse.length} alternatives around the selected ticker.`
+            ? `Screened ${candidateUniverse.length} eligible securities and built a curated comparison set around the selected ticker.`
             : `Screened ${candidateUniverse.length} eligible securities and focused only on the selected ticker.`
-          : `Screened ${candidateUniverse.length} eligible securities and shortlisted ${deepAnalysisUniverse.length} names for deep modeling.`,
+          : `Screened ${candidateUniverse.length} eligible securities and built a curated shortlist for deep modeling.`,
     },
     {
       phase: 'Phase 4',
       headline: 'Deep security analysis completed',
       detail:
         normalizedInput.analysisMode === 'specific'
-          ? `Analyzed selected security first${normalizedInput.compareWithAlternatives ? `, then compared it against ${deepAnalysisUniverse.length} alternatives` : ''} on fundamentals, technicals, risk, and valuation.`
+          ? `Analyzed the selected security first${normalizedInput.compareWithAlternatives ? ', then compared it against the curated shortlist' : ''} on fundamentals, technicals, risk, and valuation.`
           : `Each shortlisted name was analyzed on fundamentals, technicals, risk, and DCF where available.`,
     },
     {
@@ -2483,7 +2483,7 @@ export async function generatePersonalizedAgenticAnalysis(
   ];
 
   const notes = [
-    `Universe screening reviewed ${candidateUniverse.length} eligible securities. Deep modeling ran on ${deepAnalysisUniverse.length}${focusEntity ? ' shortlisted alternatives plus the selected security' : ' shortlisted names'} to balance breadth and runtime.`,
+    `Universe screening reviewed ${candidateUniverse.length} eligible securities. Deep modeling then focused on a curated shortlist to balance breadth and runtime.`,
     loadedUniverse.source === 'live_index'
       ? 'This run used the live searchable market index (all stocks + mutual funds), then applied a shortlist before deep scoring.'
       : loadedUniverse.source === 'mixed_live_demo'

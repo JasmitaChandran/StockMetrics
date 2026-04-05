@@ -1531,7 +1531,6 @@ export function AgenticAiWorkbench() {
   const progressIsComplete = progress?.phase === 'completed';
   const screenedTotal = typeof progress?.screenedTotal === 'number' ? progress.screenedTotal : null;
   const deepAnalyzed = progress?.deepAnalyzed ?? progress?.analyzed ?? 0;
-  const deepTotal = progress?.deepTotal ?? progress?.total ?? 0;
 
   function updateField<K extends keyof AgenticFormInput>(key: K, value: AgenticFormInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -2411,7 +2410,7 @@ export function AgenticAiWorkbench() {
                 </div>
                 <div className="mt-3 grid gap-2 text-xs text-slate-500 dark:text-slate-400 sm:grid-cols-2">
                   <div>Screened: {screenedTotal === null ? 'Preparing universe...' : `${formatNumber(screenedTotal)} total`}</div>
-                  <div>Deep-analyzed: {deepAnalyzed}/{deepTotal}</div>
+                  <div>Status: Analysing stocks and mutual funds deeply...</div>
                   <div>Elapsed: {formatElapsed(elapsedMs)}</div>
                   <div>Phase: {(progress?.phase ?? 'profile').toUpperCase()}</div>
                   <div>ETA: {eta ?? 'Estimating...'}</div>
