@@ -467,6 +467,7 @@ const MAX_DEEP_ANALYSIS_CANDIDATES =
   DEEP_ANALYSIS_TARGETS.usStocks +
   DEEP_ANALYSIS_TARGETS.mutualFunds;
 const MAX_DISPLAYED_RECOMMENDATIONS = TOP_PER_POOL * 3;
+const PROGRESS_PHASE_HOLD_MS = 380;
 
 const MUTUAL_FUND_DEBT_REGEX =
   /liquid|overnight|money market|short duration|ultra short|gilt|debt|bond|banking\s*&\s*psu|corporate bond/i;
@@ -687,6 +688,38 @@ function emitProgress(
   next: AgenticProgressTelemetry,
 ) {
   options?.onProgress?.(next);
+}
+
+async function holdProgressPhase(
+  options: AgenticAnalysisOptions | undefined,
+  ms = PROGRESS_PHASE_HOLD_MS,
+) {
+  if (ms <= 0) return;
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      if (options?.signal) options.signal.removeEventListener('abort', onAbort);
+    };
+
+    const onAbort = () => {
+      cleanup();
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+
+    if (options?.signal) {
+      if (options.signal.aborted) {
+        cleanup();
+        reject(new DOMException('Aborted', 'AbortError'));
+        return;
+      }
+      options.signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
 }
 
 async function fetchUniversePage(market: MarketKind, limit: number, offset: number): Promise<SearchEntity[]> {
@@ -2342,6 +2375,7 @@ export async function generatePersonalizedAgenticAnalysis(
     deepTotal: Math.max(totalAnalysisCount, 1),
     message: 'Synthesizing news sentiment, headline polarity, and narrative drivers.',
   });
+  await holdProgressPhase(options);
   throwIfAborted(options?.signal);
 
   emitProgress(options, {
@@ -2353,6 +2387,8 @@ export async function generatePersonalizedAgenticAnalysis(
     deepTotal: Math.max(totalAnalysisCount, 1),
     message: 'Ranking candidates and applying risk policy guardrails.',
   });
+  await holdProgressPhase(options);
+  throwIfAborted(options?.signal);
 
   const rankedAllCandidates = analyzedCandidates
     .slice()
@@ -2477,6 +2513,8 @@ export async function generatePersonalizedAgenticAnalysis(
     deepTotal: Math.max(totalAnalysisCount, 1),
     message: 'Assembling final recommendation and export payload.',
   });
+  await holdProgressPhase(options);
+  throwIfAborted(options?.signal);
 
   const report: AgenticAnalysisReport = {
     generatedAt: new Date().toISOString(),
@@ -2565,6 +2603,7 @@ export async function generatePersonalizedAgenticAnalysis(
     deepTotal: Math.max(totalAnalysisCount, 1),
     message: 'Analysis completed.',
   });
+  await holdProgressPhase(options, 320);
 
   return report;
 }
