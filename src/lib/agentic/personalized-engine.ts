@@ -214,7 +214,22 @@ export interface PersonalizedStockRecommendation {
     score: number;
     label: string;
     analystView: string;
+    bias: string;
+    confidence: 'low' | 'medium' | 'high';
+    buyProbability: number;
+    holdProbability: number;
+    sellProbability: number;
+    drivers: Array<{ tone: 'positive' | 'negative' | 'neutral'; detail: string }>;
+    rationale: string[];
     headlines: string[];
+    headlineItems: Array<{
+      title: string;
+      source: string;
+      publishedAt?: string;
+      url: string;
+      relevanceScore?: number;
+      sentimentScore?: number;
+    }>;
   };
   risk: {
     beta?: number;
@@ -1966,7 +1981,22 @@ async function analyzeStock(
       score: sentimentScore,
       label: aiInsights.sentiment.label,
       analystView: aiInsights.sentiment.suggestedAction,
+      bias: aiInsights.sentiment.buyBias,
+      confidence: aiInsights.sentiment.confidence,
+      buyProbability: aiInsights.sentiment.buyProbability,
+      holdProbability: aiInsights.sentiment.holdProbability,
+      sellProbability: aiInsights.sentiment.sellProbability,
+      drivers: aiInsights.sentiment.drivers,
+      rationale: aiInsights.sentiment.rationale,
       headlines: news.map((item) => item.title).slice(0, 3),
+      headlineItems: news.slice(0, 5).map((item) => ({
+        title: item.title,
+        source: item.source,
+        publishedAt: item.publishedAt,
+        url: item.url,
+        relevanceScore: item.relevanceScore,
+        sentimentScore: item.sentimentScore,
+      })),
     },
     risk: {
       beta: riskSnapshot.beta,

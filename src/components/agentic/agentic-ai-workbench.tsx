@@ -52,6 +52,7 @@ const PROFILE_STORAGE_KEY = 'agentic:financial-profile:v2';
 const REPORT_STORAGE_KEY = 'agentic:last-report:v2';
 const LEARNING_MEMORY_KEY = 'agentic:learning-memory:v1';
 const MONITORING_SETTINGS_KEY = 'agentic:monitoring-settings:v1';
+const VIEW_MODE_STORAGE_KEY = 'agentic:view-mode:v1';
 const AUTOSAVE_DEBOUNCE_MS = 450;
 
 const MARITAL_OPTIONS: Array<{ value: MaritalStatus; label: string }> = [
@@ -265,6 +266,8 @@ interface ChangeAuditSummary {
   causalFactors: string[];
 }
 
+type AgentExperienceMode = 'simple' | 'advanced';
+
 const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
   stockQuality: 0.4,
   riskCompatibility: 0.25,
@@ -346,6 +349,24 @@ function getDisplayCurrency(input: Pick<AgenticFormInput, 'countryCode' | 'count
   if (input.countryCode === 'US') return 'USD';
   if (input.countryCode === 'IN') return 'INR';
   return /india/i.test(input.country) ? 'INR' : 'USD';
+}
+
+function normalizeViewMode(value: unknown): AgentExperienceMode {
+  return value === 'advanced' ? 'advanced' : 'simple';
+}
+
+function headlineSentimentTone(score?: number): 'positive' | 'negative' | 'neutral' {
+  if (typeof score !== 'number') return 'neutral';
+  if (score >= 18) return 'positive';
+  if (score <= -18) return 'negative';
+  return 'neutral';
+}
+
+function headlineSentimentClass(score?: number) {
+  const tone = headlineSentimentTone(score);
+  if (tone === 'positive') return 'border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:border-emerald-900/60 dark:text-emerald-300';
+  if (tone === 'negative') return 'border-rose-300 bg-rose-500/10 text-rose-700 dark:border-rose-900/60 dark:text-rose-300';
+  return 'border-slate-300 bg-slate-500/10 text-slate-700 dark:border-slate-700 dark:text-slate-300';
 }
 
 function validateFormInput(form: AgenticFormInput): string | null {
@@ -650,6 +671,49 @@ function normalizeSavedReport(report: AgenticAnalysisReport | undefined): Agenti
         uncertaintyPct: 24,
         reasons: ['Confidence metadata is unavailable for this saved run.'],
       },
+    sentiment: (() => {
+      const inferredBuyProbability = clamp(Math.round(35 + (item.sentiment.score - 50) * 1.2), 5, 85);
+      const inferredSellProbability = clamp(Math.round(35 + (50 - item.sentiment.score) * 1.2), 5, 85);
+      const inferredHoldProbability = Math.max(5, 100 - inferredBuyProbability - inferredSellProbability);
+      const inferredBias =
+        item.sentiment.label === 'Bullish'
+          ? 'Mild Bullish'
+          : item.sentiment.label === 'Bearish'
+            ? 'Mild Bearish'
+            : 'Balanced';
+      return {
+        ...item.sentiment,
+        bias: item.sentiment.bias ?? inferredBias,
+        confidence: item.sentiment.confidence ?? 'medium',
+        buyProbability: item.sentiment.buyProbability ?? inferredBuyProbability,
+        holdProbability: item.sentiment.holdProbability ?? inferredHoldProbability,
+        sellProbability: item.sentiment.sellProbability ?? inferredSellProbability,
+        drivers:
+          item.sentiment.drivers && item.sentiment.drivers.length
+            ? item.sentiment.drivers
+            : [
+                {
+                  tone: item.sentiment.label === 'Bullish' ? 'positive' : item.sentiment.label === 'Bearish' ? 'negative' : 'neutral',
+                  detail: 'Detailed news sentiment drivers are unavailable for this saved run.',
+                },
+              ],
+        rationale:
+          item.sentiment.rationale && item.sentiment.rationale.length
+            ? item.sentiment.rationale
+            : ['Saved run has limited sentiment metadata.'],
+        headlineItems:
+          item.sentiment.headlineItems && item.sentiment.headlineItems.length
+            ? item.sentiment.headlineItems
+            : (item.sentiment.headlines ?? []).map((title) => ({
+                title,
+                source: 'Saved run',
+                url: '#',
+                relevanceScore: undefined,
+                sentimentScore: undefined,
+                publishedAt: undefined,
+              })),
+      };
+    })(),
     provenance:
       item.provenance ??
       {
@@ -1174,18 +1238,20 @@ export function AgenticAiWorkbench() {
   const [learningMemory, setLearningMemory] = useState<LearningMemoryState>(DEFAULT_LEARNING_MEMORY);
   const [monitoringSettings, setMonitoringSettings] = useState<MonitoringSettings>(DEFAULT_MONITORING_SETTINGS);
   const [monitoringAlert, setMonitoringAlert] = useState<MonitoringAlertState | null>(null);
+  const [viewMode, setViewMode] = useState<AgentExperienceMode>('simple');
 
   useEffect(() => {
     let disposed = false;
 
     async function load() {
       try {
-        const [txns, rawDraft, savedReport, savedLearningMemory, savedMonitoring] = await Promise.all([
+        const [txns, rawDraft, savedReport, savedLearningMemory, savedMonitoring, savedViewMode] = await Promise.all([
           listPortfolioTxns(),
           getKv<SavedProfileDraft | Partial<AgenticFormInput>>(PROFILE_STORAGE_KEY),
           getKv<AgenticAnalysisReport>(REPORT_STORAGE_KEY),
           getKv<LearningMemoryState>(LEARNING_MEMORY_KEY),
           getKv<MonitoringSettings>(MONITORING_SETTINGS_KEY),
+          getKv<AgentExperienceMode>(VIEW_MODE_STORAGE_KEY),
         ]);
         const savedDraft = parseSavedDraft(rawDraft);
         const hydrated = hydrateForm(savedDraft?.form);
@@ -1209,6 +1275,7 @@ export function AgenticAiWorkbench() {
           ...DEFAULT_MONITORING_SETTINGS,
           ...(savedMonitoring ?? {}),
         });
+        setViewMode(normalizeViewMode(savedViewMode));
       } catch {
         if (!disposed) {
           setPortfolioTxns([]);
@@ -1254,6 +1321,13 @@ export function AgenticAiWorkbench() {
       // Best-effort preference save.
     });
   }, [monitoringSettings]);
+
+  useEffect(() => {
+    if (!draftHydratedRef.current) return;
+    void setKv(VIEW_MODE_STORAGE_KEY, viewMode).catch(() => {
+      // Best-effort preference save.
+    });
+  }, [viewMode]);
 
   useEffect(() => {
     if (!loading || !analysisStartedAt) return;
@@ -1642,6 +1716,28 @@ export function AgenticAiWorkbench() {
   const whatIfRecommendation = whatIfFit >= 58 ? 'BUY' : whatIfFit >= 42 ? 'HOLD' : 'AVOID';
   const whatIfAllocationRatio = whatIfRecommendation === 'BUY' ? (whatIfFit >= 86 ? 0.35 : 0.25) : whatIfRecommendation === 'HOLD' ? 0.12 : 0;
   const whatIfAllocation = round(whatIfSurplus * whatIfAllocationRatio, 2);
+  const showAdvancedInsights = viewMode === 'advanced';
+  const primarySentimentMix = primaryStock
+    ? (() => {
+        const buy = clamp(primaryStock.sentiment.buyProbability ?? 33, 0, 100);
+        const hold = clamp(primaryStock.sentiment.holdProbability ?? 34, 0, 100);
+        const normalizedHold = Math.min(100 - buy, hold);
+        const sell = Math.max(0, 100 - buy - normalizedHold);
+        return { buy, hold: normalizedHold, sell };
+      })()
+    : null;
+  const primarySentimentHeadlines = primaryStock
+    ? primaryStock.sentiment.headlineItems && primaryStock.sentiment.headlineItems.length
+      ? primaryStock.sentiment.headlineItems
+      : primaryStock.sentiment.headlines.map((title) => ({
+          title,
+          source: 'Aggregated news',
+          url: '#',
+          relevanceScore: undefined,
+          sentimentScore: undefined,
+          publishedAt: undefined,
+        }))
+    : [];
   const hasCoreProfile = form.age > 0 && form.monthlyIncome > 0 && (form.monthlyFixedExpenses > 0 || form.monthlyDiscretionaryExpenses > 0);
   const workflowStages: Array<{ id: string; label: string; detail: string; state: 'todo' | 'active' | 'done' }> = [
     {
@@ -1677,9 +1773,37 @@ export function AgenticAiWorkbench() {
         subtitle="Profile-first scoring with live/delayed data, explicit guardrails, and monitoring."
         className="agentic-section"
         action={
-          <div className="agentic-engine-pill inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-sm font-medium text-cyan-700 dark:text-cyan-300">
-            <Bot className="h-4 w-4" />
-            {report?.engineType ?? 'Agentic Orchestrator (Rules + Heuristic AI)'}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="agentic-engine-pill inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-sm font-medium text-cyan-700 dark:text-cyan-300">
+              <Bot className="h-4 w-4" />
+              {report?.engineType ?? 'Agentic Orchestrator (Rules + Heuristic AI)'}
+            </div>
+            <div className="agentic-mode-toggle inline-flex items-center rounded-full border border-slate-200 bg-white/80 p-1 text-xs dark:border-slate-700 dark:bg-slate-950/60">
+              <button
+                type="button"
+                onClick={() => setViewMode('simple')}
+                className={cn(
+                  'rounded-full px-3 py-1.5 font-semibold transition',
+                  viewMode === 'simple'
+                    ? 'bg-cyan-500 text-white shadow'
+                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
+                )}
+              >
+                Simple
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('advanced')}
+                className={cn(
+                  'rounded-full px-3 py-1.5 font-semibold transition',
+                  viewMode === 'advanced'
+                    ? 'bg-slate-900 text-white shadow dark:bg-cyan-500 dark:text-slate-950'
+                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
+                )}
+              >
+                Advanced
+              </button>
+            </div>
           </div>
         }
       >
@@ -2416,11 +2540,12 @@ export function AgenticAiWorkbench() {
             </div>
           </SectionCard>
 
-          <SectionCard
-            title="Adaptive Agent Control"
-            subtitle="Planner, scorer, risk critic, and monitoring agents with memory across runs."
-            className="agentic-section"
-          >
+          {showAdvancedInsights ? (
+            <SectionCard
+              title="Adaptive Agent Control"
+              subtitle="Planner, scorer, risk critic, and monitoring agents with memory across runs."
+              className="agentic-section"
+            >
             <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
               <div className="agentic-panel-tight p-4">
                 <div className="mb-2 inline-flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
@@ -2554,9 +2679,10 @@ export function AgenticAiWorkbench() {
                 </div>
               </div>
             </div>
-          </SectionCard>
+            </SectionCard>
+          ) : null}
 
-          {changeAudit ? (
+          {showAdvancedInsights && changeAudit ? (
             <SectionCard title={changeAudit.title} subtitle="Audit agent explains what changed vs the prior run." className="agentic-section">
               <div className="grid gap-4 xl:grid-cols-2">
                 <div className="agentic-panel-tight p-4">
@@ -2589,7 +2715,7 @@ export function AgenticAiWorkbench() {
             </SectionCard>
           ) : null}
 
-          {primaryStock ? (
+          {showAdvancedInsights && primaryStock ? (
             <SectionCard
               title="What-if Simulator"
               subtitle="Adjust income, EMI, and risk preference to compare deltas before rerunning full analysis."
@@ -2742,31 +2868,170 @@ export function AgenticAiWorkbench() {
                 <MetricCard label="Stock Risk" value={`${primaryStock.scores.stockRisk}/100`} note={`${primaryStock.risk.level} standalone risk at the stock level.`} tone="emerald" />
               </div>
 
-              <div className="mt-5 agentic-panel p-5">
-                <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Per-metric provenance</div>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                  {[
-                    { label: 'Quote', provenance: primaryStock.provenance.quote },
-                    { label: 'History', provenance: primaryStock.provenance.history },
-                    { label: 'Fundamentals', provenance: primaryStock.provenance.fundamentals },
-                    { label: 'News', provenance: primaryStock.provenance.news },
-                    { label: 'DCF', provenance: primaryStock.provenance.dcf },
-                  ].map((entry) => (
-                    <div key={entry.label} className="rounded-2xl border border-slate-200 p-3 text-xs dark:border-slate-700">
-                      <div className="font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{entry.label}</div>
-                      <div className="mt-1 text-slate-900 dark:text-white">{entry.provenance.source}</div>
-                      <div className="mt-1 text-slate-500 dark:text-slate-400">
-                        {entry.provenance.freshness}
-                        {entry.provenance.timestamp ? ` • ${formatDateTime(entry.provenance.timestamp)}` : ''}
+              <div className="mt-5 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+                <div className="agentic-panel p-5">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">Sentiment From News</div>
+                    <span
+                      className={cn(
+                        'rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]',
+                        primaryStock.sentiment.label === 'Bullish'
+                          ? 'border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:border-emerald-900/60 dark:text-emerald-300'
+                          : primaryStock.sentiment.label === 'Bearish'
+                            ? 'border-rose-300 bg-rose-500/10 text-rose-700 dark:border-rose-900/60 dark:text-rose-300'
+                            : 'border-slate-300 bg-slate-500/10 text-slate-700 dark:border-slate-700 dark:text-slate-300',
+                      )}
+                    >
+                      {primaryStock.sentiment.label}
+                    </span>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-[130px_1fr]">
+                    <div className="relative flex items-center justify-center">
+                      <div
+                        className="agentic-sentiment-ring flex h-28 w-28 items-center justify-center rounded-full"
+                        style={{
+                          background: `conic-gradient(
+                            rgba(16,185,129,0.95) 0 ${primarySentimentMix?.buy ?? 0}%,
+                            rgba(245,158,11,0.95) ${primarySentimentMix?.buy ?? 0}% ${(primarySentimentMix?.buy ?? 0) + (primarySentimentMix?.hold ?? 0)}%,
+                            rgba(244,63,94,0.95) ${(primarySentimentMix?.buy ?? 0) + (primarySentimentMix?.hold ?? 0)}% 100%
+                          )`,
+                        }}
+                      >
+                        <div className="agentic-sentiment-ring-inner flex h-[78px] w-[78px] flex-col items-center justify-center rounded-full border border-slate-200 bg-white/90 text-center shadow-sm dark:border-slate-700 dark:bg-slate-950/90">
+                          <div className="text-lg font-semibold text-slate-900 dark:text-white">{primaryStock.sentiment.score}</div>
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Sentiment</div>
+                        </div>
                       </div>
-                      {entry.provenance.fallbackReason ? <div className="mt-1 text-rose-600 dark:text-rose-300">{entry.provenance.fallbackReason}</div> : null}
                     </div>
-                  ))}
+                    <div className="space-y-2.5">
+                      <div>
+                        <div className="mb-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                          <span>Buy probability</span>
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-300">{primaryStock.sentiment.buyProbability}%</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${primaryStock.sentiment.buyProbability}%` }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                          <span>Hold probability</span>
+                          <span className="font-semibold text-amber-700 dark:text-amber-300">{primaryStock.sentiment.holdProbability}%</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                          <div className="h-full rounded-full bg-amber-500" style={{ width: `${primaryStock.sentiment.holdProbability}%` }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                          <span>Sell probability</span>
+                          <span className="font-semibold text-rose-700 dark:text-rose-300">{primaryStock.sentiment.sellProbability}%</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                          <div className="h-full rounded-full bg-rose-500" style={{ width: `${primaryStock.sentiment.sellProbability}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid gap-2">
+                    {primarySentimentHeadlines.length ? (
+                      primarySentimentHeadlines.slice(0, 4).map((item) => (
+                        <a
+                          key={`${item.title}-${item.publishedAt ?? item.source}`}
+                          href={item.url || '#'}
+                          target={item.url && item.url !== '#' ? '_blank' : undefined}
+                          rel={item.url && item.url !== '#' ? 'noreferrer' : undefined}
+                          className="group rounded-xl border border-slate-200 bg-white/70 px-3 py-2 transition hover:border-cyan-300 hover:bg-white dark:border-slate-700 dark:bg-slate-950/50 dark:hover:border-cyan-800"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="line-clamp-2 text-sm text-slate-700 dark:text-slate-200">{item.title}</div>
+                            <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase', headlineSentimentClass(item.sentimentScore))}>
+                              {headlineSentimentTone(item.sentimentScore)}
+                            </span>
+                          </div>
+                          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                            {item.source}
+                            {item.publishedAt ? ` • ${formatDateTime(item.publishedAt)}` : ''}
+                          </div>
+                        </a>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        No recent headlines were available for this symbol in the current run.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="agentic-panel p-5">
+                  <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">What news is saying</div>
+                  <div className="rounded-2xl border border-cyan-200 bg-cyan-500/5 p-3 text-sm text-slate-700 dark:border-cyan-900/40 dark:text-slate-200">
+                    {primaryStock.sentiment.analystView}
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950/50">
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Bias</div>
+                      <div className="mt-1 font-semibold text-slate-900 dark:text-white">{primaryStock.sentiment.bias}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950/50">
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Confidence</div>
+                      <div className="mt-1 font-semibold capitalize text-slate-900 dark:text-white">{primaryStock.sentiment.confidence}</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {primaryStock.sentiment.drivers.slice(0, 3).map((driver) => (
+                      <div key={driver.detail} className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                        <span
+                          className={cn(
+                            'mr-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
+                            driver.tone === 'positive'
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                              : driver.tone === 'negative'
+                                ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+                                : 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
+                          )}
+                        >
+                          {driver.tone}
+                        </span>
+                        {driver.detail}
+                      </div>
+                    ))}
+                    {primaryStock.sentiment.rationale.slice(0, 2).map((line) => (
+                      <div key={line} className="text-xs text-slate-500 dark:text-slate-400">
+                        {line}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-4 xl:grid-cols-3">
-                <div className="agentic-panel p-5">
+              {showAdvancedInsights ? (
+                <>
+                  <div className="mt-5 agentic-panel p-5">
+                    <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Per-metric provenance</div>
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                      {[
+                        { label: 'Quote', provenance: primaryStock.provenance.quote },
+                        { label: 'History', provenance: primaryStock.provenance.history },
+                        { label: 'Fundamentals', provenance: primaryStock.provenance.fundamentals },
+                        { label: 'News', provenance: primaryStock.provenance.news },
+                        { label: 'DCF', provenance: primaryStock.provenance.dcf },
+                      ].map((entry) => (
+                        <div key={entry.label} className="rounded-2xl border border-slate-200 p-3 text-xs dark:border-slate-700">
+                          <div className="font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{entry.label}</div>
+                          <div className="mt-1 text-slate-900 dark:text-white">{entry.provenance.source}</div>
+                          <div className="mt-1 text-slate-500 dark:text-slate-400">
+                            {entry.provenance.freshness}
+                            {entry.provenance.timestamp ? ` • ${formatDateTime(entry.provenance.timestamp)}` : ''}
+                          </div>
+                          {entry.provenance.fallbackReason ? <div className="mt-1 text-rose-600 dark:text-rose-300">{entry.provenance.fallbackReason}</div> : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 xl:grid-cols-3">
+                    <div className="agentic-panel p-5">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                     <LineChart className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
                     Fundamentals Snapshot
@@ -2781,7 +3046,7 @@ export function AgenticAiWorkbench() {
                   </div>
                 </div>
 
-                <div className="agentic-panel p-5">
+                    <div className="agentic-panel p-5">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                     <ArrowRight className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
                     Technical Context
@@ -2796,7 +3061,7 @@ export function AgenticAiWorkbench() {
                   </div>
                 </div>
 
-                <div className="agentic-panel p-5">
+                    <div className="agentic-panel p-5">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                     <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-300" />
                     Risk, DCF & Tax
@@ -2809,8 +3074,14 @@ export function AgenticAiWorkbench() {
                     <div className="flex items-center justify-between"><span>Short-term tax drag</span><span className="font-semibold">{formatPercent(primaryStock.taxImpact.shortTermRatePct)}</span></div>
                     <div className="flex items-center justify-between"><span>Long-term tax drag</span><span className="font-semibold">{formatPercent(primaryStock.taxImpact.longTermRatePct)}</span></div>
                   </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="mt-4 rounded-2xl border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                  Switch to <span className="font-semibold">Advanced</span> view to inspect full provenance, raw financial metrics, technical internals, and tax/DCF breakdown.
                 </div>
-              </div>
+              )}
 
               <div className="mt-5 grid gap-4 xl:grid-cols-2">
                 <div className="agentic-panel p-5">
@@ -2840,11 +3111,12 @@ export function AgenticAiWorkbench() {
             </SectionCard>
           ) : null}
 
-          <SectionCard
-            title="Personalized Fit Scoring"
-            subtitle="Curated top pools: 10 India stocks, 10 US stocks, and 10 mutual funds from the full universe."
-            className="agentic-section"
-          >
+          {showAdvancedInsights ? (
+            <SectionCard
+              title="Personalized Fit Scoring"
+              subtitle="Curated top pools: 10 India stocks, 10 US stocks, and 10 mutual funds from the full universe."
+              className="agentic-section"
+            >
             {primaryStock ? (
               <div className="grid gap-4 lg:grid-cols-5">
                 <MetricCard
@@ -2948,7 +3220,8 @@ export function AgenticAiWorkbench() {
                 baseCurrency={reportCurrency}
               />
             </div>
-          </SectionCard>
+            </SectionCard>
+          ) : null}
 
           <SectionCard
             title="Final Recommendation"
@@ -3012,119 +3285,137 @@ export function AgenticAiWorkbench() {
                 </div>
               </div>
 
-              {missionPlan.length ? (
-                <div className="agentic-panel p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                        Agent Mission Control
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                        A concrete runbook generated from your profile and latest market run. Use it to execute, monitor, and
-                        rerun with clear guardrails.
-                      </p>
-                    </div>
-                    <span
-                      className={cn(
-                        'rounded-full border px-3 py-1 text-xs font-semibold',
-                        missionAlerts
-                          ? 'border-amber-300 bg-amber-500/10 text-amber-700 dark:border-amber-800 dark:text-amber-300'
-                          : 'border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300',
-                      )}
-                    >
-                      {missionAlerts ? `${missionAlerts} item${missionAlerts === 1 ? '' : 's'} need attention` : 'All mission items clear'}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 space-y-3">
-                    {missionPlan.map((task, index) => {
-                      const status = missionStatusMeta(task.status);
-                      return (
-                        <div key={task.id} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                                Step {index + 1}
-                              </div>
-                              <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{task.title}</div>
-                            </div>
-                            <span className={cn('rounded-full border px-2.5 py-1 text-xs font-semibold', status.className)}>
-                              {status.label}
-                            </span>
+              {showAdvancedInsights ? (
+                <>
+                  {missionPlan.length ? (
+                    <div className="agentic-panel p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            Agent Mission Control
                           </div>
-
-                          <div className="mt-3 grid gap-3 md:grid-cols-[1.2fr_0.8fr]">
-                            <div>
-                              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Action</div>
-                              <p className="mt-1 text-sm leading-6 text-slate-700 dark:text-slate-200">{task.action}</p>
-                              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{task.reason}</p>
-                            </div>
-                            <div className="rounded-2xl border border-slate-200 bg-white/70 p-3 dark:border-slate-700 dark:bg-slate-950/50">
-                              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                                Success Check
-                              </div>
-                              <p className="mt-1 text-sm leading-6 text-slate-700 dark:text-slate-200">{task.successSignal}</p>
-                              <div className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">Cadence: {task.cadence}</div>
-                            </div>
-                          </div>
+                          <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                            A concrete runbook generated from your profile and latest market run. Use it to execute, monitor, and
+                            rerun with clear guardrails.
+                          </p>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-                <div className="agentic-panel p-5">
-                  <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Why the agent landed here</div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {report.executionTrail.map((step) => (
-                      <div key={step.phase} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{step.phase}</div>
-                        <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{step.headline}</div>
-                        <div className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{step.detail}</div>
+                        <span
+                          className={cn(
+                            'rounded-full border px-3 py-1 text-xs font-semibold',
+                            missionAlerts
+                              ? 'border-amber-300 bg-amber-500/10 text-amber-700 dark:border-amber-800 dark:text-amber-300'
+                              : 'border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300',
+                          )}
+                        >
+                          {missionAlerts ? `${missionAlerts} item${missionAlerts === 1 ? '' : 's'} need attention` : 'All mission items clear'}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="space-y-4">
-                  <div className="agentic-panel p-5">
-                    <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Best alternatives right now</div>
-                    {alternativeStocks.length ? (
-                      <div className="space-y-3">
-                        {alternativeStocks.map((stock) => (
-                          <div key={`${stock.market}:${stock.symbol}`} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <div className="text-sm font-semibold text-slate-900 dark:text-white">{stock.displaySymbol}</div>
-                                <div className="text-xs text-slate-500 dark:text-slate-400">{stock.sector} • {stock.market.toUpperCase()}</div>
+                      <div className="mt-4 space-y-3">
+                        {missionPlan.map((task, index) => {
+                          const status = missionStatusMeta(task.status);
+                          return (
+                            <div key={task.id} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                                    Step {index + 1}
+                                  </div>
+                                  <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{task.title}</div>
+                                </div>
+                                <span className={cn('rounded-full border px-2.5 py-1 text-xs font-semibold', status.className)}>
+                                  {status.label}
+                                </span>
                               </div>
-                              <ScorePill value={stock.scores.personalizedFit} recommendation={stock.recommendation} />
+
+                              <div className="mt-3 grid gap-3 md:grid-cols-[1.2fr_0.8fr]">
+                                <div>
+                                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Action</div>
+                                  <p className="mt-1 text-sm leading-6 text-slate-700 dark:text-slate-200">{task.action}</p>
+                                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{task.reason}</p>
+                                </div>
+                                <div className="rounded-2xl border border-slate-200 bg-white/70 p-3 dark:border-slate-700 dark:bg-slate-950/50">
+                                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                                    Success Check
+                                  </div>
+                                  <p className="mt-1 text-sm leading-6 text-slate-700 dark:text-slate-200">{task.successSignal}</p>
+                                  <div className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">Cadence: {task.cadence}</div>
+                                </div>
+                              </div>
                             </div>
-                            <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{stock.keyReason}</div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+                    <div className="agentic-panel p-5">
+                      <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Why the agent landed here</div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {report.executionTrail.map((step) => (
+                          <div key={step.phase} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{step.phase}</div>
+                            <div className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{step.headline}</div>
+                            <div className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{step.detail}</div>
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                        No better alternatives were ranked for this run.
-                      </div>
-                    )}
-                  </div>
+                    </div>
 
-                  <div className="agentic-panel p-5">
-                    <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Important Notes</div>
-                    <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
-                      {report.notes.map((note) => (
-                        <li key={note} className="rounded-2xl border border-slate-200 px-3 py-2 dark:border-slate-700">
-                          {note}
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="space-y-4">
+                      <div className="agentic-panel p-5">
+                        <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Best alternatives right now</div>
+                        {alternativeStocks.length ? (
+                          <div className="space-y-3">
+                            {alternativeStocks.map((stock) => (
+                              <div key={`${stock.market}:${stock.symbol}`} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div>
+                                    <div className="text-sm font-semibold text-slate-900 dark:text-white">{stock.displaySymbol}</div>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400">{stock.sector} • {stock.market.toUpperCase()}</div>
+                                  </div>
+                                  <ScorePill value={stock.scores.personalizedFit} recommendation={stock.recommendation} />
+                                </div>
+                                <div className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{stock.keyReason}</div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                            No better alternatives were ranked for this run.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="agentic-panel p-5">
+                        <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Important Notes</div>
+                        <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                          {report.notes.map((note) => (
+                            <li key={note} className="rounded-2xl border border-slate-200 px-3 py-2 dark:border-slate-700">
+                              {note}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
                   </div>
+                </>
+              ) : (
+                <div className="agentic-panel p-4">
+                  <div className="mb-2 text-sm font-semibold text-slate-900 dark:text-white">Simple View Summary</div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                    You are seeing only first-time essentials. Switch to <span className="font-semibold">Advanced</span> view for mission plans, scoring internals, and alternative ranking diagnostics.
+                  </p>
+                  <ul className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                    {report.notes.slice(0, 3).map((note) => (
+                      <li key={note} className="rounded-xl border border-slate-200 px-3 py-2 dark:border-slate-700">
+                        {note}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              </div>
+              )}
             </div>
           </SectionCard>
         </>

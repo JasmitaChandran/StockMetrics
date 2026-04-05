@@ -321,6 +321,12 @@ html.dark .agentic-section {
   box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.2) inset;
 }
 
+.agentic-mode-toggle {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.78) inset,
+    0 12px 24px -18px rgba(2, 132, 199, 0.34);
+}
+
 .agentic-hero {
   border-color: rgba(56, 189, 248, 0.4);
   background:
@@ -487,6 +493,16 @@ html.dark .agentic-section {
   box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.32), 0 12px 24px -18px rgba(2, 132, 199, 0.45);
 }
 
+.agentic-sentiment-ring {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.64) inset,
+    0 18px 30px -22px rgba(15, 23, 42, 0.46);
+}
+
+.agentic-sentiment-ring-inner {
+  backdrop-filter: blur(6px);
+}
+
 .agentic-metric-card {
   min-height: 7.7rem;
   position: relative;
@@ -529,6 +545,12 @@ html.dark .agentic-final-card {
 html.dark .agentic-input {
   border-color: rgba(56, 189, 248, 0.35);
   background: rgba(7, 17, 35, 0.78);
+}
+
+html.dark .agentic-mode-toggle {
+  box-shadow:
+    0 1px 0 rgba(148, 163, 184, 0.08) inset,
+    0 12px 24px -20px rgba(6, 182, 212, 0.46);
 }
 
 @media (prefers-reduced-motion: reduce) {

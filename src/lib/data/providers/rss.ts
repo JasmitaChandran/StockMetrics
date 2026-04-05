@@ -1,6 +1,7 @@
 import { XMLParser } from 'fast-xml-parser';
 import type { NewsItem } from '@/types';
 import { withServerCache } from './server-cache';
+import { NEGATIVE_WORDS, POSITIVE_WORDS } from '@/lib/ai/sentiment-lexicon';
 
 const parser = new XMLParser({ ignoreAttributes: false });
 
@@ -11,6 +12,25 @@ function normalizeArray<T>(value: T | T[] | undefined): T[] {
 
 function stripHtml(text?: string) {
   return (text ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function scoreHeadlineSentiment(title: string, description: string) {
+  const text = `${title} ${description}`.toLowerCase();
+  let positiveHits = 0;
+  let negativeHits = 0;
+  for (const token of POSITIVE_WORDS) {
+    if (text.includes(token)) positiveHits += 1;
+  }
+  for (const token of NEGATIVE_WORDS) {
+    if (text.includes(token)) negativeHits += 1;
+  }
+  if (!positiveHits && !negativeHits) return 0;
+  const normalized = (positiveHits - negativeHits) / Math.max(1, positiveHits + negativeHits);
+  return Math.round(clamp(normalized * 100, -100, 100));
 }
 
 function scoreRelevance(title: string, description: string, symbol: string, companyName: string) {
@@ -58,6 +78,7 @@ export async function fetchRelevantRssNews(
         const title = String(item.title ?? 'Untitled');
         const description = stripHtml(String(item.description ?? ''));
         const relevance = scoreRelevance(title, description, symbol, companyName);
+        const sentimentScore = scoreHeadlineSentiment(title, description);
         const sourceNode = item.source as { '#text'?: string } | undefined;
         return {
           id: `${symbol}-${idx}-${String(item.pubDate ?? '')}`,
@@ -67,6 +88,7 @@ export async function fetchRelevantRssNews(
           publishedAt: item.pubDate ? new Date(String(item.pubDate)).toISOString() : undefined,
           snippet: description,
           relevanceScore: relevance,
+          sentimentScore,
         } satisfies NewsItem;
       })
       .filter((n) => (n.relevanceScore ?? 0) > 0.35)
