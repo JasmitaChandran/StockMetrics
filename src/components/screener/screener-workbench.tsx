@@ -1427,7 +1427,7 @@ export function ScreenerWorkbench() {
   return (
     <div className="space-y-4">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-sm dark:border-border dark:bg-card/40">
-        <div className="grid xl:grid-cols-[320px_minmax(0,1fr)]">
+        <div className="grid xl:grid-cols-[296px_minmax(0,1fr)]">
           <aside className="border-r border-slate-200 bg-slate-50/90 dark:border-border dark:bg-muted/10">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-border">
               <div className="text-[15px] font-medium text-slate-700 dark:text-slate-100">
@@ -1513,7 +1513,7 @@ export function ScreenerWorkbench() {
                   {expandedSidebarSection === 'market-cap' ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </button>
                 {expandedSidebarSection === 'market-cap' ? (
-                  <div className="mt-3 space-y-3">
+                  <div className="mt-3 max-w-[248px] space-y-3">
                     <div className="space-y-2">
                       <input
                         type="range"
@@ -1538,20 +1538,27 @@ export function ScreenerWorkbench() {
                         className="w-full accent-slate-700"
                       />
                     </div>
-                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                      <input
-                        value={marketCapMinRaw}
-                        onChange={(event) => setNumericBounds('market-cap', event.target.value, marketCapMaxRaw || String(Math.round(marketCapBounds.max)))}
-                        inputMode="decimal"
-                        className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-border dark:bg-card"
-                      />
-                      <span className="text-xs text-slate-500">to</span>
-                      <input
-                        value={marketCapMaxRaw}
-                        onChange={(event) => setNumericBounds('market-cap', marketCapMinRaw || String(Math.round(marketCapBounds.min)), event.target.value)}
-                        inputMode="decimal"
-                        className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-border dark:bg-card"
-                      />
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="space-y-1">
+                        <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Min</span>
+                        <input
+                          value={marketCapMinRaw}
+                          onChange={(event) => setNumericBounds('market-cap', event.target.value, marketCapMaxRaw || String(Math.round(marketCapBounds.max)))}
+                          inputMode="decimal"
+                          placeholder="0"
+                          className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-border dark:bg-card"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Max</span>
+                        <input
+                          value={marketCapMaxRaw}
+                          onChange={(event) => setNumericBounds('market-cap', marketCapMinRaw || String(Math.round(marketCapBounds.min)), event.target.value)}
+                          inputMode="decimal"
+                          placeholder={String(Math.round(marketCapBounds.max))}
+                          className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-border dark:bg-card"
+                        />
+                      </label>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       {['Smallcap', 'Midcap', 'Largecap'].map((bucket) => {
@@ -1593,7 +1600,7 @@ export function ScreenerWorkbench() {
                       {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </button>
                     {isOpen ? (
-                      <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="mt-3 grid max-w-[248px] grid-cols-2 gap-2">
                         <input
                           value={currentMin}
                           onChange={(event) => setNumericBounds(item.id, event.target.value, currentMax)}
