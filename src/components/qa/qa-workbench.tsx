@@ -1,7 +1,7 @@
 'use client';
 
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Bot, Loader2, Send, Sparkles, Trash2 } from 'lucide-react';
+import { AlertTriangle, Bot, Loader2, Send, Trash2 } from 'lucide-react';
 import { SectionCard } from '@/components/common/section-card';
 import { parseChatContent, type ChatInlineSegment } from '@/lib/qa/chat-format';
 import { cn } from '@/lib/utils/cn';
@@ -133,14 +133,7 @@ export function QaWorkbench() {
   const [statusLoading, setStatusLoading] = useState(true);
   const [question, setQuestion] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: createMessageId(),
-      role: 'assistant',
-      content:
-        'Ask me anything. This tab is designed for a local Ollama model, so there are no API fees and no in-app request cap. Answer quality depends on the model you have installed.',
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   async function loadStatus() {
@@ -257,21 +250,11 @@ export function QaWorkbench() {
   return (
     <div className="mx-auto w-full max-w-[1400px]">
       <SectionCard
-        title="Q/A"
-        subtitle="General-purpose local chat powered by Ollama. Free to run, no API key required, and no in-app request cap."
+        title="Chat with AI"
         action={
           <button
             type="button"
-            onClick={() =>
-              setMessages([
-                {
-                  id: createMessageId(),
-                  role: 'assistant',
-                  content:
-                    'Ask me anything. This tab is designed for a local Ollama model, so there are no API fees and no in-app request cap. Answer quality depends on the model you have installed.',
-                },
-              ])
-            }
+            onClick={() => setMessages([])}
             className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-muted/55 dark:text-slate-300"
           >
             <Trash2 className="h-4 w-4" />
@@ -280,36 +263,30 @@ export function QaWorkbench() {
         }
       >
         <div className="space-y-4">
-          <div
-            className={cn(
-              'rounded-2xl border p-3 text-sm',
-              statusLoading
-                ? 'border-border bg-card'
-                : status?.available && status.modelInstalled
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100'
+          {statusLoading || !status?.available || !status?.modelInstalled ? (
+            <div
+              className={cn(
+                'rounded-2xl border p-3 text-sm',
+                statusLoading
+                  ? 'border-border bg-card'
                   : 'border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-100',
-            )}
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              {statusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : status?.available && status.modelInstalled ? <Sparkles className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-              <span className="font-medium">
-                {statusLoading
-                  ? 'Checking local Ollama connection...'
-                  : status?.available && status.modelInstalled
-                    ? `Connected to ${status.activeModel}`
-                    : 'Local model is not ready yet'}
-              </span>
-            </div>
-            {!statusLoading ? (
-              <p className="mt-2 leading-relaxed">
-                {status?.available && status.modelInstalled
-                  ? `Requests are routed through ${status.apiBaseUrl}. This app does not enforce any request quota.`
-                  : status?.available
+              )}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                {statusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
+                <span className="font-medium">
+                  {statusLoading ? 'Checking local Ollama connection...' : 'Local model is not ready yet'}
+                </span>
+              </div>
+              {!statusLoading ? (
+                <p className="mt-2 leading-relaxed">
+                  {status?.available
                     ? `Ollama is reachable at ${status?.apiBaseUrl}, but the configured model is not installed yet.`
                     : `Could not reach Ollama at ${status?.apiBaseUrl}. Start Ollama on this machine, then refresh the connection.`}
-              </p>
-            ) : null}
-          </div>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="max-h-[720px] min-h-[560px] space-y-3 overflow-auto rounded-2xl border border-border bg-card/70 p-3 md:p-4">
             {messages.map((message) => (
@@ -327,7 +304,6 @@ export function QaWorkbench() {
                 <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
                   {message.role === 'assistant' ? <Bot className="h-4 w-4" /> : null}
                   {message.role}
-                  {message.model ? <span className="rounded-full bg-slate-900/5 px-2 py-0.5 tracking-normal dark:bg-white/10">{message.model}</span> : null}
                 </div>
                 {message.role === 'assistant' ? (
                   <FormattedAssistantMessage content={message.content} />
@@ -345,7 +321,7 @@ export function QaWorkbench() {
                 </div>
                 <div className="flex items-center gap-2 text-slate-600 dark:text-slate-200">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Thinking with the local model...
+                  Thinking..........
                 </div>
               </div>
             ) : null}
@@ -360,7 +336,7 @@ export function QaWorkbench() {
               onKeyDown={handleKeyDown}
               rows={4}
               className="min-h-[132px] w-full resize-none rounded-xl border border-border bg-transparent p-3 text-sm outline-none transition focus:border-accent"
-              placeholder="Ask anything: finance, coding, writing, planning, concepts, explanations..."
+              placeholder="Ask me"
             />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">

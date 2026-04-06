@@ -14,7 +14,7 @@ import { MarketTickerStrip } from './market-ticker-strip';
 const tabs = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/screener', label: 'Screener' },
-  { href: '/qa', label: 'Q/A' },
+  { href: '/qa', label: 'Chat with AI' },
   { href: '/alerts', label: 'Alert' },
   { href: '/agentic', label: 'Personalized Agent' },
   { href: '/watchlist', label: 'Watchlist' },
