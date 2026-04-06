@@ -6,6 +6,7 @@ It ships with:
 - `PRO` + `Beginner` modes
 - Dark/Light theme toggle
 - Universal search (US / India / Mutual Funds)
+- `Q/A` tab for general-purpose local LLM chat
 - Stock detail page (about, metrics, statements, charts, peer comparison, news, docs, notes)
 - Rule-based AI layer (works without paid APIs)
 - AI screener (rule parser) + built-in strategies
@@ -109,7 +110,7 @@ Notes:
 
 ### Optional providers
 Configure via `.env` (not required):
-- Local Ollama endpoint
+- Local Ollama endpoint (`qwen3` is a good default for the general Q/A tab)
 - OpenAI-compatible endpoint
 
 These are behind a provider interface (`src/lib/ai/*`) so the app works without them.
@@ -164,6 +165,12 @@ These are behind a provider interface (`src/lib/ai/*`) so the app works without 
 - Local markdown docs knowledge base
 - Q&A assistant with heuristic retrieval/answers
 - Optional Ollama/OpenAI-compatible provider support
+
+### Q/A
+- General-purpose local chat tab backed by Ollama
+- No API key required
+- No in-app request cap when running locally
+- Status panel shows whether Ollama is reachable and which local model is active
 
 ## Folder structure
 
