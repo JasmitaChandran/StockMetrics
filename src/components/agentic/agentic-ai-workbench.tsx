@@ -45,6 +45,7 @@ import {
 import { downloadPersonalizedReportPdf } from '@/lib/agentic/report-pdf';
 import { getKv, listPortfolioTxns, setKv } from '@/lib/storage/repositories';
 import type { PortfolioTxn } from '@/lib/storage/idb';
+import { useUiStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils/cn';
 import { formatCurrency, formatDateTime, formatNumber, formatPercent } from '@/lib/utils/format';
 
@@ -52,7 +53,6 @@ const PROFILE_STORAGE_KEY = 'agentic:financial-profile:v2';
 const REPORT_STORAGE_KEY = 'agentic:last-report:v2';
 const LEARNING_MEMORY_KEY = 'agentic:learning-memory:v1';
 const MONITORING_SETTINGS_KEY = 'agentic:monitoring-settings:v1';
-const VIEW_MODE_STORAGE_KEY = 'agentic:view-mode:v1';
 const AUTOSAVE_DEBOUNCE_MS = 450;
 
 const MARITAL_OPTIONS: Array<{ value: MaritalStatus; label: string }> = [
@@ -278,8 +278,6 @@ interface ChangeAuditSummary {
   causalFactors: string[];
 }
 
-type AgentExperienceMode = 'simple' | 'advanced';
-
 const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
   stockQuality: 0.4,
   riskCompatibility: 0.25,
@@ -361,10 +359,6 @@ function getDisplayCurrency(input: Pick<AgenticFormInput, 'countryCode' | 'count
   if (input.countryCode === 'US') return 'USD';
   if (input.countryCode === 'IN') return 'INR';
   return /india/i.test(input.country) ? 'INR' : 'USD';
-}
-
-function normalizeViewMode(value: unknown): AgentExperienceMode {
-  return value === 'advanced' ? 'advanced' : 'simple';
 }
 
 function headlineSentimentTone(score?: number): 'positive' | 'negative' | 'neutral' {
@@ -1255,20 +1249,19 @@ export function AgenticAiWorkbench() {
   const [learningMemory, setLearningMemory] = useState<LearningMemoryState>(DEFAULT_LEARNING_MEMORY);
   const [monitoringSettings, setMonitoringSettings] = useState<MonitoringSettings>(DEFAULT_MONITORING_SETTINGS);
   const [monitoringAlert, setMonitoringAlert] = useState<MonitoringAlertState | null>(null);
-  const [viewMode, setViewMode] = useState<AgentExperienceMode>('simple');
+  const uiMode = useUiStore((state) => state.uiMode);
 
   useEffect(() => {
     let disposed = false;
 
     async function load() {
       try {
-        const [txns, rawDraft, savedReport, savedLearningMemory, savedMonitoring, savedViewMode] = await Promise.all([
+        const [txns, rawDraft, savedReport, savedLearningMemory, savedMonitoring] = await Promise.all([
           listPortfolioTxns(),
           getKv<SavedProfileDraft | Partial<AgenticFormInput>>(PROFILE_STORAGE_KEY),
           getKv<AgenticAnalysisReport>(REPORT_STORAGE_KEY),
           getKv<LearningMemoryState>(LEARNING_MEMORY_KEY),
           getKv<MonitoringSettings>(MONITORING_SETTINGS_KEY),
-          getKv<AgentExperienceMode>(VIEW_MODE_STORAGE_KEY),
         ]);
         const savedDraft = parseSavedDraft(rawDraft);
         const hydrated = hydrateForm(savedDraft?.form);
@@ -1292,7 +1285,6 @@ export function AgenticAiWorkbench() {
           ...DEFAULT_MONITORING_SETTINGS,
           ...(savedMonitoring ?? {}),
         });
-        setViewMode(normalizeViewMode(savedViewMode));
       } catch {
         if (!disposed) {
           setPortfolioTxns([]);
@@ -1338,13 +1330,6 @@ export function AgenticAiWorkbench() {
       // Best-effort preference save.
     });
   }, [monitoringSettings]);
-
-  useEffect(() => {
-    if (!draftHydratedRef.current) return;
-    void setKv(VIEW_MODE_STORAGE_KEY, viewMode).catch(() => {
-      // Best-effort preference save.
-    });
-  }, [viewMode]);
 
   useEffect(() => {
     if (!loading || !analysisStartedAt) return;
@@ -1736,7 +1721,7 @@ export function AgenticAiWorkbench() {
   const whatIfRecommendation = whatIfFit >= 58 ? 'BUY' : whatIfFit >= 42 ? 'HOLD' : 'AVOID';
   const whatIfAllocationRatio = whatIfRecommendation === 'BUY' ? (whatIfFit >= 86 ? 0.35 : 0.25) : whatIfRecommendation === 'HOLD' ? 0.12 : 0;
   const whatIfAllocation = round(whatIfSurplus * whatIfAllocationRatio, 2);
-  const showAdvancedInsights = viewMode === 'advanced';
+  const showAdvancedInsights = uiMode === 'pro';
   const primarySentimentMix = primaryStock
     ? (() => {
         const buy = clamp(primaryStock.sentiment.buyProbability ?? 33, 0, 100);
@@ -1798,31 +1783,8 @@ export function AgenticAiWorkbench() {
               <Bot className="h-4 w-4" />
               {report?.engineType ?? 'Agentic Orchestrator (Rules + Heuristic AI)'}
             </div>
-            <div className="agentic-mode-toggle inline-flex items-center rounded-full border border-slate-200 bg-white/80 p-1 text-xs dark:border-slate-700 dark:bg-slate-950/60">
-              <button
-                type="button"
-                onClick={() => setViewMode('simple')}
-                className={cn(
-                  'rounded-full px-3 py-1.5 font-semibold transition',
-                  viewMode === 'simple'
-                    ? 'bg-cyan-500 text-white shadow'
-                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
-                )}
-              >
-                Simple
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('advanced')}
-                className={cn(
-                  'rounded-full px-3 py-1.5 font-semibold transition',
-                  viewMode === 'advanced'
-                    ? 'bg-slate-900 text-white shadow dark:bg-cyan-500 dark:text-slate-950'
-                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
-                )}
-              >
-                Advanced
-              </button>
+            <div className="agentic-mode-toggle inline-flex items-center rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-300">
+              {uiMode === 'pro' ? 'PRO Mode' : 'Beginner Mode'}
             </div>
           </div>
         }
@@ -3428,9 +3390,9 @@ export function AgenticAiWorkbench() {
                 </>
               ) : (
                 <div className="agentic-panel p-4">
-                  <div className="mb-2 text-sm font-semibold text-slate-900 dark:text-white">Simple View Summary</div>
+                  <div className="mb-2 text-sm font-semibold text-slate-900 dark:text-white">Beginner Summary</div>
                   <p className="text-sm text-slate-600 dark:text-slate-300">
-                    You are seeing only first-time essentials. Switch to <span className="font-semibold">Advanced</span> view for mission plans, scoring internals, and alternative ranking diagnostics.
+                    You are seeing only first-time essentials. Switch to <span className="font-semibold">PRO mode</span> for mission plans, scoring internals, and alternative ranking diagnostics.
                   </p>
                   <ul className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
                     {report.notes.slice(0, 3).map((note) => (
