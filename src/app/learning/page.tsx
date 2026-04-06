@@ -1,7 +1,5 @@
-import { LearningAssistant } from '@/components/learning/learning-assistant';
-import { loadLearningDocs } from '@/lib/learning/content';
+import { LearningCourseHub } from '@/components/learning/learning-course-hub';
 
 export default function LearningPage() {
-  const docs = loadLearningDocs();
-  return <LearningAssistant docs={docs} />;
+  return <LearningCourseHub />;
 }
