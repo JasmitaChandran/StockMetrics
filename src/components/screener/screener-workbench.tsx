@@ -1901,8 +1901,8 @@ export function ScreenerWorkbench() {
                         className="w-full rounded-md border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm dark:border-border dark:bg-card"
                       />
                     </div>
-                    <div className="grid gap-2 md:grid-cols-[130px_1fr]">
-                      <div className="space-y-1 rounded-md border border-slate-300 bg-white p-1.5 dark:border-border dark:bg-card">
+                    <div className="grid gap-2">
+                      <div className="max-h-40 min-w-0 space-y-1 overflow-auto rounded-md border border-slate-300 bg-white p-1.5 dark:border-border dark:bg-card">
                         {FILTER_CATEGORIES.map((category) => (
                           <button
                             key={category}
@@ -1911,16 +1911,16 @@ export function ScreenerWorkbench() {
                               setFilterSearch('');
                             }}
                             className={cn(
-                              'flex w-full items-center justify-between rounded px-2 py-1 text-left text-[11px]',
+                              'flex w-full min-w-0 items-center justify-between gap-1 rounded px-2 py-1 text-left text-[11px]',
                               pickerCategory === category ? 'bg-slate-100 text-slate-900 dark:bg-muted dark:text-slate-100' : 'hover:bg-slate-100 dark:hover:bg-muted',
                             )}
                           >
-                            <span>{category}</span>
-                            <span className="text-[10px] text-slate-500">{categoryCounts[category]}</span>
+                            <span className="min-w-0 break-normal">{category}</span>
+                            <span className="shrink-0 text-[10px] text-slate-500">{categoryCounts[category]}</span>
                           </button>
                         ))}
                       </div>
-                      <div className="max-h-56 space-y-1 overflow-auto rounded-md border border-slate-300 bg-white p-1.5 dark:border-border dark:bg-card">
+                      <div className="min-w-0 max-h-56 space-y-1 overflow-y-auto overflow-x-hidden rounded-md border border-slate-300 bg-white p-1.5 dark:border-border dark:bg-card">
                         {pickerList.map((definition) => {
                           const active = isFilterActive(definition.id);
                           return (
@@ -1928,14 +1928,14 @@ export function ScreenerWorkbench() {
                               key={definition.id}
                               onClick={() => toggleFilter(definition)}
                               className={cn(
-                                'flex w-full items-start justify-between gap-2 rounded border px-2 py-1.5 text-left text-xs',
+                                'flex w-full min-w-0 items-start justify-between gap-2 rounded border px-2 py-1.5 text-left text-xs',
                                 active
                                   ? 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/50 dark:bg-blue-500/10 dark:text-blue-200'
                                   : 'border-slate-200 hover:bg-slate-50 dark:border-border dark:hover:bg-muted/60',
                               )}
                             >
-                              <span>{definition.label}</span>
-                              <span className="font-semibold uppercase">{active ? 'Added' : 'Add'}</span>
+                              <span className="min-w-0 flex-1 break-normal leading-snug">{definition.label}</span>
+                              <span className="shrink-0 whitespace-nowrap font-semibold uppercase">{active ? 'Added' : 'Add'}</span>
                             </button>
                           );
                         })}
