@@ -4,6 +4,7 @@ import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Bot, Loader2, Send, Trash2 } from 'lucide-react';
 import { SectionCard } from '@/components/common/section-card';
 import { parseChatContent, type ChatInlineSegment } from '@/lib/qa/chat-format';
+import { getKv, setKv } from '@/lib/storage/repositories';
 import { cn } from '@/lib/utils/cn';
 
 interface ChatMessage {
@@ -12,6 +13,11 @@ interface ChatMessage {
   content: string;
   model?: string;
   error?: boolean;
+}
+
+interface StoredQaChat {
+  messages: ChatMessage[];
+  updatedAt: string;
 }
 
 interface QaStatus {
@@ -33,6 +39,20 @@ interface QaStatus {
 
 function createMessageId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+const QA_CHAT_STORAGE_KEY = 'qa:chat-history:v1';
+const QA_CHAT_AUTOSAVE_DEBOUNCE_MS = 250;
+
+function isChatMessage(value: unknown): value is ChatMessage {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.id !== 'string') return false;
+  if (candidate.role !== 'user' && candidate.role !== 'assistant') return false;
+  if (typeof candidate.content !== 'string') return false;
+  if (candidate.model !== undefined && typeof candidate.model !== 'string') return false;
+  if (candidate.error !== undefined && typeof candidate.error !== 'boolean') return false;
+  return true;
 }
 
 function renderInlineSegments(segments: ChatInlineSegment[]) {
@@ -134,6 +154,7 @@ export function QaWorkbench() {
   const [question, setQuestion] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [historyReady, setHistoryReady] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   async function loadStatus() {
@@ -164,8 +185,41 @@ export function QaWorkbench() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadChatHistory() {
+      try {
+        const stored = await getKv<StoredQaChat>(QA_CHAT_STORAGE_KEY);
+        if (cancelled || !stored) return;
+        const nextMessages = Array.isArray(stored.messages) ? stored.messages.filter(isChatMessage) : [];
+        setMessages(nextMessages);
+      } catch {
+        // Ignore persistence read failures and start with an empty chat.
+      } finally {
+        if (!cancelled) setHistoryReady(true);
+      }
+    }
+
+    void loadChatHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, submitting]);
+
+  useEffect(() => {
+    if (!historyReady) return;
+    const timer = setTimeout(() => {
+      void setKv<StoredQaChat>(QA_CHAT_STORAGE_KEY, {
+        messages,
+        updatedAt: new Date().toISOString(),
+      });
+    }, QA_CHAT_AUTOSAVE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [historyReady, messages]);
 
   async function submitQuestion(nextQuestion?: string) {
     const prompt = (nextQuestion ?? question).trim();
