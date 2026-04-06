@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Download, Filter, Info, PenLine, Save, Search, Share2, SlidersHorizontal, Sparkles, X } from 'lucide-react';
 import { VirtualizedTable } from '@/components/common/virtualized-table';
 import { demoFundamentalsBySymbol, demoUniverse, generateDemoHistory } from '@/lib/data/mock/demo-data';
@@ -9,6 +9,7 @@ import { heuristicAiProvider } from '@/lib/ai';
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/utils/format';
 import { listCustomScreens, upsertCustomScreen } from '@/lib/storage/repositories';
 import { cn } from '@/lib/utils/cn';
+import type { SearchEntity } from '@/types';
 
 type FilterCategory =
   | 'Stock Universe'
@@ -995,7 +996,165 @@ function buildRows(): ScreenerRow[] {
     });
 }
 
-const baseRows = buildRows();
+const demoRows = buildRows();
+const demoRowsBySymbol = new Map(demoRows.map((row) => [row.symbol, row]));
+
+function toScreenerRow(entity: SearchEntity): ScreenerRow | null {
+  if (entity.type !== 'stock') return null;
+  if (entity.market !== 'india' && entity.market !== 'us') return null;
+  const fromDemo = demoRowsBySymbol.get(entity.symbol);
+  if (fromDemo) return fromDemo;
+
+  return {
+    id: entity.id,
+    symbol: entity.symbol,
+    name: entity.name,
+    market: entity.market,
+    exchange: entity.exchange ?? 'UNKNOWN',
+    sector: entity.sector ?? 'Unknown',
+    industry: entity.industry ?? 'Unknown',
+    stockUniverse: entity.market === 'india' ? 'India Stocks' : 'US Stocks',
+    marketCapBucket: 'Smallcap',
+    currency: entity.currency ?? (entity.market === 'us' ? 'USD' : 'INR'),
+  };
+}
+
+async function fetchAllMarketStocks(market: 'india' | 'us'): Promise<SearchEntity[]> {
+  const limit = 1000;
+  const all: SearchEntity[] = [];
+  let offset = 0;
+
+  while (offset <= 100000) {
+    const params = new URLSearchParams({
+      market,
+      limit: String(limit),
+      offset: String(offset),
+    });
+    const response = await fetch(`/api/search/universal?${params.toString()}`, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Failed loading ${market} universe (${response.status})`);
+    }
+    const batch = (await response.json()) as SearchEntity[];
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    all.push(...batch);
+    if (batch.length < limit) break;
+    offset += limit;
+  }
+
+  return all;
+}
+
+function mergeUniverseRows(entities: SearchEntity[]): ScreenerRow[] {
+  const merged = new Map<string, ScreenerRow>();
+
+  for (const entity of entities) {
+    const row = toScreenerRow(entity);
+    if (!row) continue;
+    if (!merged.has(row.symbol)) merged.set(row.symbol, row);
+  }
+
+  for (const row of demoRows) {
+    if (!merged.has(row.symbol)) merged.set(row.symbol, row);
+  }
+
+  return Array.from(merged.values());
+}
+
+const HYDRATION_MAX_CONCURRENT = 4;
+const HYDRATION_BATCH_LIMIT = 40;
+
+function computeReturnPercent(current?: number, previous?: number): number | undefined {
+  if (typeof current !== 'number' || typeof previous !== 'number' || previous === 0) return undefined;
+  return ((current - previous) / previous) * 100;
+}
+
+async function fetchLiveSnapshot(row: ScreenerRow): Promise<Partial<ScreenerRow> | null> {
+  const market = row.market === 'india' ? 'india' : row.market === 'us' ? 'us' : row.stockUniverse === 'India Stocks' ? 'india' : 'us';
+  const response = await fetch(
+    `/api/market/quote?symbol=${encodeURIComponent(row.symbol)}&market=${encodeURIComponent(market)}`,
+    { cache: 'no-store' },
+  );
+  if (!response.ok) return null;
+
+  const quote = (await response.json()) as {
+    currency?: 'USD' | 'INR';
+    price?: number | null;
+    changePercent?: number | null;
+    volume?: number | null;
+  };
+
+  const patch: Partial<ScreenerRow> = {};
+  if (typeof quote.price === 'number') patch.closePrice = quote.price;
+  if (typeof quote.changePercent === 'number') patch.return1d = quote.changePercent;
+  if (typeof quote.volume === 'number') patch.dailyVolume = quote.volume;
+  if (quote.currency === 'USD' || quote.currency === 'INR') patch.currency = quote.currency;
+
+  try {
+    const historyResponse = await fetch(
+      `/api/market/history?symbol=${encodeURIComponent(row.symbol)}&market=${encodeURIComponent(market)}&range=1m`,
+      { cache: 'no-store' },
+    );
+    if (historyResponse.ok) {
+      const history = (await historyResponse.json()) as { points?: Array<{ close?: number }> };
+      const points = Array.isArray(history.points) ? history.points.filter((point): point is { close: number } => typeof point.close === 'number') : [];
+      if (points.length >= 2) {
+        const first = points[0].close;
+        const last = points[points.length - 1].close;
+        const return1m = computeReturnPercent(last, first);
+        if (typeof return1m === 'number') patch.return1m = return1m;
+      }
+    }
+  } catch {
+    // History is best-effort for screener hydration.
+  }
+
+  if (market === 'us') {
+    try {
+      const fundamentalsResponse = await fetch(`/api/fundamentals/us?ticker=${encodeURIComponent(row.symbol)}`, {
+        cache: 'no-store',
+      });
+      if (fundamentalsResponse.ok) {
+        const fundamentals = (await fundamentalsResponse.json()) as {
+          keyMetrics?: Array<{ key?: string; value?: number }>;
+          marketCap?: number;
+        };
+        const metricMap = new Map<string, number>();
+        for (const metric of fundamentals.keyMetrics ?? []) {
+          if (typeof metric?.key === 'string' && typeof metric?.value === 'number') {
+            metricMap.set(metric.key, metric.value);
+          }
+        }
+
+        const roe = metricMap.get('roe');
+        if (typeof roe === 'number') patch.roe = roe;
+
+        const marketCap = fundamentals.marketCap ?? metricMap.get('marketCap');
+        if (typeof marketCap === 'number') patch.marketCap = marketCap;
+
+        const effectivePrice =
+          typeof patch.closePrice === 'number'
+            ? patch.closePrice
+            : typeof row.closePrice === 'number'
+              ? row.closePrice
+              : undefined;
+
+        const eps = metricMap.get('eps');
+        if (typeof eps === 'number' && eps > 0 && typeof effectivePrice === 'number') {
+          patch.pe = effectivePrice / eps;
+        }
+
+        const sharesOutstanding = metricMap.get('sharesOutstanding');
+        if (typeof sharesOutstanding === 'number' && typeof effectivePrice === 'number' && typeof patch.marketCap !== 'number') {
+          patch.marketCap = sharesOutstanding * effectivePrice;
+        }
+      }
+    } catch {
+      // Fundamentals are best-effort for screener hydration.
+    }
+  }
+
+  return Object.keys(patch).length ? patch : null;
+}
 
 function parseNumber(value: string): number | undefined {
   if (!value.trim()) return undefined;
@@ -1142,6 +1301,12 @@ function sortRows(rows: ScreenerRow[], field: SortField, direction: 'asc' | 'des
   return [...rows].sort((left, right) => {
     const a = left[field];
     const b = right[field];
+    const aMissing = a === undefined || a === null;
+    const bMissing = b === undefined || b === null;
+
+    if (aMissing && bMissing) return left.name.localeCompare(right.name);
+    if (aMissing) return 1;
+    if (bMissing) return -1;
 
     if (typeof a === 'string' && typeof b === 'string') {
       return a.localeCompare(b) * multiplier;
@@ -1151,9 +1316,7 @@ function sortRows(rows: ScreenerRow[], field: SortField, direction: 'asc' | 'des
       return (a - b) * multiplier;
     }
 
-    if (typeof a === 'number') return -1 * multiplier;
-    if (typeof b === 'number') return 1 * multiplier;
-    return 0;
+    return left.name.localeCompare(right.name);
   });
 }
 
@@ -1178,6 +1341,15 @@ const TABLE_GRID_CLASS =
   'grid grid-cols-[minmax(250px,2.4fr)_minmax(170px,1.4fr)_minmax(125px,1fr)_minmax(120px,0.9fr)_minmax(90px,0.7fr)_minmax(90px,0.7fr)_minmax(95px,0.75fr)_minmax(95px,0.75fr)_minmax(120px,0.85fr)] gap-3';
 
 export function ScreenerWorkbench() {
+  const [baseRows, setBaseRows] = useState<ScreenerRow[]>(demoRows);
+  const [universeLoading, setUniverseLoading] = useState(true);
+  const [universeError, setUniverseError] = useState('');
+  const [liveMetricsBySymbol, setLiveMetricsBySymbol] = useState<Record<string, Partial<ScreenerRow>>>({});
+  const hydrationQueueRef = useRef<string[]>([]);
+  const hydrationQueuedSetRef = useRef(new Set<string>());
+  const hydrationInFlightRef = useRef(new Set<string>());
+  const hydratedSymbolsRef = useRef(new Set<string>());
+  const rowLookupRef = useRef<Map<string, ScreenerRow>>(new Map());
   const [query, setQuery] = useState('Show profitable low debt companies with rising sales and high ROE');
   const [explanation, setExplanation] = useState('');
   const [strategy, setStrategy] = useState<string>('');
@@ -1197,21 +1369,55 @@ export function ScreenerWorkbench() {
     listCustomScreens().then((records) => setSaved(records.map((record) => ({ id: record.id, name: record.name, query: record.query }))));
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadUniverse() {
+      setUniverseLoading(true);
+      setUniverseError('');
+      try {
+        const [indiaStocks, usStocks] = await Promise.all([fetchAllMarketStocks('india'), fetchAllMarketStocks('us')]);
+        if (cancelled) return;
+        setBaseRows(mergeUniverseRows([...indiaStocks, ...usStocks]));
+      } catch {
+        if (cancelled) return;
+        setBaseRows(demoRows);
+        setUniverseError('Could not load full universe right now. Showing demo coverage.');
+      } finally {
+        if (!cancelled) setUniverseLoading(false);
+      }
+    }
+
+    loadUniverse();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const hydratedBaseRows = useMemo(
+    () =>
+      baseRows.map((row) => {
+        const livePatch = liveMetricsBySymbol[row.symbol];
+        return livePatch ? { ...row, ...livePatch } : row;
+      }),
+    [baseRows, liveMetricsBySymbol],
+  );
+
   const enumOptionsByField = useMemo(() => {
     const unique = <T,>(values: T[]) => Array.from(new Set(values));
     return {
-      stockUniverse: unique(baseRows.map((row) => row.stockUniverse)),
-      market: unique(baseRows.map((row) => row.market)),
-      exchange: unique(baseRows.map((row) => row.exchange)),
-      sector: unique(baseRows.map((row) => row.sector)).sort((a, b) => a.localeCompare(b)),
-      industry: unique(baseRows.map((row) => row.industry)).sort((a, b) => a.localeCompare(b)),
+      stockUniverse: unique(hydratedBaseRows.map((row) => row.stockUniverse)),
+      market: unique(hydratedBaseRows.map((row) => row.market)),
+      exchange: unique(hydratedBaseRows.map((row) => row.exchange)),
+      sector: unique(hydratedBaseRows.map((row) => row.sector)).sort((a, b) => a.localeCompare(b)),
+      industry: unique(hydratedBaseRows.map((row) => row.industry)).sort((a, b) => a.localeCompare(b)),
       marketCapBucket: ['Largecap', 'Midcap', 'Smallcap'],
-      currency: unique(baseRows.map((row) => row.currency)),
+      currency: unique(hydratedBaseRows.map((row) => row.currency)),
       id: [],
       symbol: [],
       name: [],
     } as Record<string, string[]>;
-  }, []);
+  }, [hydratedBaseRows]);
 
   const categoryCounts = useMemo(
     () =>
@@ -1240,7 +1446,10 @@ export function ScreenerWorkbench() {
   }, [filterSearch, pickerCategory]);
 
   const activeCount = activeFilters.length;
-  const marketCapValues = useMemo(() => baseRows.map((row) => row.marketCap).filter((value): value is number => typeof value === 'number'), []);
+  const marketCapValues = useMemo(
+    () => hydratedBaseRows.map((row) => row.marketCap).filter((value): value is number => typeof value === 'number'),
+    [hydratedBaseRows],
+  );
   const marketCapBounds = useMemo(
     () => ({
       min: marketCapValues.length ? Math.min(...marketCapValues) : 0,
@@ -1252,13 +1461,65 @@ export function ScreenerWorkbench() {
   const activeById = useMemo(() => new Map(activeFilters.map((active) => [active.filterId, active])), [activeFilters]);
 
   const strategyRows = useMemo(() => {
-    if (!strategy) return baseRows;
-    return runBuiltInStrategy(strategy, baseRows);
-  }, [strategy]);
+    if (!strategy) return hydratedBaseRows;
+    return runBuiltInStrategy(strategy, hydratedBaseRows);
+  }, [strategy, hydratedBaseRows]);
 
   const filteredRows = useMemo(() => applyAdvancedFilters(strategyRows, activeFilters), [strategyRows, activeFilters]);
 
   const rows = useMemo(() => sortRows(filteredRows, sortConfig.field, sortConfig.direction), [filteredRows, sortConfig]);
+
+  useEffect(() => {
+    rowLookupRef.current = new Map(rows.map((row) => [row.symbol, row]));
+  }, [rows]);
+
+  const pumpHydrationQueue = useCallback(() => {
+    while (hydrationInFlightRef.current.size < HYDRATION_MAX_CONCURRENT && hydrationQueueRef.current.length) {
+      const symbol = hydrationQueueRef.current.shift();
+      if (!symbol) break;
+      hydrationQueuedSetRef.current.delete(symbol);
+      if (hydratedSymbolsRef.current.has(symbol) || hydrationInFlightRef.current.has(symbol)) continue;
+      const row = rowLookupRef.current.get(symbol);
+      if (!row) continue;
+
+      hydrationInFlightRef.current.add(symbol);
+      void fetchLiveSnapshot(row)
+        .then((patch) => {
+          if (!patch) return;
+          setLiveMetricsBySymbol((previous) => ({
+            ...previous,
+            [symbol]: { ...(previous[symbol] ?? {}), ...patch },
+          }));
+        })
+        .catch(() => {
+          // Skip symbols that fail quote fetch to keep the queue moving.
+        })
+        .finally(() => {
+          hydrationInFlightRef.current.delete(symbol);
+          hydratedSymbolsRef.current.add(symbol);
+          pumpHydrationQueue();
+        });
+    }
+  }, []);
+
+  const handleVisibleRowsChange = useCallback(
+    (visibleRows: ScreenerRow[]) => {
+      for (const row of visibleRows.slice(0, HYDRATION_BATCH_LIMIT)) {
+        const symbol = row.symbol;
+        if (hydratedSymbolsRef.current.has(symbol)) continue;
+        if (hydrationInFlightRef.current.has(symbol)) continue;
+        if (hydrationQueuedSetRef.current.has(symbol)) continue;
+        hydrationQueueRef.current.push(symbol);
+        hydrationQueuedSetRef.current.add(symbol);
+      }
+      pumpHydrationQueue();
+    },
+    [pumpHydrationQueue],
+  );
+
+  useEffect(() => {
+    handleVisibleRowsChange(rows.slice(0, HYDRATION_BATCH_LIMIT));
+  }, [rows, handleVisibleRowsChange]);
 
   const activeEntries = useMemo(
     () =>
@@ -1414,7 +1675,7 @@ export function ScreenerWorkbench() {
   ] as const;
 
   const showingFrom = rows.length ? 1 : 0;
-  const showingTo = Math.min(rows.length, 20);
+  const showingTo = rows.length;
   const refreshedAt = useMemo(
     () =>
       new Intl.DateTimeFormat('en-IN', {
@@ -1749,6 +2010,11 @@ export function ScreenerWorkbench() {
                 </button>
               </div>
             </div>
+            {universeLoading || universeError ? (
+              <div className="border-b border-slate-200 px-5 py-2 text-xs text-slate-500 dark:border-border dark:text-slate-400">
+                {universeLoading ? 'Loading full India + US stock universe...' : universeError}
+              </div>
+            ) : null}
 
             {activeEntries.length ? (
               <div className="flex flex-wrap gap-2 border-b border-slate-200 px-5 py-2 dark:border-border">
@@ -1773,6 +2039,7 @@ export function ScreenerWorkbench() {
               rows={rows}
               height={700}
               estimateRowHeight={72}
+              onVisibleRowsChange={handleVisibleRowsChange}
               headerClassName="bg-slate-100 px-4 py-3 text-[14px] text-slate-700 dark:bg-muted/70 dark:text-slate-200"
               className="rounded-none border-0"
               header={

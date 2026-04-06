@@ -15,6 +15,7 @@ const tabs = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/screener', label: 'Screener' },
   { href: '/qa', label: 'Q/A' },
+  { href: '/alerts', label: 'Alert' },
   { href: '/agentic', label: 'Personalized Agent' },
   { href: '/watchlist', label: 'Watchlist' },
   { href: '/portfolio', label: 'Portfolio' },

@@ -147,6 +147,7 @@ export async function getSecFundamentals(ticker: string): Promise<FundamentalsBu
     const currentAssets = getFactSeries(facts, ['AssetsCurrent']);
     const currentLiabilities = getFactSeries(facts, ['LiabilitiesCurrent']);
     const epsDiluted = getFactSeries(facts, ['EarningsPerShareDiluted']);
+    const sharesOutstanding = getFactSeries(facts, ['CommonStockSharesOutstanding', 'EntityCommonStockSharesOutstanding']);
     const opIncome = getFactSeries(facts, ['OperatingIncomeLoss']);
     const interestExpense = getFactSeries(facts, ['InterestExpense']);
     const cfo = getFactSeries(facts, ['NetCashProvidedByUsedInOperatingActivities']);
@@ -161,6 +162,7 @@ export async function getSecFundamentals(ticker: string): Promise<FundamentalsBu
     const latestCurrentAssets = latestValue(currentAssets);
     const latestCurrentLiabilities = latestValue(currentLiabilities);
     const latestEps = latestValue(epsDiluted);
+    const latestSharesOutstanding = latestValue(sharesOutstanding);
     const latestOpIncome = latestValue(opIncome, (i) => i.fp === 'FY') ?? latestValue(opIncome);
     const latestInterestExpense = Math.abs(latestValue(interestExpense) ?? 0);
     const latestCfo = latestValue(cfo, (i) => i.fp === 'FY') ?? latestValue(cfo);
@@ -223,6 +225,9 @@ export async function getSecFundamentals(ticker: string): Promise<FundamentalsBu
           }
         : null,
       latestEps ? { key: 'eps', label: METRIC_LABELS.eps, value: latestEps, unit: 'ratio' } : null,
+      latestSharesOutstanding
+        ? { key: 'sharesOutstanding', label: 'Shares Outstanding', value: latestSharesOutstanding, unit: 'count' }
+        : null,
       latestDebt ? { key: 'debt', label: METRIC_LABELS.debt, value: latestDebt, unit: 'currency', currency: 'USD' } : null,
       latestAssets && latestLiabilities
         ? {

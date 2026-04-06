@@ -25,6 +25,7 @@ export interface Quote {
   exchange?: ExchangeCode;
   currency: 'USD' | 'INR';
   price: number | null;
+  volume?: number | null;
   previousClose?: number | null;
   change?: number | null;
   changePercent?: number | null;

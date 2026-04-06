@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils/cn';
 
@@ -10,6 +10,7 @@ export function VirtualizedTable<T extends { id: string }>({
   estimateRowHeight = 44,
   header,
   renderRow,
+  onVisibleRowsChange,
   headerClassName,
   contentClassName,
   scrollClassName,
@@ -20,6 +21,7 @@ export function VirtualizedTable<T extends { id: string }>({
   estimateRowHeight?: number;
   header?: React.ReactNode;
   renderRow: (row: T) => React.ReactNode;
+  onVisibleRowsChange?: (rows: T[]) => void;
   headerClassName?: string;
   contentClassName?: string;
   scrollClassName?: string;
@@ -38,6 +40,10 @@ export function VirtualizedTable<T extends { id: string }>({
   const topPaddingHeight = virtualRows.length > 0 ? virtualRows[0].start : 0;
   const bottomPaddingHeight = virtualRows.length > 0 ? totalSize - virtualRows[virtualRows.length - 1].end : 0;
   const renderedRows = useMemo(() => virtualRows.map((vr) => rows[vr.index]).filter(Boolean), [rows, virtualRows]);
+
+  useEffect(() => {
+    onVisibleRowsChange?.(renderedRows);
+  }, [onVisibleRowsChange, renderedRows]);
 
   return (
     <div className={cn('overflow-hidden rounded-xl border border-border', className)}>

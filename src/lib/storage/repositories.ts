@@ -1,4 +1,12 @@
-import { getDb, type CustomScreenRecord, type NoteRecord, type PortfolioTxn, type WatchlistRecord } from './idb';
+import {
+  getDb,
+  type AlertMessageRecord,
+  type CustomScreenRecord,
+  type NoteRecord,
+  type PortfolioTxn,
+  type PriceAlertRecord,
+  type WatchlistRecord,
+} from './idb';
 
 export async function listWatchlists(): Promise<WatchlistRecord[]> {
   const db = await getDb();
@@ -54,4 +62,47 @@ export async function getKv<T>(key: string): Promise<T | undefined> {
 export async function setKv<T>(key: string, value: T) {
   const db = await getDb();
   await db.put('kv', { key, value, updatedAt: new Date().toISOString() });
+}
+
+export async function listPriceAlerts(userId?: string): Promise<PriceAlertRecord[]> {
+  const db = await getDb();
+  const rows = (await db.getAll('priceAlerts')) as PriceAlertRecord[];
+  const filtered = userId ? rows.filter((row) => row.userId === userId) : rows;
+  return filtered.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+export async function upsertPriceAlert(record: PriceAlertRecord) {
+  const db = await getDb();
+  await db.put('priceAlerts', record);
+}
+
+export async function deletePriceAlert(id: string) {
+  const db = await getDb();
+  await db.delete('priceAlerts', id);
+}
+
+export async function listAlertMessages(userId?: string, limit = 250): Promise<AlertMessageRecord[]> {
+  const db = await getDb();
+  const rows = (await db.getAll('alertMessages')) as AlertMessageRecord[];
+  const filtered = userId ? rows.filter((row) => row.userId === userId) : rows;
+  return filtered.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, Math.max(1, limit));
+}
+
+export async function addAlertMessage(record: AlertMessageRecord) {
+  const db = await getDb();
+  await db.put('alertMessages', record);
+}
+
+export async function deleteAlertMessage(id: string) {
+  const db = await getDb();
+  await db.delete('alertMessages', id);
+}
+
+export async function deleteAlertMessagesForUser(userId: string) {
+  const db = await getDb();
+  const rows = (await db.getAll('alertMessages')) as AlertMessageRecord[];
+  const deletions = rows
+    .filter((row) => row.userId === userId)
+    .map((row) => db.delete('alertMessages', row.id));
+  await Promise.all(deletions);
 }

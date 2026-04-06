@@ -117,6 +117,7 @@ export async function getYahooQuote(symbol: string, market: 'us' | 'india' | 'mf
     const meta = result.meta ?? {};
     const q = result.indicators?.quote?.[0];
     const closes = (q?.close ?? []).filter((v): v is number => typeof v === 'number');
+    const volumes = (q?.volume ?? []).filter((v): v is number => typeof v === 'number');
     const fallbackLastClose = closes.length ? closes[closes.length - 1] : null;
     const fallbackPrevClose = closes.length > 1 ? closes[closes.length - 2] : null;
 
@@ -147,6 +148,7 @@ export async function getYahooQuote(symbol: string, market: 'us' | 'india' | 'mf
       market,
       currency: (meta.currency as 'USD' | 'INR') || (market === 'us' ? 'USD' : 'INR'),
       price,
+      volume: volumes.length ? volumes[volumes.length - 1] : null,
       previousClose,
       change,
       changePercent,

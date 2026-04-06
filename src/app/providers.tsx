@@ -7,6 +7,7 @@ import { MotionConfig } from 'framer-motion';
 import { useUiStore } from '@/stores/ui-store';
 import { getAuthAdapter } from '@/lib/auth';
 import { useAuthStore } from '@/stores/auth-store';
+import { AlertBackgroundMonitor } from '@/components/alerts/alert-background-monitor';
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -49,7 +50,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <MotionConfig reducedMotion="user">{children}</MotionConfig>
+      <MotionConfig reducedMotion="user">
+        <AlertBackgroundMonitor />
+        {children}
+      </MotionConfig>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
