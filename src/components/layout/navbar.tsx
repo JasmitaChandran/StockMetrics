@@ -9,6 +9,7 @@ import { PillToggle } from '@/components/common/pill-toggle';
 import { AuthControls } from '@/components/auth/auth-controls';
 import { UniversalSearch } from '@/components/search/universal-search';
 import { StockMetricsLogo } from '@/components/common/stock-metrics-logo';
+import { MarketTickerStrip } from './market-ticker-strip';
 
 const tabs = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -28,6 +29,12 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-bg/75 backdrop-blur-2xl">
+      <div className="border-b border-white/10 bg-slate-950/95">
+        <div className="mx-auto max-w-[1800px] px-2 sm:px-4">
+          <MarketTickerStrip />
+        </div>
+      </div>
+
       <div className="mx-auto max-w-[1800px] px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <div className="order-1 flex w-full min-w-0 items-center gap-3 md:w-auto md:justify-self-start">

@@ -190,6 +190,51 @@ html.dark .accent-script {
     0 24px 60px -34px rgba(99, 102, 241, 0.28);
 }
 
+.market-ticker-track {
+  --ticker-duration: 34s;
+  --ticker-gap: 0.35rem;
+  display: flex;
+  width: max-content;
+  animation: marketTickerMarquee var(--ticker-duration) linear infinite;
+  will-change: transform;
+}
+
+.market-ticker-group {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--ticker-gap);
+  padding-right: var(--ticker-gap);
+}
+
+.market-ticker-group > * {
+  flex-shrink: 0;
+}
+
+.market-ticker-shell:hover .market-ticker-track {
+  animation-play-state: paused;
+}
+
+@keyframes marketTickerMarquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .market-ticker-shell {
+    overflow-x: auto;
+  }
+
+  .market-ticker-track {
+    animation: none;
+  }
+}
+
 html:not(.dark) .surface-hover:hover {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.92) inset,
