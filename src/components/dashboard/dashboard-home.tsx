@@ -244,10 +244,10 @@ export function DashboardHome() {
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-5xl">
               <span className="bg-gradient-to-r from-indigo-600 via-sky-500 to-cyan-400 bg-clip-text font-semibold tracking-[-0.03em] text-transparent">
-                Stock Metrics
+                AI-Powered Personalized
               </span>
               <br />
-              <span className="title-gradient">Intelligence Beyond Data.</span>
+              <span className="title-gradient">Stock Metrics & Investment Dashboard</span>
             </h1>
           </div>
 

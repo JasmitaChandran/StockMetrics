@@ -37,7 +37,7 @@ export function Navbar() {
 
       <div className="mx-auto max-w-[1800px] px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-          <div className="order-1 flex w-full min-w-0 items-center gap-3 md:w-auto md:justify-self-start">
+          <div className="order-1 flex w-full min-w-0 items-center gap-3 md:justify-self-stretch md:pr-4 lg:pr-8">
             <Link href="/dashboard" className="flex shrink-0 items-center gap-2 rounded-xl px-2 py-1 transition hover:bg-muted/45">
               <div className="grid h-9 w-9 place-items-center rounded-xl bg-white/95 p-1 shadow-violet ring-1 ring-indigo-300/30 dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 dark:ring-slate-500/55">
                 <StockMetricsLogo className="h-7 w-7" />
@@ -47,7 +47,7 @@ export function Navbar() {
                 <div className="hidden text-[10px] uppercase tracking-[0.18em] text-slate-500 lg:block">Intelligence Beyond Data.</div>
               </div>
             </Link>
-            <div className="min-w-0 flex-1 md:w-[340px] md:flex-none lg:w-[430px] xl:w-[500px]">
+            <div className="min-w-0 flex-1 md:min-w-[320px] md:max-w-[2000px]">
               <UniversalSearch />
             </div>
           </div>
