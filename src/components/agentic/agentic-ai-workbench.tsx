@@ -205,45 +205,6 @@ function createDefaultForm(): AgenticFormInput {
   };
 }
 
-const PROFILE_TEMPLATES: Array<{ id: string; label: string; description: string; values: Partial<AgenticFormInput> }> = [
-  {
-    id: 'blank',
-    label: 'Blank',
-    description: 'Start with neutral defaults and enter your own numbers.',
-    values: createDefaultForm(),
-  },
-  {
-    id: 'india_salaried',
-    label: 'India Salaried',
-    description: 'Example starting point for salaried profile in India.',
-    values: {
-      country: 'India',
-      countryCode: 'IN',
-      marketScope: 'india',
-      employmentType: 'salaried',
-      investmentHorizon: 'long',
-      riskPreference: 'moderate',
-      effectiveTaxRate: 20,
-      expectedReturnTarget: 12,
-    },
-  },
-  {
-    id: 'us_global',
-    label: 'US Global',
-    description: 'Example starting point for US-based investor with global scope.',
-    values: {
-      country: 'United States',
-      countryCode: 'US',
-      marketScope: 'both',
-      employmentType: 'salaried',
-      investmentHorizon: 'long',
-      riskPreference: 'moderate',
-      effectiveTaxRate: 22,
-      expectedReturnTarget: 10,
-    },
-  },
-];
-
 interface SavedProfileDraft {
   form: Partial<AgenticFormInput>;
   profileStep?: number;
@@ -1544,23 +1505,6 @@ export function AgenticAiWorkbench() {
     setForm((prev) => ({ ...prev, loans: prev.loans.filter((loan) => loan.id !== id) }));
   }
 
-  function applyProfileTemplate(templateId: string) {
-    const template = PROFILE_TEMPLATES.find((candidate) => candidate.id === templateId);
-    if (!template) return;
-    setForm(
-      hydrateForm(
-        templateId === 'blank'
-          ? createDefaultForm()
-          : {
-              ...createDefaultForm(),
-              ...template.values,
-            },
-      ),
-    );
-    setProfileStep(1);
-    setError('');
-  }
-
   function cancelAnalysis() {
     analysisAbortRef.current?.abort();
   }
@@ -1775,14 +1719,9 @@ export function AgenticAiWorkbench() {
     <div className="agentic-studio space-y-6">
       <SectionCard
         title="Personalized Investment Workbench"
-        subtitle="Profile-first scoring with live/delayed data, explicit guardrails, and monitoring."
         className="agentic-section"
         action={
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className="agentic-engine-pill inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-sm font-medium text-cyan-700 dark:text-cyan-300">
-              <Bot className="h-4 w-4" />
-              {report?.engineType ?? 'Agentic Orchestrator (Rules + Heuristic AI)'}
-            </div>
             <div className="agentic-mode-toggle inline-flex items-center rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-300">
               {uiMode === 'pro' ? 'PRO Mode' : 'Beginner Mode'}
             </div>
@@ -1793,10 +1732,6 @@ export function AgenticAiWorkbench() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.16),transparent_35%)]" />
           <div className="relative grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/50 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300">
-                <Sparkles className="h-3.5 w-3.5" />
-                Practical workflow
-              </div>
               <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-4xl">
                 Personal profile first, market recommendations second.
               </h1>
@@ -1819,9 +1754,6 @@ export function AgenticAiWorkbench() {
                     </div>
                   </div>
                 ))}
-              </div>
-              <div className="agentic-note mt-5 rounded-2xl border border-dashed border-slate-200 bg-white/70 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
-                Start with a template or fill only the essentials first. You can run once and refine with what-if changes.
               </div>
             </div>
 
@@ -1854,24 +1786,11 @@ export function AgenticAiWorkbench() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Personal Financial Profiling" subtitle="Start with essentials, then expand details as needed." className="agentic-section">
+      <SectionCard title="Personal Financial Profiling" className="agentic-section">
         <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-5">
             <div className="agentic-panel p-4">
               <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Profile wizard</div>
-              <div className="mb-3 grid gap-2 md:grid-cols-3">
-                {PROFILE_TEMPLATES.map((template) => (
-                  <button
-                    key={template.id}
-                    type="button"
-                    onClick={() => applyProfileTemplate(template.id)}
-                    className="rounded-2xl border border-slate-200 bg-white/70 px-3 py-2 text-left text-xs text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300 dark:hover:bg-slate-900"
-                  >
-                    <div className="font-semibold text-slate-900 dark:text-white">{template.label}</div>
-                    <div className="mt-1 leading-5">{template.description}</div>
-                  </button>
-                ))}
-              </div>
               <div className="grid gap-2 md:grid-cols-4" role="tablist" aria-label="Profile form steps">
                 {PROFILE_STEPS.map((step) => (
                   <button
@@ -2210,9 +2129,6 @@ export function AgenticAiWorkbench() {
               </div>
               <div className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
                 <div className="rounded-2xl border border-slate-200 p-3 dark:border-slate-700">
-                  Profile autosaves while you type. You can refresh and continue from where you left off.
-                </div>
-                <div className="rounded-2xl border border-slate-200 p-3 dark:border-slate-700">
                   {lastDraftSavedAt ? `Last saved ${formatDateTime(lastDraftSavedAt)}.` : 'No draft saved yet in this session.'}
                 </div>
               </div>
@@ -2279,9 +2195,6 @@ export function AgenticAiWorkbench() {
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 {loading ? 'Analyzing profile + markets...' : 'Run Personalized Agent'}
               </button>
-              <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                Decision layers are deterministic and auditable. Narrative insights are heuristic by default unless an external LLM provider is configured.
-              </p>
 
               {clarificationPrompts.length ? (
                 <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-500/10 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:text-amber-300">
@@ -2779,7 +2692,6 @@ export function AgenticAiWorkbench() {
           {primaryStock ? (
             <SectionCard
               title="Security Analysis Engine"
-              subtitle="Fundamentals, technicals, sentiment, risk, DCF valuation (where available), dividend suitability, and tax impact."
               action={<ScorePill value={primaryStock.scores.personalizedFit} recommendation={primaryStock.recommendation} />}
               className="agentic-section"
             >
@@ -3212,7 +3124,6 @@ export function AgenticAiWorkbench() {
 
           <SectionCard
             title="Final Recommendation"
-            subtitle="A client-friendly action plan with a real downloadable PDF report."
             className="agentic-section"
             action={
               <button
@@ -3262,11 +3173,6 @@ export function AgenticAiWorkbench() {
                     <div className="mt-1 text-sm font-medium leading-6 text-slate-900 dark:text-white">{report.finalRecommendation.taxNote}</div>
                   </div>
                 </div>
-                <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                  Planning base currency: {reportCurrency}. FX context USD/INR{' '}
-                  {Number.isFinite(report.fxContext.usdInrRate) && report.fxContext.usdInrRate > 0 ? report.fxContext.usdInrRate.toFixed(4) : 'Unavailable'} ({report.fxContext.stale ? 'cached' : 'fresh'} • {report.fxContext.source}).
-                </div>
-
                 <div className="mt-5 rounded-3xl border border-dashed border-cyan-200 p-4 text-sm leading-6 text-slate-700 dark:border-cyan-900/40 dark:text-slate-200">
                   {report.finalRecommendation.portfolioGapCallout}
                 </div>
