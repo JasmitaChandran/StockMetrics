@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { SectionCard } from '@/components/common/section-card';
 import { demoUniverse, generateDemoHistory } from '@/lib/data/mock/demo-data';
-import { listWatchlists, upsertWatchlist } from '@/lib/storage/repositories';
+import { deleteWatchlist, listWatchlists, upsertWatchlist } from '@/lib/storage/repositories';
 import type { WatchlistRecord } from '@/lib/storage/idb';
+import { cn } from '@/lib/utils/cn';
 import { formatPercent } from '@/lib/utils/format';
 
 function Sparkline({ symbol }: { symbol: string }) {
@@ -105,6 +106,18 @@ export function WatchlistManager() {
     setSelectedId(record.id);
   }
 
+  async function removeWatchlist(id: string) {
+    await deleteWatchlist(id);
+    setWatchlists((prev) => {
+      const next = prev.filter((watchlist) => watchlist.id !== id);
+      setSelectedId((currentId) => {
+        if (currentId !== id) return currentId;
+        return next[0]?.id ?? '';
+      });
+      return next;
+    });
+  }
+
   async function addToCurrent() {
     if (!current) return;
     const q = addSymbol.trim().toUpperCase();
@@ -131,20 +144,50 @@ export function WatchlistManager() {
     <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
       <SectionCard title="Watchlists" subtitle="Create and manage multiple watchlists (local storage).">
         <div className="space-y-3">
-          <div className="flex gap-2">
-            <input value={newName} onChange={(e) => setNewName(e.target.value)} className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-sm" placeholder="Watchlist name" />
-            <button onClick={createWatchlist} className="inline-flex items-center gap-1 rounded-xl border border-border px-3 py-2 text-sm hover:bg-muted">
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="min-w-0 rounded-xl border border-border bg-card px-3 py-2 text-sm"
+              placeholder="Watchlist name"
+            />
+            <button onClick={createWatchlist} className="inline-flex w-full items-center justify-center gap-1 rounded-xl border border-border px-3 py-2 text-sm hover:bg-muted sm:w-auto sm:shrink-0">
               <Plus className="h-4 w-4" /> New
             </button>
           </div>
-          <div className="space-y-2">
-            {watchlists.map((w) => (
-              <button key={w.id} onClick={() => setSelectedId(w.id)} className={`block w-full rounded-xl border p-3 text-left ${selectedId === w.id ? 'border-accent bg-accent/10' : 'border-border hover:bg-muted/40'}`}>
-                <div className="text-sm font-medium">{w.name}</div>
-                <div className="text-xs text-slate-500">{w.symbols.length} symbols</div>
-              </button>
-            ))}
-          </div>
+          {watchlists.length ? (
+            <div className="space-y-2">
+              {watchlists.map((w) => {
+                const active = selectedId === w.id;
+                return (
+                  <div
+                    key={w.id}
+                    className={cn(
+                      'group flex items-start gap-2 rounded-xl border p-3 transition',
+                      active ? 'border-accent bg-accent/10' : 'border-border hover:bg-muted/40',
+                    )}
+                  >
+                    <button onClick={() => setSelectedId(w.id)} className="min-w-0 flex-1 text-left">
+                      <div className="truncate text-sm font-medium">{w.name}</div>
+                      <div className="text-xs text-slate-500">{w.symbols.length} symbols</div>
+                    </button>
+                    <button
+                      onClick={() => removeWatchlist(w.id)}
+                      className="shrink-0 rounded-lg border border-border px-2 py-2 text-slate-500 transition hover:bg-muted hover:text-rose-500"
+                      aria-label={`Delete ${w.name}`}
+                      title={`Delete ${w.name}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border p-4 text-sm text-slate-500">
+              No watchlists yet. Create one to start tracking stocks.
+            </div>
+          )}
         </div>
       </SectionCard>
 
@@ -181,7 +224,9 @@ export function WatchlistManager() {
             </div>
           </div>
         ) : (
-          <div className="text-sm text-slate-500">Loading watchlist...</div>
+          <div className="rounded-xl border border-dashed border-border p-4 text-sm text-slate-500">
+            Select or create a watchlist to view tracked symbols.
+          </div>
         )}
       </SectionCard>
     </div>

@@ -10,6 +10,11 @@ export async function upsertWatchlist(record: WatchlistRecord) {
   await db.put('watchlists', record);
 }
 
+export async function deleteWatchlist(id: string) {
+  const db = await getDb();
+  await db.delete('watchlists', id);
+}
+
 export async function listPortfolioTxns(): Promise<PortfolioTxn[]> {
   const db = await getDb();
   return db.getAll('portfolioTxns');
