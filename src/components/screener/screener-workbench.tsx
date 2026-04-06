@@ -1060,15 +1060,18 @@ function mergeUniverseRows(entities: SearchEntity[]): ScreenerRow[] {
   return Array.from(merged.values());
 }
 
-const HYDRATION_MAX_CONCURRENT = 4;
-const HYDRATION_BATCH_LIMIT = 40;
+const QUOTE_HYDRATION_MAX_CONCURRENT = 4;
+const QUOTE_HYDRATION_BATCH_LIMIT = 24;
+const ADVANCED_HYDRATION_MAX_CONCURRENT = 1;
+const ADVANCED_HYDRATION_BATCH_LIMIT = 8;
+const LIGHT_NUMERIC_FILTER_IDS = new Set(['close-price', 'return-1d', 'daily-volume']);
 
 function computeReturnPercent(current?: number, previous?: number): number | undefined {
   if (typeof current !== 'number' || typeof previous !== 'number' || previous === 0) return undefined;
   return ((current - previous) / previous) * 100;
 }
 
-async function fetchLiveSnapshot(row: ScreenerRow): Promise<Partial<ScreenerRow> | null> {
+async function fetchQuoteSnapshot(row: ScreenerRow): Promise<Partial<ScreenerRow> | null> {
   const market = row.market === 'india' ? 'india' : row.market === 'us' ? 'us' : row.stockUniverse === 'India Stocks' ? 'india' : 'us';
   const response = await fetch(
     `/api/market/quote?symbol=${encodeURIComponent(row.symbol)}&market=${encodeURIComponent(market)}`,
@@ -1088,6 +1091,12 @@ async function fetchLiveSnapshot(row: ScreenerRow): Promise<Partial<ScreenerRow>
   if (typeof quote.changePercent === 'number') patch.return1d = quote.changePercent;
   if (typeof quote.volume === 'number') patch.dailyVolume = quote.volume;
   if (quote.currency === 'USD' || quote.currency === 'INR') patch.currency = quote.currency;
+  return Object.keys(patch).length ? patch : null;
+}
+
+async function fetchAdvancedSnapshot(row: ScreenerRow): Promise<Partial<ScreenerRow> | null> {
+  const market = row.market === 'india' ? 'india' : row.market === 'us' ? 'us' : row.stockUniverse === 'India Stocks' ? 'india' : 'us';
+  const patch: Partial<ScreenerRow> = {};
 
   try {
     const historyResponse = await fetch(
@@ -1345,10 +1354,16 @@ export function ScreenerWorkbench() {
   const [universeLoading, setUniverseLoading] = useState(true);
   const [universeError, setUniverseError] = useState('');
   const [liveMetricsBySymbol, setLiveMetricsBySymbol] = useState<Record<string, Partial<ScreenerRow>>>({});
-  const hydrationQueueRef = useRef<string[]>([]);
-  const hydrationQueuedSetRef = useRef(new Set<string>());
-  const hydrationInFlightRef = useRef(new Set<string>());
-  const hydratedSymbolsRef = useRef(new Set<string>());
+  const liveMetricsRef = useRef<Record<string, Partial<ScreenerRow>>>({});
+  const quoteQueueRef = useRef<string[]>([]);
+  const quoteQueuedSetRef = useRef(new Set<string>());
+  const quoteInFlightRef = useRef(new Set<string>());
+  const quoteHydratedSymbolsRef = useRef(new Set<string>());
+  const advancedQueueRef = useRef<string[]>([]);
+  const advancedQueuedSetRef = useRef(new Set<string>());
+  const advancedInFlightRef = useRef(new Set<string>());
+  const advancedHydratedSymbolsRef = useRef(new Set<string>());
+  const advancedCandidateSymbolsRef = useRef(new Set<string>());
   const rowLookupRef = useRef<Map<string, ScreenerRow>>(new Map());
   const [query, setQuery] = useState('Show profitable low debt companies with rising sales and high ROE');
   const [explanation, setExplanation] = useState('');
@@ -1361,7 +1376,7 @@ export function ScreenerWorkbench() {
   const [filterSearch, setFilterSearch] = useState('');
   const [expandedSidebarSection, setExpandedSidebarSection] = useState<string | null>('market-cap');
   const [sortConfig, setSortConfig] = useState<{ field: SortField; direction: 'asc' | 'desc' }>({
-    field: 'marketCap',
+    field: 'closePrice',
     direction: 'desc',
   });
 
@@ -1469,21 +1484,65 @@ export function ScreenerWorkbench() {
 
   const rows = useMemo(() => sortRows(filteredRows, sortConfig.field, sortConfig.direction), [filteredRows, sortConfig]);
 
+  const shouldRunAdvancedHydration = useMemo(() => {
+    if (sortConfig.field === 'marketCap' || sortConfig.field === 'pe' || sortConfig.field === 'roe' || sortConfig.field === 'return1m') {
+      return true;
+    }
+    return activeFilters.some((active) => active.kind === 'numeric' && !LIGHT_NUMERIC_FILTER_IDS.has(active.filterId));
+  }, [activeFilters, sortConfig.field]);
+
   useEffect(() => {
     rowLookupRef.current = new Map(rows.map((row) => [row.symbol, row]));
   }, [rows]);
 
-  const pumpHydrationQueue = useCallback(() => {
-    while (hydrationInFlightRef.current.size < HYDRATION_MAX_CONCURRENT && hydrationQueueRef.current.length) {
-      const symbol = hydrationQueueRef.current.shift();
+  useEffect(() => {
+    liveMetricsRef.current = liveMetricsBySymbol;
+  }, [liveMetricsBySymbol]);
+
+  const pumpAdvancedQueue = useCallback(() => {
+    while (advancedInFlightRef.current.size < ADVANCED_HYDRATION_MAX_CONCURRENT && advancedQueueRef.current.length) {
+      const symbol = advancedQueueRef.current.shift();
       if (!symbol) break;
-      hydrationQueuedSetRef.current.delete(symbol);
-      if (hydratedSymbolsRef.current.has(symbol) || hydrationInFlightRef.current.has(symbol)) continue;
+      advancedQueuedSetRef.current.delete(symbol);
+      if (!shouldRunAdvancedHydration) continue;
+      if (!advancedCandidateSymbolsRef.current.has(symbol)) continue;
+      if (advancedHydratedSymbolsRef.current.has(symbol) || advancedInFlightRef.current.has(symbol)) continue;
+      if (!quoteHydratedSymbolsRef.current.has(symbol)) continue;
+      const row = rowLookupRef.current.get(symbol);
+      if (!row) continue;
+      const rowWithLiveValues = { ...row, ...(liveMetricsRef.current[symbol] ?? {}) };
+
+      advancedInFlightRef.current.add(symbol);
+      void fetchAdvancedSnapshot(rowWithLiveValues)
+        .then((patch) => {
+          if (!patch) return;
+          setLiveMetricsBySymbol((previous) => ({
+            ...previous,
+            [symbol]: { ...(previous[symbol] ?? {}), ...patch },
+          }));
+        })
+        .catch(() => {
+          // Skip symbols that fail advanced fetch to keep the queue moving.
+        })
+        .finally(() => {
+          advancedInFlightRef.current.delete(symbol);
+          advancedHydratedSymbolsRef.current.add(symbol);
+          pumpAdvancedQueue();
+        });
+    }
+  }, [shouldRunAdvancedHydration]);
+
+  const pumpQuoteQueue = useCallback(() => {
+    while (quoteInFlightRef.current.size < QUOTE_HYDRATION_MAX_CONCURRENT && quoteQueueRef.current.length) {
+      const symbol = quoteQueueRef.current.shift();
+      if (!symbol) break;
+      quoteQueuedSetRef.current.delete(symbol);
+      if (quoteHydratedSymbolsRef.current.has(symbol) || quoteInFlightRef.current.has(symbol)) continue;
       const row = rowLookupRef.current.get(symbol);
       if (!row) continue;
 
-      hydrationInFlightRef.current.add(symbol);
-      void fetchLiveSnapshot(row)
+      quoteInFlightRef.current.add(symbol);
+      void fetchQuoteSnapshot(row)
         .then((patch) => {
           if (!patch) return;
           setLiveMetricsBySymbol((previous) => ({
@@ -1495,30 +1554,61 @@ export function ScreenerWorkbench() {
           // Skip symbols that fail quote fetch to keep the queue moving.
         })
         .finally(() => {
-          hydrationInFlightRef.current.delete(symbol);
-          hydratedSymbolsRef.current.add(symbol);
-          pumpHydrationQueue();
+          quoteInFlightRef.current.delete(symbol);
+          quoteHydratedSymbolsRef.current.add(symbol);
+
+          if (
+            shouldRunAdvancedHydration &&
+            advancedCandidateSymbolsRef.current.has(symbol) &&
+            !advancedHydratedSymbolsRef.current.has(symbol) &&
+            !advancedInFlightRef.current.has(symbol) &&
+            !advancedQueuedSetRef.current.has(symbol)
+          ) {
+            advancedQueueRef.current.push(symbol);
+            advancedQueuedSetRef.current.add(symbol);
+          }
+
+          pumpQuoteQueue();
+          pumpAdvancedQueue();
         });
     }
-  }, []);
+  }, [pumpAdvancedQueue, shouldRunAdvancedHydration]);
 
   const handleVisibleRowsChange = useCallback(
     (visibleRows: ScreenerRow[]) => {
-      for (const row of visibleRows.slice(0, HYDRATION_BATCH_LIMIT)) {
+      for (const row of visibleRows.slice(0, QUOTE_HYDRATION_BATCH_LIMIT)) {
         const symbol = row.symbol;
-        if (hydratedSymbolsRef.current.has(symbol)) continue;
-        if (hydrationInFlightRef.current.has(symbol)) continue;
-        if (hydrationQueuedSetRef.current.has(symbol)) continue;
-        hydrationQueueRef.current.push(symbol);
-        hydrationQueuedSetRef.current.add(symbol);
+        if (quoteHydratedSymbolsRef.current.has(symbol)) continue;
+        if (quoteInFlightRef.current.has(symbol)) continue;
+        if (quoteQueuedSetRef.current.has(symbol)) continue;
+        quoteQueueRef.current.push(symbol);
+        quoteQueuedSetRef.current.add(symbol);
       }
-      pumpHydrationQueue();
+
+      if (shouldRunAdvancedHydration) {
+        const advancedSlice = visibleRows.slice(0, ADVANCED_HYDRATION_BATCH_LIMIT);
+        advancedCandidateSymbolsRef.current = new Set(advancedSlice.map((row) => row.symbol));
+        for (const row of advancedSlice) {
+          const symbol = row.symbol;
+          if (advancedHydratedSymbolsRef.current.has(symbol)) continue;
+          if (advancedInFlightRef.current.has(symbol)) continue;
+          if (advancedQueuedSetRef.current.has(symbol)) continue;
+          if (!quoteHydratedSymbolsRef.current.has(symbol)) continue;
+          advancedQueueRef.current.push(symbol);
+          advancedQueuedSetRef.current.add(symbol);
+        }
+      } else {
+        advancedCandidateSymbolsRef.current = new Set();
+      }
+
+      pumpQuoteQueue();
+      pumpAdvancedQueue();
     },
-    [pumpHydrationQueue],
+    [pumpAdvancedQueue, pumpQuoteQueue, shouldRunAdvancedHydration],
   );
 
   useEffect(() => {
-    handleVisibleRowsChange(rows.slice(0, HYDRATION_BATCH_LIMIT));
+    handleVisibleRowsChange(rows.slice(0, QUOTE_HYDRATION_BATCH_LIMIT));
   }, [rows, handleVisibleRowsChange]);
 
   const activeEntries = useMemo(
@@ -2018,20 +2108,53 @@ export function ScreenerWorkbench() {
 
             {activeEntries.length ? (
               <div className="flex flex-wrap gap-2 border-b border-slate-200 px-5 py-2 dark:border-border">
-                {activeEntries.map(({ active, definition }) => (
-                  <span
-                    key={definition.id}
-                    className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 dark:border-border dark:bg-card dark:text-slate-200"
-                  >
-                    {definition.label}
-                    <button
-                      onClick={() => setActiveFilters((previous) => previous.filter((item) => item.filterId !== definition.id))}
-                      className="ml-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-100"
+                {activeEntries.map(({ active, definition }) => {
+                  if (definition.kind === 'numeric' && active.kind === 'numeric') {
+                    return (
+                      <div
+                        key={definition.id}
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-border dark:bg-card dark:text-slate-200"
+                      >
+                        <span className="font-medium">{definition.label}</span>
+                        <input
+                          value={active.min}
+                          onChange={(event) => setNumericBounds(definition.id, event.target.value, active.max)}
+                          inputMode="decimal"
+                          placeholder="Min"
+                          className="w-20 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] dark:border-border dark:bg-card"
+                        />
+                        <input
+                          value={active.max}
+                          onChange={(event) => setNumericBounds(definition.id, active.min, event.target.value)}
+                          inputMode="decimal"
+                          placeholder="Max"
+                          className="w-20 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] dark:border-border dark:bg-card"
+                        />
+                        <button
+                          onClick={() => setActiveFilters((previous) => previous.filter((item) => item.filterId !== definition.id))}
+                          className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-100"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <span
+                      key={definition.id}
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 dark:border-border dark:bg-card dark:text-slate-200"
                     >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </span>
-                ))}
+                      {definition.label}
+                      <button
+                        onClick={() => setActiveFilters((previous) => previous.filter((item) => item.filterId !== definition.id))}
+                        className="ml-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-100"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  );
+                })}
               </div>
             ) : null}
 
