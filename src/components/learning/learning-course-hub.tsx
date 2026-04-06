@@ -46,7 +46,7 @@ function categoryIcon(category: LearningCategory) {
 
 function CourseCard({ course }: { course: FreeCourseResource }) {
   return (
-    <article className="ui-panel glass surface-hover overflow-hidden rounded-[28px]">
+    <article className="ui-panel glass surface-hover flex h-full flex-col overflow-hidden rounded-[28px]">
       <div
         className={cn(
           'relative overflow-hidden border-b bg-gradient-to-br px-5 py-5 text-white',
@@ -68,46 +68,48 @@ function CourseCard({ course }: { course: FreeCourseResource }) {
         </div>
       </div>
 
-      <div className="space-y-4 p-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={cn('rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]', providerStyles[course.provider])}>
-            {course.provider}
-          </span>
-          <span className="rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">
-            {course.level}
-          </span>
-          <span className="rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">
-            {course.category}
-          </span>
-        </div>
-
-        <div>
-          <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">{course.title}</h3>
-          <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{course.summary}</p>
-        </div>
-
-        <div className="rounded-2xl border border-border/70 bg-card/45 p-4">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-            Why It’s Useful
+      <div className="flex flex-1 flex-col gap-4 p-5">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn('rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]', providerStyles[course.provider])}>
+              {course.provider}
+            </span>
+            <span className="rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">
+              {course.level}
+            </span>
+            <span className="rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">
+              {course.category}
+            </span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {course.highlights.map((highlight) => (
-              <span
-                key={highlight}
-                className="rounded-full border border-border/70 bg-card/80 px-3 py-1 text-xs text-slate-600 dark:text-slate-300"
-              >
-                {highlight}
-              </span>
-            ))}
+
+          <div>
+            <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">{course.title}</h3>
+            <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{course.summary}</p>
           </div>
-          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{course.format}</p>
+
+          <div className="rounded-2xl border border-border/70 bg-card/45 p-4">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              Why It’s Useful
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {course.highlights.map((highlight) => (
+                <span
+                  key={highlight}
+                  className="rounded-full border border-border/70 bg-card/80 px-3 py-1 text-xs text-slate-600 dark:text-slate-300"
+                >
+                  {highlight}
+                </span>
+              ))}
+            </div>
+            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{course.format}</p>
+          </div>
         </div>
 
         <Link
           href={course.url}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95"
+          className="mt-auto inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95"
         >
           Open Free Course
           <ArrowUpRight className="h-4 w-4" />
