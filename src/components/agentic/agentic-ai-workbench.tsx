@@ -969,33 +969,9 @@ function FieldShell({
   children: React.ReactNode;
 }) {
   const [infoOpen, setInfoOpen] = useState(false);
-  const shellRef = useRef<HTMLLabelElement | null>(null);
-
-  useEffect(() => {
-    if (!infoOpen) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!shellRef.current?.contains(event.target as Node)) {
-        setInfoOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setInfoOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [infoOpen]);
 
   return (
-    <label ref={shellRef} className="block text-sm">
+    <div className="block text-sm">
       <div className="mb-1.5 flex min-h-[1.5rem] items-center justify-between gap-2">
         <span className="flex-1 text-[11px] font-semibold uppercase leading-[1.3] tracking-[0.16em] text-slate-500 dark:text-slate-300">
           {label}
@@ -1008,7 +984,6 @@ function FieldShell({
               aria-expanded={infoOpen}
               onClick={(event) => {
                 event.preventDefault();
-                event.stopPropagation();
                 setInfoOpen((open) => !open);
               }}
               className={cn(
@@ -1041,7 +1016,7 @@ function FieldShell({
         </div>
       ) : null}
       {hint ? <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{hint}</span> : null}
-    </label>
+    </div>
   );
 }
 

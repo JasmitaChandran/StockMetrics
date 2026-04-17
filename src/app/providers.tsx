@@ -9,6 +9,38 @@ import { getAuthAdapter } from '@/lib/auth';
 import { useAuthStore } from '@/stores/auth-store';
 import { AlertBackgroundMonitor } from '@/components/alerts/alert-background-monitor';
 
+if (typeof window !== 'undefined') {
+  const existingMatchMedia = window.matchMedia?.bind(window);
+
+  window.matchMedia = (query: string): MediaQueryList => {
+    if (!existingMatchMedia) {
+      return {
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        dispatchEvent: () => false,
+      } as MediaQueryList;
+    }
+
+    const mediaQueryList = existingMatchMedia(query);
+    if (typeof mediaQueryList.addListener !== 'function') {
+      mediaQueryList.addListener = (listener: EventListenerOrEventListenerObject) => {
+        mediaQueryList.addEventListener?.('change', listener);
+      };
+    }
+    if (typeof mediaQueryList.removeListener !== 'function') {
+      mediaQueryList.removeListener = (listener: EventListenerOrEventListenerObject) => {
+        mediaQueryList.removeEventListener?.('change', listener);
+      };
+    }
+    return mediaQueryList;
+  };
+}
+
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
