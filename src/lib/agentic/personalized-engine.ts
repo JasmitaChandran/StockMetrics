@@ -930,7 +930,7 @@ function selectCandidatesForDeepAnalysis(
   const selectedSymbols = new Set<string>();
 
   const pickFromBucket = (bucket: Array<{ entity: SearchEntity; score: number }>, target: number) => {
-    for (const entry of bucket) {
+    for (const entry of pickDiversifiedEntries(bucket, target)) {
       if (selected.length >= MAX_DEEP_ANALYSIS_CANDIDATES) break;
       if (target <= 0) break;
       const key = `${entry.entity.market}:${entry.entity.symbol}`;
@@ -1107,7 +1107,9 @@ function computeEmaSeries(values: number[], period: number) {
 }
 
 function computeRiskSnapshot(history: HistorySeries): RiskSnapshot {
-  const prices = history.points.map((point) => point.close);
+  const prices = history.points
+    .map((point) => point.close)
+    .filter((value): value is number => Number.isFinite(value) && value > 0);
   if (prices.length < 60) {
     return {
       volatilityPct: undefined,
@@ -1120,8 +1122,19 @@ function computeRiskSnapshot(history: HistorySeries): RiskSnapshot {
   }
 
   const returns = prices.slice(1).map((price, index) => price / prices[index] - 1);
-  const dailyMean = average(returns);
-  const dailyStdDev = standardDeviation(returns);
+  const finiteReturns = returns.filter((value) => Number.isFinite(value));
+  if (finiteReturns.length < 30) {
+    return {
+      volatilityPct: undefined,
+      maxDrawdownPct: undefined,
+      beta: undefined,
+      sharpeRatio: undefined,
+      level: 'Moderate' as const,
+      score: 50,
+    };
+  }
+  const dailyMean = average(finiteReturns);
+  const dailyStdDev = standardDeviation(finiteReturns);
   const annualizedVolatility = dailyStdDev * Math.sqrt(252) * 100;
   const annualizedReturn = dailyMean * 252 * 100;
 
@@ -1133,7 +1146,7 @@ function computeRiskSnapshot(history: HistorySeries): RiskSnapshot {
     maxDrawdown = Math.min(maxDrawdown, drawdown);
   }
 
-  const beta = clamp(annualizedVolatility / 22, 0.55, 1.85);
+  const beta = Number.isFinite(annualizedVolatility) ? clamp(annualizedVolatility / 22, 0.55, 1.85) : undefined;
   const sharpeRatio = annualizedVolatility > 0 ? (annualizedReturn - 5) / annualizedVolatility : undefined;
   const level =
     annualizedVolatility > 40 || maxDrawdown < -35
@@ -1148,9 +1161,9 @@ function computeRiskSnapshot(history: HistorySeries): RiskSnapshot {
   ]);
 
   return {
-    volatilityPct: round(annualizedVolatility),
-    maxDrawdownPct: round(maxDrawdown),
-    beta: round(beta, 2),
+    volatilityPct: Number.isFinite(annualizedVolatility) ? round(annualizedVolatility) : undefined,
+    maxDrawdownPct: Number.isFinite(maxDrawdown) ? round(maxDrawdown) : undefined,
+    beta: typeof beta === 'number' && Number.isFinite(beta) ? round(beta, 2) : undefined,
     sharpeRatio: typeof sharpeRatio === 'number' ? round(sharpeRatio, 2) : undefined,
     level,
     score: round(score, 0),
@@ -1670,7 +1683,7 @@ function userRiskTarget(label: FinancialProfileAnalysis['riskProfileLabel']) {
 
 function stockRiskTarget(level: PersonalizedStockRecommendation['risk']['level'], beta?: number) {
   const base = level === 'High' ? 84 : level === 'Moderate' ? 58 : 30;
-  if (typeof beta !== 'number') return base;
+  if (typeof beta !== 'number' || !Number.isFinite(beta)) return base;
   return clamp(base + (beta - 1) * 18, 15, 92);
 }
 
@@ -1681,8 +1694,8 @@ function holdingPeriodFromHorizon(horizon: InvestmentHorizon) {
 }
 
 function recommendFromScore(score: number): PersonalizedStockRecommendation['recommendation'] {
-  if (score >= 58) return 'BUY';
-  if (score >= 42) return 'HOLD';
+  if (score >= 68) return 'BUY';
+  if (score >= 52) return 'HOLD';
   return 'AVOID';
 }
 
@@ -1725,6 +1738,42 @@ function ensureRecommendationCoverage(items: PersonalizedStockRecommendation[], 
   const guaranteed = items.filter((item) => guaranteedKeys.has(keyFor(item)));
   const remainder = items.filter((item) => !guaranteedKeys.has(keyFor(item)));
   return [...guaranteed, ...remainder].slice(0, limit);
+}
+
+function pickDiversifiedEntries<T>(items: T[], target: number): T[] {
+  if (target <= 0 || items.length === 0) return [];
+  if (items.length <= target) return items.slice();
+
+  const headCount = Math.min(items.length, Math.max(1, Math.ceil(target * 0.5)));
+  const tailCount = Math.min(items.length - headCount, Math.max(1, Math.floor(target * 0.2)));
+  const middleCount = Math.max(0, target - headCount - tailCount);
+
+  const pickedIndices = new Set<number>();
+  const pickIndex = (index: number) => {
+    if (index >= 0 && index < items.length) pickedIndices.add(index);
+  };
+
+  for (let index = 0; index < headCount; index += 1) {
+    pickIndex(index);
+  }
+
+  const middleStart = headCount;
+  const middleEnd = Math.max(middleStart, items.length - tailCount);
+  const middleLength = middleEnd - middleStart;
+  for (let index = 0; index < middleCount; index += 1) {
+    if (middleLength <= 0) break;
+    const position = Math.floor(((index + 0.5) * middleLength) / middleCount);
+    pickIndex(middleStart + Math.min(middleLength - 1, position));
+  }
+
+  for (let index = items.length - tailCount; index < items.length; index += 1) {
+    pickIndex(index);
+  }
+
+  return Array.from(pickedIndices)
+    .sort((left, right) => left - right)
+    .map((index) => items[index])
+    .slice(0, target);
 }
 
 async function analyzeStock(
@@ -2690,4 +2739,7 @@ export const personalizedEngineTestables = {
   buildFinancialProfile,
   convertCurrency,
   classifyFreshness,
+  recommendFromScore,
+  pickDiversifiedEntries,
+  stockRiskTarget,
 };

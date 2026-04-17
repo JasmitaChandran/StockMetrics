@@ -214,4 +214,15 @@ describe('personalized engine guardrails and core math', () => {
     expect(profile.debtBurdenFlag).toBe('High');
     expect(profile.riskProfileLabel).toBe('Conservative');
   });
+
+  it('uses stricter recommendation bands for buy hold and avoid', () => {
+    expect(personalizedEngineTestables.recommendFromScore(68)).toBe('BUY');
+    expect(personalizedEngineTestables.recommendFromScore(59)).toBe('HOLD');
+    expect(personalizedEngineTestables.recommendFromScore(51)).toBe('AVOID');
+  });
+
+  it('falls back to the base risk target when beta is not finite', () => {
+    expect(personalizedEngineTestables.stockRiskTarget('High', Number.NaN)).toBe(84);
+    expect(personalizedEngineTestables.stockRiskTarget('Moderate', Number.NaN)).toBe(58);
+  });
 });

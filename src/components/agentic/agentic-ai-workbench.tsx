@@ -658,30 +658,6 @@ function formatEta(progress: AgenticProgressTelemetry | null, elapsedMs: number)
   return formatElapsed(etaMs);
 }
 
-function freshnessBadgeClass(freshness: string) {
-  if (freshness === 'Live') return 'border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300';
-  if (freshness === 'Delayed') return 'border-amber-300 bg-amber-500/10 text-amber-700 dark:border-amber-800 dark:text-amber-300';
-  return 'border-rose-300 bg-rose-500/10 text-rose-700 dark:border-rose-900/50 dark:text-rose-300';
-}
-
-function metricTitle(
-  label: string,
-  freshness: string,
-  provenance?: {
-    source?: string;
-    timestamp?: string;
-    fallbackReason?: string;
-  },
-) {
-  const bits = [
-    `${label}: ${freshness}`,
-    provenance?.source ? `Source: ${provenance.source}` : null,
-    provenance?.timestamp ? `Updated: ${formatDateTime(provenance.timestamp)}` : null,
-    provenance?.fallbackReason ? `Fallback: ${provenance.fallbackReason}` : null,
-  ].filter(Boolean);
-  return bits.join('\n');
-}
-
 function normalizeScoringWeights(weights?: Partial<ScoringWeights>): ScoringWeights {
   const merged = { ...DEFAULT_SCORING_WEIGHTS, ...(weights ?? {}) };
   const clamped = {
@@ -864,6 +840,10 @@ function inferRecommendationUniverse(report: Pick<AgenticAnalysisReport, 'stockR
   };
 }
 
+function safeScoreValue(value: number | undefined, fallback = 50) {
+  return typeof value === 'number' && Number.isFinite(value) ? clamp(value, 0, 100) : fallback;
+}
+
 function normalizeSavedReport(report: AgenticAnalysisReport | undefined): AgenticAnalysisReport | undefined {
   if (!report) return undefined;
   const reportBaseCurrency =
@@ -875,20 +855,37 @@ function normalizeSavedReport(report: AgenticAnalysisReport | undefined): Agenti
   const normalizedWeights = normalizeScoringWeights(report.scoringWeights);
   const normalizeRecommendation = (
     item: AgenticAnalysisReport['stockRecommendations'][number],
-  ): AgenticAnalysisReport['stockRecommendations'][number] => ({
-    ...item,
-    scores: {
-      ...item.scores,
-      weightedContributions:
-        item.scores.weightedContributions ??
-        {
-          stockQuality: Number((item.scores.stockQuality * normalizedWeights.stockQuality).toFixed(1)),
-          riskCompatibility: Number((item.scores.riskCompatibility * normalizedWeights.riskCompatibility).toFixed(1)),
-          portfolioFit: Number((item.scores.portfolioFit * normalizedWeights.portfolioFit).toFixed(1)),
-          lifeStageFit: Number((item.scores.lifeStageFit * normalizedWeights.lifeStageFit).toFixed(1)),
-        },
-    },
-    dataFreshness:
+  ): AgenticAnalysisReport['stockRecommendations'][number] => {
+    const sanitizedScores = {
+      fundamentals: safeScoreValue(item.scores.fundamentals),
+      technical: safeScoreValue(item.scores.technical),
+      sentiment: safeScoreValue(item.scores.sentiment),
+      stockRisk: safeScoreValue(item.scores.stockRisk),
+      stockQuality: safeScoreValue(item.scores.stockQuality),
+      riskCompatibility: safeScoreValue(item.scores.riskCompatibility),
+      portfolioFit: safeScoreValue(item.scores.portfolioFit),
+      lifeStageFit: safeScoreValue(item.scores.lifeStageFit),
+      personalizedFit: safeScoreValue(item.scores.personalizedFit),
+    };
+    const weightedContributions =
+      item.scores.weightedContributions &&
+      Object.values(item.scores.weightedContributions).every((value) => typeof value === 'number' && Number.isFinite(value))
+        ? item.scores.weightedContributions
+        : {
+            stockQuality: Number((sanitizedScores.stockQuality * normalizedWeights.stockQuality).toFixed(1)),
+            riskCompatibility: Number((sanitizedScores.riskCompatibility * normalizedWeights.riskCompatibility).toFixed(1)),
+            portfolioFit: Number((sanitizedScores.portfolioFit * normalizedWeights.portfolioFit).toFixed(1)),
+            lifeStageFit: Number((sanitizedScores.lifeStageFit * normalizedWeights.lifeStageFit).toFixed(1)),
+          };
+
+    return {
+      ...item,
+      scores: {
+        ...item.scores,
+        ...sanitizedScores,
+        weightedContributions,
+      },
+      dataFreshness:
       item.dataFreshness ??
       ({
         quote: 'Demo fallback',
@@ -902,8 +899,8 @@ function normalizeSavedReport(report: AgenticAnalysisReport | undefined): Agenti
       {
         score: 45,
         label: 'Low',
-        fitLow: Math.max(0, item.scores.personalizedFit - 12),
-        fitHigh: Math.min(100, item.scores.personalizedFit + 8),
+        fitLow: Math.max(0, sanitizedScores.personalizedFit - 12),
+        fitHigh: Math.min(100, sanitizedScores.personalizedFit + 8),
         uncertaintyPct: 24,
         reasons: ['Confidence metadata is unavailable for this saved run.'],
       },
@@ -968,7 +965,8 @@ function normalizeSavedReport(report: AgenticAnalysisReport | undefined): Agenti
         securityAmountMonthly: item.suggestedAllocationMonthly,
         usdInrRate: 83,
       },
-  });
+    };
+  };
 
   const inferred = inferRecommendationUniverse(report);
   const existing = report.recommendationUniverse as Partial<AgenticAnalysisReport['recommendationUniverse']> | undefined;
@@ -1365,15 +1363,16 @@ function ScorePill({
   value: number;
   recommendation?: string;
 }) {
+  const safeValue = safeScoreValue(value);
   const tone =
-    value >= 75
+    safeValue >= 75
       ? 'border-emerald-300/60 bg-emerald-500/15 text-emerald-800 dark:border-emerald-800/60 dark:text-emerald-300'
-      : value >= 60
+      : safeValue >= 60
         ? 'border-amber-300/60 bg-amber-500/15 text-amber-800 dark:border-amber-800/60 dark:text-amber-300'
         : 'border-rose-300/60 bg-rose-500/15 text-rose-800 dark:border-rose-800/60 dark:text-rose-300';
   return (
     <span className={cn('inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold backdrop-blur', tone)}>
-      {value}/100{recommendation ? ` • ${recommendationDisplayLabel(recommendation)}` : ''}
+      {safeValue}/100{recommendation ? ` • ${recommendationDisplayLabel(recommendation)}` : ''}
     </span>
   );
 }
@@ -1395,7 +1394,7 @@ function SecurityPoolTable({
 
   return (
     <div className="agentic-panel p-5">
-      <div className="flex items-start justify-between gap-3">
+      <div>
         <div>
           <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h4>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
@@ -1403,9 +1402,6 @@ function SecurityPoolTable({
             <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Full screen: {recommendationMixLabel(recommendationMix)}</p>
           ) : null}
         </div>
-        <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:text-cyan-300">
-          Top {items.length}
-        </span>
       </div>
 
       {items.length ? (
@@ -1434,8 +1430,8 @@ function SecurityPoolTable({
                     <td className="whitespace-nowrap px-3 py-2 text-right">
                       <ScorePill value={item.scores.personalizedFit} recommendation={item.recommendation} />
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right">{item.scores.stockQuality}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right">{item.scores.riskCompatibility}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right">{safeScoreValue(item.scores.stockQuality)}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right">{safeScoreValue(item.scores.riskCompatibility)}</td>
                     <td className="whitespace-nowrap px-3 py-2 text-right">{item.risk.level}</td>
                     {!isMutualFundTable ? (
                       <td className={cn('whitespace-nowrap px-3 py-2 text-right', typeof item.fundamentals.pe === 'number' ? '' : 'text-slate-500 dark:text-slate-400')}>
@@ -1460,11 +1456,6 @@ function SecurityPoolTable({
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            `Risk Fit` is compatibility with your selected profile (higher means better aligned, not riskier).
-            {!isMutualFundTable ? ' Stock Top 10 pools only include names with both P/E and DCF available.' : ''}
-            {recommendationMix ? ' When available, this pool also surfaces HOLD and SELL names from the wider screened universe instead of showing only BUY ideas.' : ''}
-          </p>
         </>
       ) : (
         <div className="mt-4 rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
@@ -1907,25 +1898,9 @@ export function AgenticAiWorkbench() {
       .slice(0, 3) ?? [];
   const recommendationUniverse = report?.recommendationUniverse ?? (report ? inferRecommendationUniverse(report) : null);
   const recommendationMix = recommendationUniverse?.recommendationMix;
-  const totalStocksInDataset = recommendationUniverse?.totalStocksInDataset ?? 0;
-  const totalMutualFundsInDataset = recommendationUniverse?.totalMutualFundsInDataset ?? 0;
-  const eligibleStocks = recommendationUniverse?.eligibleStocks ?? report?.stockRecommendations.length ?? 0;
-  const eligibleMutualFunds = recommendationUniverse?.eligibleMutualFunds ?? 0;
-  const analyzedSecurities = recommendationUniverse?.analyzedSecurities ?? report?.stockRecommendations.length ?? 0;
-  const analyzedIndiaStocks = recommendationUniverse?.analyzedIndiaStocks ?? topPools.indiaStocks.length;
-  const analyzedUsStocks = recommendationUniverse?.analyzedUsStocks ?? topPools.usStocks.length;
-  const analyzedMutualFunds = recommendationUniverse?.analyzedMutualFunds ?? topPools.mutualFunds.length;
   const reportCurrency = report?.baseCurrency ?? displayCurrency;
   const missionPlan = report ? buildAgentMissionPlan(report, primaryStock, reportCurrency) : [];
   const missionAlerts = missionPlan.filter((task) => task.status !== 'ready').length;
-  const universeSourceLabel =
-    recommendationUniverse?.universeSource === 'live_index'
-      ? 'live market index'
-      : recommendationUniverse?.universeSource === 'mixed_live_demo'
-        ? 'mixed live + demo index'
-      : recommendationUniverse?.universeSource === 'demo_fallback'
-        ? 'bundled demo fallback'
-        : 'market index';
   const baselineSurplus = report?.finance.investableSurplusMonthly ?? 0;
   const whatIfSurplus = Math.max(0, baselineSurplus + whatIfIncomeDelta - whatIfEmiDelta);
   const riskTarget = whatIfRiskPreference === 'aggressive' ? 84 : whatIfRiskPreference === 'moderate' ? 60 : 32;
@@ -1946,7 +1921,7 @@ export function AgenticAiWorkbench() {
         100,
       )
     : 0;
-  const whatIfRecommendation = whatIfFit >= 58 ? 'BUY' : whatIfFit >= 42 ? 'HOLD' : 'AVOID';
+  const whatIfRecommendation = whatIfFit >= 68 ? 'BUY' : whatIfFit >= 52 ? 'HOLD' : 'AVOID';
   const whatIfAllocationRatio = whatIfRecommendation === 'BUY' ? (whatIfFit >= 86 ? 0.35 : 0.25) : whatIfRecommendation === 'HOLD' ? 0.12 : 0;
   const whatIfAllocation = round(whatIfSurplus * whatIfAllocationRatio, 2);
   const showAdvancedInsights = uiMode === 'pro';
@@ -3054,23 +3029,6 @@ export function AgenticAiWorkbench() {
                         </span>
                       ))}
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {[
-                        { label: 'Quote', freshness: primaryStock.dataFreshness.quote, provenance: primaryStock.provenance?.quote },
-                        { label: 'History', freshness: primaryStock.dataFreshness.history, provenance: primaryStock.provenance?.history },
-                        { label: 'Fundamentals', freshness: primaryStock.dataFreshness.fundamentals, provenance: primaryStock.provenance?.fundamentals },
-                        { label: 'News', freshness: primaryStock.dataFreshness.news, provenance: primaryStock.provenance?.news },
-                        { label: 'DCF', freshness: primaryStock.dataFreshness.dcf, provenance: primaryStock.provenance?.dcf },
-                      ].map((chip) => (
-                        <span
-                          key={chip.label}
-                          className={cn('rounded-full border px-2.5 py-1 text-xs font-semibold', freshnessBadgeClass(chip.freshness))}
-                          title={metricTitle(chip.label, chip.freshness, chip.provenance)}
-                        >
-                          {chip.label}: {chip.freshness}
-                        </span>
-                      ))}
-                    </div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <MetricCard label="Market Price" value={formatCurrency(primaryStock.marketPrice ?? 0, primaryStock.currency)} note="Reference market price used in this run." />
@@ -3231,40 +3189,12 @@ export function AgenticAiWorkbench() {
                         {driver.detail}
                       </div>
                     ))}
-                    {primaryStock.sentiment.rationale.slice(0, 2).map((line) => (
-                      <div key={line} className="text-xs text-slate-500 dark:text-slate-400">
-                        {line}
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>
 
               {showAdvancedInsights ? (
                 <>
-                  <div className="mt-5 agentic-panel p-5">
-                    <div className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Per-metric provenance</div>
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                      {[
-                        { label: 'Quote', provenance: primaryStock.provenance.quote },
-                        { label: 'History', provenance: primaryStock.provenance.history },
-                        { label: 'Fundamentals', provenance: primaryStock.provenance.fundamentals },
-                        { label: 'News', provenance: primaryStock.provenance.news },
-                        { label: 'DCF', provenance: primaryStock.provenance.dcf },
-                      ].map((entry) => (
-                        <div key={entry.label} className="rounded-2xl border border-slate-200 p-3 text-xs dark:border-slate-700">
-                          <div className="font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{entry.label}</div>
-                          <div className="mt-1 text-slate-900 dark:text-white">{entry.provenance.source}</div>
-                          <div className="mt-1 text-slate-500 dark:text-slate-400">
-                            {entry.provenance.freshness}
-                            {entry.provenance.timestamp ? ` • ${formatDateTime(entry.provenance.timestamp)}` : ''}
-                          </div>
-                          {entry.provenance.fallbackReason ? <div className="mt-1 text-rose-600 dark:text-rose-300">{entry.provenance.fallbackReason}</div> : null}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
                   <div className="mt-5 grid gap-4 xl:grid-cols-3">
                     <div className="agentic-panel p-5">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
@@ -3314,7 +3244,7 @@ export function AgenticAiWorkbench() {
                 </>
               ) : (
                 <div className="mt-4 rounded-2xl border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                  Switch to <span className="font-semibold">Advanced</span> view to inspect full provenance, raw financial metrics, technical internals, and tax/DCF breakdown.
+                  Switch to <span className="font-semibold">Advanced</span> view to inspect raw financial metrics, technical internals, and tax/DCF breakdown.
                 </div>
               )}
 
@@ -3347,11 +3277,7 @@ export function AgenticAiWorkbench() {
           ) : null}
 
           {showAdvancedInsights ? (
-            <SectionCard
-              title="Personalized Fit Scoring"
-              subtitle="Curated top pools: 10 India stocks, 10 US stocks, and 10 mutual funds from the full universe."
-              className="agentic-section"
-            >
+            <SectionCard title="Personalized Fit Scoring" className="agentic-section">
             {primaryStock ? (
               <div className="grid gap-4 lg:grid-cols-5">
                 <MetricCard
@@ -3417,21 +3343,6 @@ export function AgenticAiWorkbench() {
                     </div>
                   ))}
                 </div>
-              </div>
-            ) : null}
-
-            {report ? (
-              <div className="mt-5 rounded-[24px] border border-dashed border-cyan-200 bg-cyan-500/5 p-4 text-sm text-slate-700 dark:border-cyan-900/40 dark:text-slate-200">
-                <div className="font-semibold">Why you are seeing these names</div>
-                <p className="mt-2 leading-6">
-                  {recommendationUniverse?.analysisMode === 'specific'
-                    ? `You selected ${report.focusStock ? recommendationPrimaryLabel(report.focusStock) : 'a specific security'}, so the engine analyzed that security first and then ranked alternatives in your chosen scope (${recommendationUniverse?.marketScope?.toUpperCase() ?? 'BOTH'}).`
-                    : `You did not pick a specific security, so the agent screened your chosen scope (${recommendationUniverse?.marketScope?.toUpperCase() ?? 'BOTH'}) from the ${universeSourceLabel}.`}
-                  {' '}It found <span className="font-semibold">{totalStocksInDataset}</span> stocks and <span className="font-semibold">{totalMutualFundsInDataset}</span> mutual funds in scope.
-                  From that, <span className="font-semibold">{eligibleStocks}</span> stocks + <span className="font-semibold">{eligibleMutualFunds}</span> funds were eligible,{' '}
-                  <span className="font-semibold">{analyzedSecurities}</span> were deeply analyzed ({analyzedIndiaStocks} India stocks, {analyzedUsStocks} US stocks, {analyzedMutualFunds} funds), and top pools are shown below.
-                  {recommendationUniverse?.universeTruncated ? ' The scan hit the configured cap for at least one market in this run.' : ''}
-                </p>
               </div>
             ) : null}
 
