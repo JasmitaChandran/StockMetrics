@@ -446,6 +446,42 @@ function recommendationType(item: { securityType?: 'stock' | 'mutual_fund'; mark
   return item.market === 'mf' ? 'mutual_fund' : 'stock';
 }
 
+function recommendationMarketLabel(market: 'india' | 'us' | 'mf') {
+  switch (market) {
+    case 'india':
+      return 'India';
+    case 'us':
+      return 'US';
+    case 'mf':
+      return 'India';
+    default:
+      return market.toUpperCase();
+  }
+}
+
+function recommendationSubtitle(item: {
+  securityType?: 'stock' | 'mutual_fund';
+  market: 'india' | 'us' | 'mf';
+  sector?: string;
+  industry?: string;
+}) {
+  if (recommendationType(item) === 'mutual_fund') {
+    return 'Mutual Fund • India';
+  }
+
+  const cleanSector = item.sector?.trim();
+  if (cleanSector && cleanSector.toLowerCase() !== 'unknown') {
+    return `${cleanSector} • ${recommendationMarketLabel(item.market)}`;
+  }
+
+  const cleanIndustry = item.industry?.trim();
+  if (cleanIndustry && cleanIndustry.toLowerCase() !== 'unknown') {
+    return `${cleanIndustry} • ${recommendationMarketLabel(item.market)}`;
+  }
+
+  return item.market === 'india' ? 'Indian Stock' : 'US Stock';
+}
+
 function phaseIndex(progress: AgenticProgressTelemetry | null) {
   switch (progress?.phase) {
     case 'profile':
@@ -1247,28 +1283,7 @@ function SecurityPoolTable({
                   <tr key={`${item.market}:${item.symbol}`} className="border-t border-slate-200 dark:border-slate-800">
                     <td className="px-3 py-2">
                       <div className="font-semibold text-slate-900 dark:text-white">{item.displaySymbol}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {recommendationType(item) === 'mutual_fund' ? 'Mutual Fund' : item.sector} • {item.market.toUpperCase()}
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {[
-                          { label: 'Q', freshness: item.dataFreshness.quote, provenance: item.provenance?.quote },
-                          { label: 'F', freshness: item.dataFreshness.fundamentals, provenance: item.provenance?.fundamentals },
-                          { label: 'H', freshness: item.dataFreshness.history, provenance: item.provenance?.history },
-                          { label: 'N', freshness: item.dataFreshness.news, provenance: item.provenance?.news },
-                        ].map((chip) => (
-                          <span
-                            key={`${item.symbol}-${chip.label}`}
-                            className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', freshnessBadgeClass(chip.freshness))}
-                            title={metricTitle(chip.label, chip.freshness, chip.provenance)}
-                          >
-                            {chip.label}: {chip.freshness}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="mt-1 truncate text-[11px] text-slate-500 dark:text-slate-400">
-                        {item.provenance?.quote?.source ?? 'Unknown source'} • {item.provenance?.fundamentals?.source ?? 'Unknown fundamentals'}
-                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{recommendationSubtitle(item)}</div>
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-slate-900 dark:text-white">{item.scores.personalizedFit}</td>
                     <td className="px-3 py-2 text-right">
