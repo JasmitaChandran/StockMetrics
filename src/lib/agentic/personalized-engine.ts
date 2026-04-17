@@ -536,8 +536,8 @@ function getMetricFromBundle(bundle: FundamentalsBundle | undefined, key: string
 }
 
 function inferCountryCode(country?: string): CountryCode {
-  if (/india/i.test(country ?? '')) return 'IN';
-  if (/united states|usa|us/i.test(country ?? '')) return 'US';
+  if (/india|indian/i.test(country ?? '')) return 'IN';
+  if (/united states|\busa\b|\bus\b|nri|non[- ]resident/i.test(country ?? '')) return 'US';
   return 'IN';
 }
 
@@ -567,7 +567,7 @@ function resolveMarketScope(input: Pick<AgenticFormInput, 'marketScope' | 'count
 function normalizeInput(input: AgenticFormInput): AgenticFormInput {
   const countryCode = input.countryCode ?? inferCountryCode(input.country);
   const marketScope = resolveMarketScope({ marketScope: input.marketScope, countryCode, country: input.country });
-  const country = input.country?.trim() || (countryCode === 'US' ? 'United States' : 'India');
+  const country = input.country?.trim() || (countryCode === 'US' ? 'NRI' : 'Indian');
   return {
     ...input,
     country,

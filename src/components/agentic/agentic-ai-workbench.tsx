@@ -11,6 +11,7 @@ import {
   Download,
   HeartPulse,
   History,
+  Info,
   Landmark,
   LineChart,
   Loader2,
@@ -93,9 +94,9 @@ const LIQUIDITY_OPTIONS: Array<{ value: LiquidityNeed; label: string }> = [
   { value: 'high', label: 'High' },
 ];
 
-const COUNTRY_OPTIONS: Array<{ value: CountryCode; label: string; country: string; currency: 'INR' | 'USD' }> = [
-  { value: 'IN', label: 'India', country: 'India', currency: 'INR' },
-  { value: 'US', label: 'United States', country: 'United States', currency: 'USD' },
+const RESIDENCY_OPTIONS: Array<{ value: CountryCode; label: string; country: string; currency: 'INR' | 'USD' }> = [
+  { value: 'IN', label: 'Indian', country: 'Indian', currency: 'INR' },
+  { value: 'US', label: 'NRI', country: 'NRI', currency: 'USD' },
 ];
 
 const MARKET_SCOPE_OPTIONS: Array<{ value: AgentMarketScope; label: string }> = [
@@ -154,6 +155,86 @@ const PROCESSING_STEPS = [
   },
 ] as const;
 
+type FieldInfoItem = {
+  label: string;
+  detail: string;
+};
+
+const FIELD_INFO = {
+  age: [{ label: 'Why', detail: 'Used to judge life stage, time horizon, and risk capacity.' }],
+  maritalStatus: [{ label: 'Why', detail: 'Adds context about household responsibility and planning needs.' }],
+  dependentsKids: [{ label: 'Why', detail: 'Children increase future cash-flow pressure and goal planning.' }],
+  dependentsParents: [{ label: 'Why', detail: 'Parent support can reduce free cash available for investing.' }],
+  employmentType: [
+    { label: 'Salary', detail: 'Usually implies steadier monthly cash flow.' },
+    { label: 'Self', detail: 'Income may vary, so liquidity usually matters more.' },
+    { label: 'Biz', detail: 'Business owners often need a larger safety buffer.' },
+  ],
+  residency: [
+    { label: 'Indian', detail: 'Uses INR as the planning currency.' },
+    { label: 'NRI', detail: 'Uses USD as the planning currency.' },
+  ],
+  monthlyIncome: [{ label: 'Use', detail: 'Average dependable monthly income available to the household.' }],
+  fixedExpenses: [{ label: 'Use', detail: 'Non-negotiable monthly costs like rent, fees, bills, or EMIs.' }],
+  discretionaryExpenses: [{ label: 'Use', detail: 'Lifestyle spending such as dining, shopping, travel, and hobbies.' }],
+  effectiveTaxRate: [{ label: 'Use', detail: 'Approximate blended tax rate after deductions and exemptions.' }],
+  equityAssets: [{ label: 'Use', detail: 'Current value of stocks and equity mutual funds you already hold.' }],
+  debtAssets: [{ label: 'Use', detail: 'Safer holdings like fixed deposits, bonds, or debt funds.' }],
+  gold: [{ label: 'Use', detail: 'Gold holdings that act as a defensive diversification bucket.' }],
+  realEstate: [{ label: 'Use', detail: 'Property value you want included in household net worth.' }],
+  cashSavings: [{ label: 'Use', detail: 'Bank balance and liquid savings available right now.' }],
+  alternatives: [{ label: 'Use', detail: 'Other assets like REITs, crypto, startup equity, or similar holdings.' }],
+  epf: [{ label: 'Use', detail: 'Employee Provident Fund retirement corpus.' }],
+  ppf: [{ label: 'Use', detail: 'Public Provident Fund long-term savings balance.' }],
+  nps: [{ label: 'Use', detail: 'National Pension System retirement allocation.' }],
+  otherRetirement: [{ label: 'Use', detail: 'Any other retirement-focused savings not covered above.' }],
+  loanType: [{ label: 'Use', detail: 'Helps the engine understand the risk and flexibility of the debt.' }],
+  outstanding: [{ label: 'Use', detail: 'Remaining principal amount still unpaid on the loan.' }],
+  monthlyEmi: [{ label: 'Use', detail: 'Required monthly installment for this loan.' }],
+  interestRate: [{ label: 'Use', detail: 'Current annual interest rate charged on the loan.' }],
+  goal: [{ label: 'Use', detail: 'Tells the agent what the money is mainly meant to achieve.' }],
+  horizon: [
+    { label: 'Short', detail: 'Less than 3 years.' },
+    { label: 'Medium', detail: 'About 3 to 7 years.' },
+    { label: 'Long', detail: 'More than 7 years.' },
+  ],
+  riskPreference: [
+    { label: 'Low', detail: 'Lower drawdowns matter more than chasing high returns.' },
+    { label: 'Mid', detail: 'Balances growth with manageable volatility.' },
+    { label: 'High', detail: 'Can tolerate more swings for higher return potential.' },
+  ],
+  liquidityNeed: [
+    { label: 'Low', detail: 'Money can stay invested longer.' },
+    { label: 'Medium', detail: 'Some access may be needed within 1 to 3 years.' },
+    { label: 'High', detail: 'Cash should remain ready for near-term needs.' },
+  ],
+  expectedReturnTarget: [{ label: 'Use', detail: 'Desired annual return; very high targets are treated cautiously.' }],
+  emergencyFundCoverage: [
+    { label: '3 mo', detail: 'Works for secure job situations or dual income.' },
+    { label: '6 mo', detail: 'Good default for most salaried households.' },
+    { label: '6-12', detail: 'Better for dependents, self-employment, or unstable income.' },
+  ],
+  analysisMode: [
+    { label: 'Suggest', detail: 'Agent finds the best-fit names for your profile.' },
+    { label: 'Specific', detail: 'Agent analyzes one stock or fund you choose.' },
+  ],
+  marketScope: [
+    { label: 'India', detail: 'Indian stocks plus mutual funds.' },
+    { label: 'US', detail: 'US-listed stocks only.' },
+    { label: 'Both', detail: 'India, US, and mutual funds together.' },
+  ],
+  tickerOrFund: [{ label: 'Use', detail: 'Enter a stock, company, fund name, or AMFI code in specific mode.' }],
+  compareWithAlternatives: [{ label: 'Use', detail: 'Benchmarks your chosen name against other profile-fit options.' }],
+  monitoringEnabled: [{ label: 'Use', detail: 'Keeps watching tracked names after the main run finishes.' }],
+  autoRerun: [{ label: 'Use', detail: 'Automatically rebuilds the plan when a trigger fires.' }],
+  priceMoveTrigger: [{ label: 'Use', detail: 'Reruns or alerts when the tracked name moves by this percentage.' }],
+  checkInterval: [{ label: 'Use', detail: 'How often the monitoring agent checks for triggers.' }],
+  earningsNewsTrigger: [{ label: 'Use', detail: 'Triggers monitoring when important earnings or news events appear.' }],
+  incomeDelta: [{ label: 'Use', detail: 'Test how more or less monthly income changes the recommendation.' }],
+  emiDelta: [{ label: 'Use', detail: 'Test how higher or lower loan burden changes your capacity.' }],
+  riskPreferenceOverride: [{ label: 'Use', detail: 'Temporarily changes risk appetite for the what-if simulation.' }],
+} satisfies Record<string, FieldInfoItem[]>;
+
 function createBlankLoan(): LoanInput {
   return {
     id: crypto.randomUUID(),
@@ -198,7 +279,7 @@ function createDefaultForm(): AgenticFormInput {
     riskPreference: 'moderate',
     expectedReturnTarget: 0,
     liquidityNeed: 'medium',
-    country: 'India',
+    country: 'Indian',
     countryCode: 'IN',
     marketScope: 'both',
     compareWithAlternatives: true,
@@ -319,7 +400,9 @@ function sum(values: number[]) {
 function getDisplayCurrency(input: Pick<AgenticFormInput, 'countryCode' | 'country'>): 'INR' | 'USD' {
   if (input.countryCode === 'US') return 'USD';
   if (input.countryCode === 'IN') return 'INR';
-  return /india/i.test(input.country) ? 'INR' : 'USD';
+  if (/india|indian/i.test(input.country)) return 'INR';
+  if (/nri|non[- ]resident/i.test(input.country)) return 'USD';
+  return 'USD';
 }
 
 function headlineSentimentTone(score?: number): 'positive' | 'negative' | 'neutral' {
@@ -877,16 +960,86 @@ function buildAgentMissionPlan(
 function FieldShell({
   label,
   hint,
+  info,
   children,
 }: {
   label: string;
   hint?: string;
+  info?: FieldInfoItem[];
   children: React.ReactNode;
 }) {
+  const [infoOpen, setInfoOpen] = useState(false);
+  const shellRef = useRef<HTMLLabelElement | null>(null);
+
+  useEffect(() => {
+    if (!infoOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!shellRef.current?.contains(event.target as Node)) {
+        setInfoOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setInfoOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [infoOpen]);
+
   return (
-    <label className="block text-sm">
-      <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">{label}</span>
+    <label ref={shellRef} className="block text-sm">
+      <div className="mb-1.5 flex min-h-[1.5rem] items-center justify-between gap-2">
+        <span className="flex-1 text-[11px] font-semibold uppercase leading-[1.3] tracking-[0.16em] text-slate-500 dark:text-slate-300">
+          {label}
+        </span>
+        {info ? (
+          <span className="inline-flex shrink-0">
+            <button
+              type="button"
+              aria-label={`${label} guidance`}
+              aria-expanded={infoOpen}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setInfoOpen((open) => !open);
+              }}
+              className={cn(
+                'inline-flex h-5 w-5 items-center justify-center rounded-full border bg-slate-900/30 transition focus:outline-none focus:ring-2 focus:ring-cyan-300/30 dark:bg-slate-900/40',
+                infoOpen
+                  ? 'border-cyan-300/70 text-cyan-300'
+                  : 'border-slate-500/45 text-slate-400 hover:border-cyan-300/60 hover:text-cyan-300 dark:border-slate-500/45 dark:text-slate-400',
+              )}
+            >
+              <Info className="h-3 w-3" />
+            </button>
+          </span>
+        ) : null}
+      </div>
       {children}
+      {info && infoOpen ? (
+        <div className="mt-2 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.06] px-3 py-2.5 text-left dark:border-cyan-500/20 dark:bg-cyan-500/[0.08]">
+          <div className="space-y-2">
+            {info.map((item) => (
+              <div key={`${label}-${item.label}`} className="flex items-start gap-2.5">
+                <span className="min-w-[3.8rem] rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2 py-0.5 text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-300">
+                  {item.label}
+                </span>
+                <span className="pt-0.5 text-[12px] leading-5 normal-case tracking-normal text-slate-300">
+                  {item.detail}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {hint ? <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{hint}</span> : null}
     </label>
   );
@@ -916,6 +1069,7 @@ function NumberField({
   value,
   onChange,
   hint,
+  info,
   suffix,
   min = 0,
   step = 1,
@@ -924,12 +1078,13 @@ function NumberField({
   value: number;
   onChange: (next: number) => void;
   hint?: string;
+  info?: FieldInfoItem[];
   suffix?: string;
   min?: number;
   step?: number;
 }) {
   return (
-    <FieldShell label={label} hint={hint}>
+    <FieldShell label={label} hint={hint} info={info}>
       <div className="relative">
         <input
           type="number"
@@ -959,15 +1114,17 @@ function SelectField<T extends string>({
   options,
   onChange,
   hint,
+  info,
 }: {
   label: string;
   value: T;
   options: Array<{ value: T; label: string }>;
   onChange: (next: T) => void;
   hint?: string;
+  info?: FieldInfoItem[];
 }) {
   return (
-    <FieldShell label={label} hint={hint}>
+    <FieldShell label={label} hint={hint} info={info}>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value as T)}
@@ -1821,23 +1978,41 @@ export function AgenticAiWorkbench() {
                   Demographics & Life Stage
                 </div>
                 <div className="grid gap-4 md:grid-cols-4">
-                  <NumberField label="Age" value={form.age} onChange={(value) => updateField('age', value)} />
-                  <SelectField label="Marital Status" value={form.maritalStatus} options={MARITAL_OPTIONS} onChange={(value) => updateField('maritalStatus', value)} />
-                  <NumberField label="Dependents (Kids)" value={form.dependentsKids} onChange={(value) => updateField('dependentsKids', value)} />
-                  <NumberField label="Dependents (Parents)" value={form.dependentsParents} onChange={(value) => updateField('dependentsParents', value)} />
+                  <NumberField label="Age" value={form.age} onChange={(value) => updateField('age', value)} info={FIELD_INFO.age} />
+                  <SelectField
+                    label="Marital Status"
+                    value={form.maritalStatus}
+                    options={MARITAL_OPTIONS}
+                    onChange={(value) => updateField('maritalStatus', value)}
+                    info={FIELD_INFO.maritalStatus}
+                  />
+                  <NumberField
+                    label="Dependents (Kids)"
+                    value={form.dependentsKids}
+                    onChange={(value) => updateField('dependentsKids', value)}
+                    info={FIELD_INFO.dependentsKids}
+                  />
+                  <NumberField
+                    label="Dependents (Parents)"
+                    value={form.dependentsParents}
+                    onChange={(value) => updateField('dependentsParents', value)}
+                    info={FIELD_INFO.dependentsParents}
+                  />
                   <SelectField
                     label="Employment Type"
                     value={form.employmentType}
                     options={EMPLOYMENT_OPTIONS}
                     onChange={(value) => updateField('employmentType', value)}
+                    info={FIELD_INFO.employmentType}
                   />
                   <SelectField
-                    label="Country"
-                    hint="Country changes base currency defaults only. Market scope remains what you selected."
+                    label="Residency"
+                    hint="Residency changes base currency defaults only. Market scope remains what you selected."
                     value={form.countryCode}
-                    options={COUNTRY_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+                    options={RESIDENCY_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+                    info={FIELD_INFO.residency}
                     onChange={(value) => {
-                      const selected = COUNTRY_OPTIONS.find((option) => option.value === value);
+                      const selected = RESIDENCY_OPTIONS.find((option) => option.value === value);
                       updateField('countryCode', value);
                       updateField('country', selected?.country ?? value);
                     }}
@@ -1851,17 +2026,29 @@ export function AgenticAiWorkbench() {
                   Income & Expenses
                 </div>
                 <div className="grid gap-4 md:grid-cols-4">
-                  <NumberField label="Monthly Income" value={form.monthlyIncome} onChange={(value) => updateField('monthlyIncome', value)} />
-                  <NumberField label="Fixed Expenses" value={form.monthlyFixedExpenses} onChange={(value) => updateField('monthlyFixedExpenses', value)} />
+                  <NumberField
+                    label="Monthly Income"
+                    value={form.monthlyIncome}
+                    onChange={(value) => updateField('monthlyIncome', value)}
+                    info={FIELD_INFO.monthlyIncome}
+                  />
+                  <NumberField
+                    label="Fixed Expenses"
+                    value={form.monthlyFixedExpenses}
+                    onChange={(value) => updateField('monthlyFixedExpenses', value)}
+                    info={FIELD_INFO.fixedExpenses}
+                  />
                   <NumberField
                     label="Discretionary Expenses"
                     value={form.monthlyDiscretionaryExpenses}
                     onChange={(value) => updateField('monthlyDiscretionaryExpenses', value)}
+                    info={FIELD_INFO.discretionaryExpenses}
                   />
                   <NumberField
                     label="Effective Tax Rate"
                     value={form.effectiveTaxRate}
                     onChange={(value) => updateField('effectiveTaxRate', value)}
+                    info={FIELD_INFO.effectiveTaxRate}
                     suffix="%"
                     step={0.5}
                   />
@@ -1879,12 +2066,12 @@ export function AgenticAiWorkbench() {
                 Assets, Retirement Corpus & Liabilities
               </div>
               <div className="grid gap-4 md:grid-cols-3">
-                <NumberField label="Equity (stocks + MF)" value={form.assets.equity} onChange={(value) => updateAssets('equity', value)} />
-                <NumberField label="Debt / FD" value={form.assets.debt} onChange={(value) => updateAssets('debt', value)} />
-                <NumberField label="Gold" value={form.assets.gold} onChange={(value) => updateAssets('gold', value)} />
-                <NumberField label="Real Estate" value={form.assets.realEstate} onChange={(value) => updateAssets('realEstate', value)} />
-                <NumberField label="Cash / Savings" value={form.assets.cash} onChange={(value) => updateAssets('cash', value)} />
-                <NumberField label="Alternatives" value={form.assets.alternatives} onChange={(value) => updateAssets('alternatives', value)} />
+                <NumberField label="Equity (stocks + MF)" value={form.assets.equity} onChange={(value) => updateAssets('equity', value)} info={FIELD_INFO.equityAssets} />
+                <NumberField label="Debt / FD" value={form.assets.debt} onChange={(value) => updateAssets('debt', value)} info={FIELD_INFO.debtAssets} />
+                <NumberField label="Gold" value={form.assets.gold} onChange={(value) => updateAssets('gold', value)} info={FIELD_INFO.gold} />
+                <NumberField label="Real Estate" value={form.assets.realEstate} onChange={(value) => updateAssets('realEstate', value)} info={FIELD_INFO.realEstate} />
+                <NumberField label="Cash / Savings" value={form.assets.cash} onChange={(value) => updateAssets('cash', value)} info={FIELD_INFO.cashSavings} />
+                <NumberField label="Alternatives" value={form.assets.alternatives} onChange={(value) => updateAssets('alternatives', value)} info={FIELD_INFO.alternatives} />
               </div>
 
               <div className="mt-5 rounded-3xl border border-dashed border-slate-200 p-4 dark:border-slate-700">
@@ -1893,10 +2080,10 @@ export function AgenticAiWorkbench() {
                   Retirement Corpus
                 </div>
                 <div className="grid gap-4 md:grid-cols-4">
-                  <NumberField label="EPF" value={form.retirement.epf} onChange={(value) => updateRetirement('epf', value)} />
-                  <NumberField label="PPF" value={form.retirement.ppf} onChange={(value) => updateRetirement('ppf', value)} />
-                  <NumberField label="NPS" value={form.retirement.nps} onChange={(value) => updateRetirement('nps', value)} />
-                  <NumberField label="Other Retirement" value={form.retirement.other} onChange={(value) => updateRetirement('other', value)} />
+                  <NumberField label="EPF" value={form.retirement.epf} onChange={(value) => updateRetirement('epf', value)} info={FIELD_INFO.epf} />
+                  <NumberField label="PPF" value={form.retirement.ppf} onChange={(value) => updateRetirement('ppf', value)} info={FIELD_INFO.ppf} />
+                  <NumberField label="NPS" value={form.retirement.nps} onChange={(value) => updateRetirement('nps', value)} info={FIELD_INFO.nps} />
+                  <NumberField label="Other Retirement" value={form.retirement.other} onChange={(value) => updateRetirement('other', value)} info={FIELD_INFO.otherRetirement} />
                 </div>
               </div>
 
@@ -1926,21 +2113,25 @@ export function AgenticAiWorkbench() {
                             value={loan.type}
                             options={LOAN_TYPE_OPTIONS}
                             onChange={(value) => updateLoan(loan.id, 'type', value)}
+                            info={FIELD_INFO.loanType}
                           />
                           <NumberField
                             label="Outstanding"
                             value={loan.outstandingAmount}
                             onChange={(value) => updateLoan(loan.id, 'outstandingAmount', value)}
+                            info={FIELD_INFO.outstanding}
                           />
                           <NumberField
                             label="Monthly EMI"
                             value={loan.monthlyEmi}
                             onChange={(value) => updateLoan(loan.id, 'monthlyEmi', value)}
+                            info={FIELD_INFO.monthlyEmi}
                           />
                           <NumberField
                             label="Interest Rate"
                             value={loan.interestRate}
                             onChange={(value) => updateLoan(loan.id, 'interestRate', value)}
+                            info={FIELD_INFO.interestRate}
                             suffix="%"
                             step={0.1}
                           />
@@ -1980,29 +2171,34 @@ export function AgenticAiWorkbench() {
                   value={form.investmentGoal}
                   options={GOAL_OPTIONS}
                   onChange={(value) => updateField('investmentGoal', value)}
+                  info={FIELD_INFO.goal}
                 />
                 <SelectField
                   label="Horizon"
                   value={form.investmentHorizon}
                   options={HORIZON_OPTIONS}
                   onChange={(value) => updateField('investmentHorizon', value)}
+                  info={FIELD_INFO.horizon}
                 />
                 <SelectField
                   label="Risk Preference"
                   value={form.riskPreference}
                   options={RISK_OPTIONS}
                   onChange={(value) => updateField('riskPreference', value)}
+                  info={FIELD_INFO.riskPreference}
                 />
                 <SelectField
                   label="Liquidity Need"
                   value={form.liquidityNeed}
                   options={LIQUIDITY_OPTIONS}
                   onChange={(value) => updateField('liquidityNeed', value)}
+                  info={FIELD_INFO.liquidityNeed}
                 />
                 <NumberField
                   label="Expected Return Target"
                   value={form.expectedReturnTarget}
                   onChange={(value) => updateField('expectedReturnTarget', value)}
+                  info={FIELD_INFO.expectedReturnTarget}
                   suffix="%"
                   step={0.5}
                 />
@@ -2010,10 +2206,11 @@ export function AgenticAiWorkbench() {
                   label="Emergency Fund Coverage"
                   value={form.emergencyFundMonths}
                   onChange={(value) => updateField('emergencyFundMonths', value)}
+                  info={FIELD_INFO.emergencyFundCoverage}
                   suffix="months"
                   step={0.5}
                 />
-                <FieldShell label="Analysis Mode">
+                <FieldShell label="Analysis Mode" info={FIELD_INFO.analysisMode}>
                   <select
                     value={form.analysisMode}
                     onChange={(event) => updateField('analysisMode', event.target.value as AgenticFormInput['analysisMode'])}
@@ -2028,10 +2225,12 @@ export function AgenticAiWorkbench() {
                   value={form.marketScope}
                   options={MARKET_SCOPE_OPTIONS}
                   onChange={(value) => updateField('marketScope', value)}
+                  info={FIELD_INFO.marketScope}
                   hint="Explicitly choose India, US, or both for suggest mode and specific-mode alternatives."
                 />
                 <FieldShell
                   label="Ticker / Fund / Company"
+                  info={FIELD_INFO.tickerOrFund}
                   hint="Examples: INFY, HDFCBANK, AAPL, AMFI:119551, Parag Parikh Flexi Cap"
                 >
                   <input
@@ -2050,6 +2249,7 @@ export function AgenticAiWorkbench() {
                 {form.analysisMode === 'specific' ? (
                   <FieldShell
                     label="Compare With Alternatives"
+                    info={FIELD_INFO.compareWithAlternatives}
                     hint="Analyze selected security first, then compare against top profile-fit names."
                   >
                     <div className="flex h-11 items-center">
@@ -2507,27 +2707,31 @@ export function AgenticAiWorkbench() {
                     Monitoring agent
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
-                    <label className="inline-flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-                      <input
-                        type="checkbox"
-                        checked={monitoringSettings.enabled}
-                        onChange={(event) =>
-                          setMonitoringSettings((prev) => ({ ...prev, enabled: event.target.checked }))
-                        }
-                      />
-                      Enable monitoring
-                    </label>
-                    <label className="inline-flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-                      <input
-                        type="checkbox"
-                        checked={monitoringSettings.autoRerun}
-                        onChange={(event) =>
-                          setMonitoringSettings((prev) => ({ ...prev, autoRerun: event.target.checked }))
-                        }
-                      />
-                      Auto-replan on trigger
-                    </label>
-                    <FieldShell label="Price move trigger (%)">
+                    <FieldShell label="Enable monitoring" info={FIELD_INFO.monitoringEnabled}>
+                      <div className="flex h-[38px] items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={monitoringSettings.enabled}
+                          onChange={(event) =>
+                            setMonitoringSettings((prev) => ({ ...prev, enabled: event.target.checked }))
+                          }
+                        />
+                        <span>Turn on background monitoring</span>
+                      </div>
+                    </FieldShell>
+                    <FieldShell label="Auto-replan on trigger" info={FIELD_INFO.autoRerun}>
+                      <div className="flex h-[38px] items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={monitoringSettings.autoRerun}
+                          onChange={(event) =>
+                            setMonitoringSettings((prev) => ({ ...prev, autoRerun: event.target.checked }))
+                          }
+                        />
+                        <span>Rerun automatically after a trigger</span>
+                      </div>
+                    </FieldShell>
+                    <FieldShell label="Price move trigger (%)" info={FIELD_INFO.priceMoveTrigger}>
                       <input
                         type="number"
                         min={2}
@@ -2542,7 +2746,7 @@ export function AgenticAiWorkbench() {
                         className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                       />
                     </FieldShell>
-                    <FieldShell label="Check interval (sec)">
+                    <FieldShell label="Check interval (sec)" info={FIELD_INFO.checkInterval}>
                       <input
                         type="number"
                         min={60}
@@ -2558,16 +2762,20 @@ export function AgenticAiWorkbench() {
                       />
                     </FieldShell>
                   </div>
-                  <label className="mt-2 inline-flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-                    <input
-                      type="checkbox"
-                      checked={monitoringSettings.earningsNewsTrigger}
-                      onChange={(event) =>
-                        setMonitoringSettings((prev) => ({ ...prev, earningsNewsTrigger: event.target.checked }))
-                      }
-                    />
-                    Trigger on earnings/news events for focus name
-                  </label>
+                  <div className="mt-2 md:max-w-[calc(50%-0.375rem)]">
+                    <FieldShell label="Earnings / news trigger" info={FIELD_INFO.earningsNewsTrigger}>
+                      <div className="flex h-[38px] items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={monitoringSettings.earningsNewsTrigger}
+                          onChange={(event) =>
+                            setMonitoringSettings((prev) => ({ ...prev, earningsNewsTrigger: event.target.checked }))
+                          }
+                        />
+                        <span>Trigger on focus-name earnings or major news</span>
+                      </div>
+                    </FieldShell>
+                  </div>
                   {monitoringAlert ? (
                     <div className="mt-3 rounded-xl border border-amber-300 bg-amber-500/10 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:text-amber-300">
                       <div className="font-semibold">Last trigger: {formatDateTime(monitoringAlert.at)}</div>
@@ -2623,7 +2831,7 @@ export function AgenticAiWorkbench() {
             >
               <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
                 <div className="grid gap-4 md:grid-cols-3">
-                  <FieldShell label="Income delta / month" hint="Positive increases investable surplus">
+                  <FieldShell label="Income delta / month" hint="Positive increases investable surplus" info={FIELD_INFO.incomeDelta}>
                     <input
                       type="number"
                       value={whatIfIncomeDelta}
@@ -2632,7 +2840,7 @@ export function AgenticAiWorkbench() {
                       className="agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
                     />
                   </FieldShell>
-                  <FieldShell label="EMI delta / month" hint="Positive means higher obligations">
+                  <FieldShell label="EMI delta / month" hint="Positive means higher obligations" info={FIELD_INFO.emiDelta}>
                     <input
                       type="number"
                       value={whatIfEmiDelta}
@@ -2646,6 +2854,7 @@ export function AgenticAiWorkbench() {
                     value={whatIfRiskPreference}
                     options={RISK_OPTIONS}
                     onChange={(value) => setWhatIfRiskPreference(value)}
+                    info={FIELD_INFO.riskPreferenceOverride}
                   />
                 </div>
                 <div className="rounded-[24px] border border-cyan-200 bg-cyan-500/5 p-4 dark:border-cyan-900/40">

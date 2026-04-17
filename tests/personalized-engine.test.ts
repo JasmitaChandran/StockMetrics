@@ -36,7 +36,7 @@ function makeForm(overrides: Partial<AgenticFormInput> = {}): AgenticFormInput {
     riskPreference: 'moderate',
     expectedReturnTarget: 12,
     liquidityNeed: 'medium',
-    country: 'India',
+    country: 'Indian',
     countryCode: 'IN',
     marketScope: 'india',
     compareWithAlternatives: true,
@@ -135,7 +135,7 @@ describe('personalized engine guardrails and core math', () => {
     const usOnly = personalizedEngineTestables.resolveMarketScope(
       makeForm({
         countryCode: 'IN',
-        country: 'India',
+        country: 'Indian',
         marketScope: 'us',
       }),
     );
@@ -148,6 +148,18 @@ describe('personalized engine guardrails and core math', () => {
         countryCode: undefined as unknown as AgenticFormInput['countryCode'],
         marketScope: undefined as unknown as AgenticFormInput['marketScope'],
         country: 'United States',
+      }),
+    );
+    expect(normalized.countryCode).toBe('US');
+    expect(normalized.marketScope).toBe('us');
+  });
+
+  it('recognizes NRI residency labels when inferring currency defaults', () => {
+    const normalized = personalizedEngineTestables.normalizeInput(
+      makeForm({
+        countryCode: undefined as unknown as AgenticFormInput['countryCode'],
+        marketScope: undefined as unknown as AgenticFormInput['marketScope'],
+        country: 'NRI',
       }),
     );
     expect(normalized.countryCode).toBe('US');
