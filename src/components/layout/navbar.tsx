@@ -14,11 +14,11 @@ import { MarketTickerStrip } from './market-ticker-strip';
 const tabs = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/screener', label: 'Screener' },
-  { href: '/qa', label: 'Chat with AI' },
-  { href: '/alerts', label: 'Alert' },
-  { href: '/agentic', label: 'Personalized Agent' },
   { href: '/watchlist', label: 'Watchlist' },
   { href: '/portfolio', label: 'Portfolio' },
+  { href: '/alerts', label: 'Alert' },
+  { href: '/agentic', label: 'Personalized Agent' },
+  { href: '/qa', label: 'Chat with AI' },
   { href: '/learning', label: 'Learning' },
 ];
 

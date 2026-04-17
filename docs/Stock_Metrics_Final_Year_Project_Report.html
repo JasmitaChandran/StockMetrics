@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Stock Metrics Final Year Project Report</title>
+    <style>
+      body {
+        font-family: "Times New Roman", Georgia, serif;
+        font-size: 12pt;
+        line-height: 1.55;
+        color: #111827;
+        margin: 0;
+        padding: 36px 44px;
+      }
+      h1,
+      h2,
+      h3,
+      h4 {
+        color: #0f172a;
+        margin-top: 1.1em;
+        margin-bottom: 0.35em;
+      }
+      h1 {
+        font-size: 24pt;
+        text-align: center;
+      }
+      h2 {
+        font-size: 17pt;
+        border-bottom: 1px solid #cbd5e1;
+        padding-bottom: 4px;
+      }
+      h3 {
+        font-size: 14pt;
+      }
+      h4 {
+        font-size: 12.5pt;
+      }
+      p {
+        margin: 0.35em 0 0.7em 0;
+        text-align: justify;
+      }
+      ul,
+      ol {
+        margin-top: 0.25em;
+        margin-bottom: 0.8em;
+      }
+      li {
+        margin-bottom: 0.28em;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0.8em 0 1.1em 0;
+      }
+      th,
+      td {
+        border: 1px solid #cbd5e1;
+        padding: 8px 10px;
+        vertical-align: top;
+      }
+      th {
+        background: #e2e8f0;
+        text-align: left;
+      }
+      .center {
+        text-align: center;
+      }
+      .muted {
+        color: #475569;
+      }
+      .small {
+        font-size: 10.5pt;
+      }
+      .label-table td:first-child {
+        width: 33%;
+        font-weight: bold;
+      }
+      .cover-block {
+        margin-top: 24px;
+        border: 1px solid #cbd5e1;
+        padding: 16px 18px;
+      }
+      .page-break {
+        page-break-before: always;
+        break-before: page;
+      }
+      .toc li {
+        margin-bottom: 0.18em;
+      }
+      .quote-box {
+        border-left: 4px solid #2563eb;
+        padding: 10px 14px;
+        background: #eff6ff;
+      }
+      .mono {
+        font-family: "Courier New", Courier, monospace;
+        font-size: 10.5pt;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="center">
+      <h1>STOCK METRICS</h1>
+      <p><strong>A Final Year Project Report</strong></p>
+      <p class="muted">Comprehensive Technical Documentation, System Analysis, Design, Implementation, Testing, and Deployment Report</p>
+    </div>
+
+    <div class="cover-block">
+      <table class="label-table">
+        <tr>
+          <td>Project Title</td>
+          <td>Stock Metrics: A Local-First Multi-Market Stock Research and Personalized Investment Intelligence Platform</td>
+        </tr>
+        <tr>
+          <td>Submitted By</td>
+          <td>[Student Name]</td>
+        </tr>
+        <tr>
+          <td>Roll Number</td>
+          <td>[Roll Number]</td>
+        </tr>
+        <tr>
+          <td>Degree / Program</td>
+          <td>[B.E. / B.Tech / BCA / MCA / Other]</td>
+        </tr>
+        <tr>
+          <td>Department</td>
+          <td>[Department Name]</td>
+        </tr>
+        <tr>
+          <td>Institution</td>
+          <td>[College / University Name]</td>
+        </tr>
+        <tr>
+          <td>Project Guide</td>
+          <td>[Guide / Supervisor Name]</td>
+        </tr>
+        <tr>
+          <td>Academic Year</td>
+          <td>[Academic Year]</td>
+        </tr>
+        <tr>
+          <td>Report Version</td>
+          <td>Generated from repository inspection and verification on 07 April 2026</td>
+        </tr>
+      </table>
+    </div>
+
+    <p class="small muted center">
+      Note: Institution-specific pages such as certificate, declaration, acknowledgement, and signature sheets are included below as editable placeholders so this document can be directly adapted for college submission.
+    </p>
+
+    <div class="page-break"></div>
+    <h2>Certificate</h2>
+    <p>
+      This is to certify that the project report entitled <strong>“Stock Metrics: A Local-First Multi-Market Stock Research and Personalized Investment Intelligence Platform”</strong>
+      is a bonafide work carried out by <strong>[Student Name]</strong>, bearing Roll Number <strong>[Roll Number]</strong>, in partial fulfillment of the requirements
+      for the award of the degree <strong>[Degree Name]</strong> under <strong>[University Name]</strong> during the academic year <strong>[Academic Year]</strong>.
+    </p>
+    <p>
+      The work presented in this report is original and has been completed under my guidance and supervision.
+    </p>
+    <table>
+      <tr>
+        <td>Guide Signature<br /><br />[Guide Name]</td>
+        <td>Head of Department<br /><br />[HOD Name]</td>
+        <td>Principal / Director<br /><br />[Principal Name]</td>
+      </tr>
+    </table>
+
+    <h2>Declaration</h2>
+    <p>
+      I hereby declare that the project work presented in this report is my own work, prepared under the guidance of the faculty supervisor mentioned above.
+      The report has not been submitted to any other university or institution for the award of any degree, diploma, or certificate.
+      Wherever the ideas, code inspiration, or resources of other people have been used, they have been acknowledged appropriately.
+    </p>
+    <p class="center">[Student Signature] &nbsp;&nbsp;&nbsp; [Student Name] &nbsp;&nbsp;&nbsp; [Date]</p>
+
+    <h2>Acknowledgement</h2>
+    <p>
+      I express my sincere gratitude to my project guide, faculty members, department, friends, and family for their support and encouragement throughout the
+      development of this project. Their guidance, technical feedback, and motivation helped in the successful completion of Stock Metrics. I also acknowledge
+      the open and public financial data sources, open-source libraries, and development tools that made it possible to build a capable market research platform
+      without depending on expensive proprietary infrastructure.
+    </p>
+
+    <div class="page-break"></div>
+    <h2>Abstract</h2>
+    <p>
+      Stock Metrics is a full-stack stock market analysis web application designed to provide investors, students, and finance learners with a single integrated
+      platform for multi-market research, screening, portfolio observation, price alerts, learning resources, and AI-assisted decision support. The project was
+      developed as a static-first, local-first system using Next.js, TypeScript, Tailwind CSS, Zustand, React Query, IndexedDB, and a set of lightweight route
+      handlers that proxy and cache free public data sources. Its core design philosophy is that useful investment analysis software should remain accessible even
+      when paid market APIs, premium financial terminals, and complex backend infrastructure are unavailable.
+    </p>
+    <p>
+      The application supports United States equities, Indian equities, and Indian mutual funds. It provides universal search across markets, quote and historical
+      price retrieval, best-effort fundamentals, charting, news aggregation, document discovery, portfolio and watchlist management, Excel export, beginner and
+      professional user modes, optional authentication adapters, rule-based AI analysis, natural-language screening, and a personalized agentic recommendation
+      engine that evaluates household financial profile, risk, liquidity, and market scope before producing stock suggestions. The project is deliberately engineered
+      to degrade gracefully: if live data is unavailable, the application can fall back to deterministic demo or cached data rather than failing completely.
+    </p>
+    <p>
+      This report documents the complete project from objective and architecture to algorithms, implementation modules, data sources, testing results, limitations,
+      and future scope. The contents were prepared by inspecting the repository, reading the implemented source files, reviewing the active page and API structure,
+      and validating the project through successful execution of the existing automated tests and production build.
+    </p>
+    <p><strong>Keywords:</strong> stock analysis, Next.js, TypeScript, financial dashboard, local-first app, personalized investment engine, screener, market data, AI heuristics, portfolio tracking.</p>
+
+    <h2>Executive Summary</h2>
+    <p>
+      In practical terms, Stock Metrics attempts to answer a simple but important problem: many retail users need one clean workspace to study stocks, compare metrics,
+      maintain personal watchlists, track small portfolios, learn investing concepts, and receive basic automated guidance, yet most available platforms either lock
+      critical features behind subscriptions, specialize in only one geography, or assume that the user already understands financial language. This project addresses
+      that gap by combining research tools, learning support, and explainable AI into a single responsive web application that can run with minimal setup.
+    </p>
+    <p>
+      The most distinctive technical contributions of the project are its free-data-first approach, modular adapter architecture, client-side persistence model,
+      explainable heuristic AI layer, and the personalized agentic engine that combines user financial profile analysis with stock-level scoring. Rather than being
+      a simple CRUD dashboard or a static finance site, the project demonstrates a thoughtful integration of frontend engineering, data ingestion, caching, domain
+      modeling, browser persistence, optional external integrations, and test-backed business logic.
+    </p>
+
+    <div class="page-break"></div>
+    <h2>Table of Contents</h2>
+    <ol class="toc">
+      <li>Introduction</li>
+      <li>Problem Statement, Existing System, and Proposed Solution</li>
+      <li>Project Objectives and Scope</li>
+      <li>Requirement Analysis</li>
+      <li>Technology Stack and Development Environment</li>
+      <li>System Architecture and Design</li>
+      <li>Module-Wise Implementation Details</li>
+      <li>Data Sources, Algorithms, and Core Logic</li>
+      <li>Testing, Validation, and Build Verification</li>
+      <li>Deployment Model and Operational Characteristics</li>
+      <li>Security, Privacy, Reliability, and Limitations</li>
+      <li>Results, Impact, and Future Scope</li>
+      <li>Conclusion</li>
+      <li>Appendices</li>
+    </ol>
+
+    <div class="page-break"></div>
+    <h2>1. Introduction</h2>
+    <p>
+      The stock market is rich in information but fragmented in delivery. Investors frequently move between market quote pages, financial statement websites,
+      screeners, portfolio trackers, news portals, learning resources, and notes applications to build a single view of a company or investment idea. This fragmentation
+      increases the effort required for even basic analysis and creates a particularly difficult learning curve for beginners. At the same time, many advanced platforms
+      depend on expensive APIs, premium subscriptions, or backend-heavy infrastructure that makes them harder to self-host, experiment with, or study as a student project.
+    </p>
+    <p>
+      Stock Metrics was designed as a response to these issues. It is a research-oriented finance web application that unifies stock discovery, multi-market analysis,
+      charting, documents, news, notes, screening, learning resources, alerts, local portfolio tracking, and AI-based interpretation under one system. The project places
+      strong emphasis on accessibility, graceful degradation, and educational value. It is not positioned as a brokerage or real-time trading terminal; instead, it is
+      a technically thoughtful decision-support and learning platform for delayed market research and personal analysis workflows.
+    </p>
+    <p>
+      Architecturally, the system follows a browser-centric model. User-owned data such as watchlists, transactions, notes, custom screens, session state, and cached
+      analysis artifacts are stored locally in the browser using IndexedDB, localStorage, and sessionStorage. External data is accessed through reusable adapters and
+      minimal route handlers that proxy free public providers such as Yahoo Finance, SEC EDGAR, Google News RSS, MFAPI, AMFI, and ER-API. AI behavior defaults to
+      deterministic heuristics so the application remains usable without a paid model provider, while optional integrations for Ollama, OpenAI-compatible endpoints,
+      Firebase Authentication, and Gmail SMTP remain available as extensions.
+    </p>
+
+    <h2>2. Problem Statement, Existing System, and Proposed Solution</h2>
+    <h3>2.1 Problem Statement</h3>
+    <p>
+      The central problem addressed by this project is the absence of an accessible, student-friendly, low-cost platform that combines stock research, multi-market
+      discovery, personalized analysis, portfolio observation, learning support, and AI-assisted insight in one coherent web application. Many investors either rely
+      on multiple disconnected services or are forced into premium tools before they have developed enough investing maturity to justify those costs.
+    </p>
+
+    <h3>2.2 Limitations of Existing Systems</h3>
+    <p>
+      Existing retail finance platforms often solve only one part of the workflow. Some are good at stock screening but weak in portfolio context. Others offer news
+      or charting but provide poor beginner guidance. Many are highly optimized for one geography only. Several rely on proprietary or paid APIs that make cloning,
+      learning, experimentation, or academic deployment difficult. Some interfaces are also built primarily for experienced users and present metrics without enough
+      explanation, making them intimidating to new investors.
+    </p>
+    <p>
+      The repository README explicitly states that this project is inspired by well-known market sites such as Screener.in, Tickertape, and Moneycontrol. However,
+      rather than simply reproducing those websites, this project synthesizes their most useful concepts into a local-first educational platform with a more explicit
+      focus on implementation transparency, multi-source data assembly, and explainable decision support.
+    </p>
+
+    <h3>2.3 Proposed Solution</h3>
+    <p>
+      Stock Metrics proposes a modular web platform that supports market search, quote retrieval, chart history, fundamentals display, news aggregation, document links,
+      user-owned watchlists and portfolios, local note taking, natural-language stock screening, AI insights, educational course discovery, a Q/A workspace backed by
+      local LLM infrastructure, and a personalized recommendation engine. The key engineering idea is to separate concerns clearly: UI components render data, adapters
+      abstract access to data, providers integrate public sources, storage repositories manage browser persistence, and the AI layer operates through consistent provider
+      interfaces. This makes the application easier to extend, test, and reason about.
+    </p>
+
+    <h2>3. Project Objectives and Scope</h2>
+    <h3>3.1 Major Objectives</h3>
+    <ul>
+      <li>To build an integrated stock research and personal analysis platform that works with free public data sources.</li>
+      <li>To provide both beginner-friendly and professional-style modes inside the same application.</li>
+      <li>To support multiple investment universes: U.S. equities, Indian equities, and Indian mutual funds.</li>
+      <li>To store user-owned data locally without requiring a mandatory backend database.</li>
+      <li>To add explainable AI features that work even when no paid model provider is configured.</li>
+      <li>To keep the deployment lightweight and friendly to static or serverless hosting platforms.</li>
+      <li>To demonstrate full-stack engineering skills suitable for a final year software project.</li>
+    </ul>
+
+    <h3>3.2 Scope of the Implemented System</h3>
+    <p>The current codebase covers the following operational scope:</p>
+    <ul>
+      <li>Universal search across stock and mutual fund entities.</li>
+      <li>Dashboard view and dynamic stock detail pages.</li>
+      <li>Price quotes and history charts with fallback support.</li>
+      <li>Fundamentals display with best-effort live and demo blending.</li>
+      <li>News and document retrieval.</li>
+      <li>Watchlist and portfolio management in IndexedDB.</li>
+      <li>Alert creation, in-app alert history, and optional email notifications.</li>
+      <li>Natural-language screener and preset strategies.</li>
+      <li>Agentic personalized recommendation workflow.</li>
+      <li>General-purpose Q/A tab powered by Ollama.</li>
+      <li>Learning tab based on curated free finance courses.</li>
+      <li>Optional authentication adapters for local auth and Firebase auth.</li>
+    </ul>
+
+    <h3>3.3 Scope Exclusions</h3>
+    <ul>
+      <li>No brokerage integration or live order execution is implemented.</li>
+      <li>No guarantee of real-time exchange-grade price data is claimed.</li>
+      <li>Indian fundamentals coverage is intentionally conservative and partially demo-backed.</li>
+      <li>The local authentication adapter is not intended for production-grade internet-facing security.</li>
+      <li>Alert monitoring is browser-session based, not a 24x7 background server job.</li>
+    </ul>
+
+    <div class="page-break"></div>
+    <h2>4. Requirement Analysis</h2>
+    <h3>4.1 Functional Requirements</h3>
+    <table>
+      <tr>
+        <th>Requirement ID</th>
+        <th>Functional Requirement</th>
+        <th>Implemented Evidence</th>
+      </tr>
+      <tr>
+        <td>FR-1</td>
+        <td>Search and resolve stocks and mutual funds across multiple markets.</td>
+        <td>Implemented through the universal search route and search adapter over Nasdaq, NSE, MFAPI/AMFI, and demo fallbacks.</td>
+      </tr>
+      <tr>
+        <td>FR-2</td>
+        <td>Display stock overview with quote, history, fundamentals, news, documents, and notes.</td>
+        <td>Implemented in the dynamic dashboard detail page and bundled through adapter composition.</td>
+      </tr>
+      <tr>
+        <td>FR-3</td>
+        <td>Allow user-specific watchlists and portfolios.</td>
+        <td>Implemented with IndexedDB object stores and repository functions.</td>
+      </tr>
+      <tr>
+        <td>FR-4</td>
+        <td>Support natural-language screening and preset strategies.</td>
+        <td>Implemented in the screener workbench with rule parsing and large filter definitions.</td>
+      </tr>
+      <tr>
+        <td>FR-5</td>
+        <td>Provide AI insight generation without mandatory paid APIs.</td>
+        <td>Implemented through heuristic provider, sentiment scoring, beginner assessment, and insight generation.</td>
+      </tr>
+      <tr>
+        <td>FR-6</td>
+        <td>Generate personalized recommendations based on user financial profile.</td>
+        <td>Implemented in the personalized agentic engine and PDF report exporter.</td>
+      </tr>
+      <tr>
+        <td>FR-7</td>
+        <td>Provide an AI chat workspace.</td>
+        <td>Implemented through the Ollama-based Q/A route and UI workbench.</td>
+      </tr>
+      <tr>
+        <td>FR-8</td>
+        <td>Enable price alerts and optional email notifications.</td>
+        <td>Implemented by alert background monitor, alert logic, local persistence, and SMTP email route.</td>
+      </tr>
+      <tr>
+        <td>FR-9</td>
+        <td>Export financial statement tables.</td>
+        <td>Implemented using the SheetJS-based Excel export utility.</td>
+      </tr>
+      <tr>
+        <td>FR-10</td>
+        <td>Support optional authentication backends.</td>
+        <td>Implemented through local and Firebase auth adapters behind a common interface.</td>
+      </tr>
+    </table>
+
+    <h3>4.2 Non-Functional Requirements</h3>
+    <table>
+      <tr>
+        <th>Category</th>
+        <th>Expected Goal</th>
+        <th>Implementation Approach</th>
+      </tr>
+      <tr>
+        <td>Usability</td>
+        <td>Support both beginners and advanced users.</td>
+        <td>Dual interface mode, clear toggles, explanatory summaries, and market-specific search guidance.</td>
+      </tr>
+      <tr>
+        <td>Performance</td>
+        <td>Fast page interaction and minimal over-fetching.</td>
+        <td>React Query caching, client TTL cache, server TTL cache, dynamic imports, virtualization, downsampling, skeleton loading states.</td>
+      </tr>
+      <tr>
+        <td>Availability</td>
+        <td>Remain useful even when some external providers fail.</td>
+        <td>Demo data, cached fallback, hidden missing metrics, and stale FX support.</td>
+      </tr>
+      <tr>
+        <td>Portability</td>
+        <td>Easy setup and deployment.</td>
+        <td>Node-based Next.js app with static-first behavior and optional Cloudflare or Vercel deployment.</td>
+      </tr>
+      <tr>
+        <td>Maintainability</td>
+        <td>Modular code structure.</td>
+        <td>Separated app pages, components, adapters, providers, storage, AI, and tests.</td>
+      </tr>
+      <tr>
+        <td>Security</td>
+        <td>Avoid unnecessary remote storage of user data by default.</td>
+        <td>Local-first persistence; optional external auth and email only when configured.</td>
+      </tr>
+      <tr>
+        <td>Scalability</td>
+        <td>Allow future provider additions or backend replacement.</td>
+        <td>Adapter and provider abstraction layers with market-specific routing.</td>
+      </tr>
+    </table>
+
+    <h2>5. Technology Stack and Development Environment</h2>
+    <table>
+      <tr>
+        <th>Layer</th>
+        <th>Technology</th>
+        <th>Purpose in Project</th>
+      </tr>
+      <tr>
+        <td>Frontend Framework</td>
+        <td>Next.js 13.5.6 (App Router)</td>
+        <td>Routing, page rendering, route handlers, build system, deployment compatibility.</td>
+      </tr>
+      <tr>
+        <td>Programming Language</td>
+        <td>TypeScript 5.x</td>
+        <td>Type safety, domain modeling, maintainable large-scale frontend/backend logic.</td>
+      </tr>
+      <tr>
+        <td>UI Styling</td>
+        <td>Tailwind CSS</td>
+        <td>Rapid styling, responsive layout, design consistency.</td>
+      </tr>
+      <tr>
+        <td>Animation</td>
+        <td>Framer Motion</td>
+        <td>Motion effects in dashboards, hero sections, and panels.</td>
+      </tr>
+      <tr>
+        <td>State Management</td>
+        <td>Zustand</td>
+        <td>Theme, mode, dashboard market, and auth session store management.</td>
+      </tr>
+      <tr>
+        <td>Server Data Cache</td>
+        <td>TanStack React Query</td>
+        <td>Client query caching, staleness control, refetch policies.</td>
+      </tr>
+      <tr>
+        <td>Local Persistence</td>
+        <td>IndexedDB via idb</td>
+        <td>Watchlists, portfolio transactions, notes, custom screens, alerts, sessions, and key-value storage.</td>
+      </tr>
+      <tr>
+        <td>Visualization</td>
+        <td>Recharts</td>
+        <td>Chart rendering for history and financial views.</td>
+      </tr>
+      <tr>
+        <td>Spreadsheet Export</td>
+        <td>SheetJS (xlsx)</td>
+        <td>Export statement tables to Excel workbooks.</td>
+      </tr>
+      <tr>
+        <td>PDF Export</td>
+        <td>jsPDF</td>
+        <td>Personalized agentic report generation.</td>
+      </tr>
+      <tr>
+        <td>Email</td>
+        <td>Nodemailer</td>
+        <td>SMTP-based alert email delivery.</td>
+      </tr>
+      <tr>
+        <td>Testing</td>
+        <td>Vitest</td>
+        <td>Unit testing for business logic and helper utilities.</td>
+      </tr>
+    </table>
+
+    <p>
+      The development experience is intentionally simple. The repository provides a one-command setup path using <span class="mono">npm install && npm run dev</span>.
+      Build commands include a standard production build as well as a Cloudflare-specific build flow. Optional configuration is exposed through an environment example
+      file rather than enforced backend setup, which is a practical choice for academic demonstration and easy evaluation.
+    </p>
+
+    <div class="page-break"></div>
+    <h2>6. System Architecture and Design</h2>
+    <h3>6.1 Architectural Philosophy</h3>
+    <p>
+      The architecture of Stock Metrics is shaped by five guiding principles: modularity, local-first persistence, static-first delivery, graceful degradation, and
+      explainable AI. Instead of a monolithic backend and opaque AI prompts, the system composes focused modules that each solve a well-defined concern. UI components
+      do not call raw providers directly. Data retrieval passes through adapters, route handlers, provider integrations, and cache layers. This separation reduces
+      coupling and makes the system easier to understand, test, and extend.
+    </p>
+
+    <h3>6.2 High-Level Layers</h3>
+    <ol>
+      <li><strong>Presentation Layer:</strong> Next.js pages and feature components provide the UI for dashboard, screener, watchlist, portfolio, alerts, agentic analysis, Q/A, learning, and authentication.</li>
+      <li><strong>Client State and Storage Layer:</strong> Zustand stores maintain theme, UI mode, and auth state, while IndexedDB preserves long-lived user records and analysis artifacts.</li>
+      <li><strong>Client Domain Layer:</strong> Adapters aggregate quotes, history, fundamentals, news, documents, FX, and AI responses into app-ready bundles.</li>
+      <li><strong>Server Boundary Layer:</strong> Next.js route handlers proxy free external APIs, normalize responses, and attach cache headers.</li>
+      <li><strong>Provider Layer:</strong> Dedicated provider modules integrate Yahoo Finance, SEC EDGAR, RSS feeds, MFAPI, NSE data, AMFI text, and external utility APIs.</li>
+    </ol>
+
+    <h3>6.3 Actual Project Snapshot</h3>
+    <table>
+      <tr>
+        <th>Metric</th>
+        <th>Value</th>
+      </tr>
+      <tr>
+        <td>Total files under <span class="mono">src</span> and <span class="mono">tests</span></td>
+        <td>121</td>
+      </tr>
+      <tr>
+        <td>Approximate source/document/style lines counted in project scan</td>
+        <td>23,783</td>
+      </tr>
+      <tr>
+        <td>Top-level page files</td>
+        <td>13 page components plus a dynamic stock detail route</td>
+      </tr>
+      <tr>
+        <td>API route handlers</td>
+        <td>10</td>
+      </tr>
+      <tr>
+        <td>Feature and common component files</td>
+        <td>30</td>
+      </tr>
+      <tr>
+        <td>Library/domain files</td>
+        <td>45</td>
+      </tr>
+      <tr>
+        <td>Test files</td>
+        <td>6</td>
+      </tr>
+    </table>
+
+    <h3>6.4 Core Navigation and Pages</h3>
+    <p>
+      The active navigation bar exposes the following main modules: Dashboard, Screener, Watchlist, Portfolio, Alert, Personalized Agent, Chat with AI, and Learning.
+      Supporting auth-related routes include Login, Register, Forgot Password, and Account. The root page redirects to the dashboard. A dynamic route under
+      <span class="mono">/dashboard/[market]/[symbol]</span> renders the stock or mutual fund detail page.
+    </p>
+
+    <h3>6.5 State and Persistence Design</h3>
+    <p>
+      UI preferences are stored with Zustand persistence under the key <span class="mono">stock-metrics-ui</span>, retaining theme, interface mode, default market,
+      and currency preference for U.S. stocks. Authentication state is held in a dedicated store. Long-lived browser data is saved in IndexedDB object stores:
+      <span class="mono">users</span>, <span class="mono">session</span>, <span class="mono">watchlists</span>, <span class="mono">portfolioTxns</span>,
+      <span class="mono">notes</span>, <span class="mono">customScreens</span>, <span class="mono">priceAlerts</span>, <span class="mono">alertMessages</span>,
+      and <span class="mono">kv</span>. This design keeps user-controlled content local by default.
+    </p>
+
+    <h3>6.6 Caching Strategy</h3>
+    <p>
+      The project uses caching at multiple levels. On the client side, React Query governs request freshness and garbage collection, while a lightweight in-memory
+      TTL map in <span class="mono">fetch-cache.ts</span> avoids repeated fetches for the same endpoint. On the server side, route handlers and provider helpers use a
+      memory-based <span class="mono">withServerCache</span> function. External requests also use Next.js revalidation where appropriate. This combination balances
+      responsiveness with a realistic expectation that free public data providers should not be called excessively.
+    </p>
+
+    <div class="quote-box">
+      <p>
+        Architectural highlight: the system is not “frontend only” and not a traditional heavy backend either. It is best described as a static-first web application
+        with local persistence and targeted serverless proxy routes for live provider normalization.
+      </p>
+    </div>
+
+    <div class="page-break"></div>
+    <h2>7. Module-Wise Implementation Details</h2>
+
+    <h3>7.1 Dashboard and Stock Detail Module</h3>
+    <p>
+      The dashboard is the default entry experience. It presents market-aware discovery, hero metrics, coverage indicators, and transitions into detailed company
+      analysis. The detail page assembles a <strong>StockDetailBundle</strong> by first resolving the search entity and then fetching quote, historical series,
+      fundamentals, news, and documents in parallel. This is a sound design choice because it minimizes latency and aligns each feature panel with a clearly defined
+      data contract.
+    </p>
+    <p>The stock detail view includes:</p>
+    <ul>
+      <li>Company/about information and website links.</li>
+      <li>Quote display, change tracking, and market timing information.</li>
+      <li>Key metrics with missing-value suppression instead of misleading placeholders.</li>
+      <li>Financial statement tables for profit and loss, quarterly results, balance sheet, and cash flow.</li>
+      <li>Consolidated or standalone view support where applicable.</li>
+      <li>Interactive price chart panels with different time windows.</li>
+      <li>AI insight summaries and beginner-friendly checks.</li>
+      <li>Peer suggestions and comparison support.</li>
+      <li>News, document links, and locally stored notes.</li>
+      <li>Excel export for financial statements.</li>
+      <li>USD/INR presentation support for U.S. counters.</li>
+    </ul>
+
+    <h3>7.2 Universal Search Module</h3>
+    <p>
+      Search is a foundational module because almost all user journeys begin with entity discovery. The search provider integrates three distinct public indexes:
+      U.S. listings are derived from Nasdaq Trader symbol directories, Indian equities are derived from the NSE equity list CSV, and Indian mutual funds are resolved
+      via MFAPI or AMFI text fallbacks. Search results are scored using normalized symbol, display symbol, name, and alias matching, with additional bias for market
+      context. The implementation also merges live results with the internal demo universe to ensure continuity even when public index loading fails.
+    </p>
+
+    <h3>7.3 Screener Module</h3>
+    <p>
+      The screener workbench is one of the heaviest modules in the repository and demonstrates substantial feature engineering. It defines a large screening row model
+      with valuation, profitability, balance sheet, growth, ownership, price/volume, and technical fields. It supports both direct filter manipulation and natural
+      language parsing through the heuristic AI provider. The module also includes preset strategies such as Quality Compounders, Value + Yield, Growth Leaders,
+      Low Leverage, Momentum, and Largecap Stability.
+    </p>
+    <p>
+      Beyond static filtering, the screener computes or derives several technical values including moving averages, RSI, volatility, drawdown, and relative return
+      measures from historical data. Results are rendered through a virtualized table so the interface remains efficient even when result sets grow.
+    </p>
+
+    <h3>7.4 Watchlist Module</h3>
+    <p>
+      The watchlist module enables users to create multiple named watchlists, add and remove symbols, and inspect quick visual cues such as sparkline movement and
+      short-term return blocks. Watchlists are stored locally. The module also seeds an initial demo watchlist if no watchlists are found, improving first-run usability.
+      A watchlist row links directly into the detail page of the selected security.
+    </p>
+
+    <h3>7.5 Portfolio Module</h3>
+    <p>
+      The portfolio module captures buy and sell transactions, derives holdings from transaction history, computes weighted average cost, calculates current value and
+      profit/loss, and normalizes cross-currency positions into INR using the latest available USD to INR rate. Even though the pricing source is delayed and best-effort,
+      the module still provides a coherent personal accounting view. Allocation percentages are visualized with lightweight bars rather than requiring a heavier chart dependency.
+    </p>
+
+    <h3>7.6 Alerts Module</h3>
+    <p>
+      Price alerts are stored per user and evaluated client-side by a background monitor mounted at the app provider level. The monitor polls approximately every
+      45 seconds, retrieves latest quotes for enabled alerts, checks condition crossings through a pure evaluation function, writes alert messages to IndexedDB, and
+      optionally invokes a server email route backed by Gmail SMTP credentials. This design is elegant for a low-cost architecture, though it also means alert checks
+      only run while a user session is active in the browser.
+    </p>
+
+    <h3>7.7 Agentic Personalized Recommendation Module</h3>
+    <p>
+      The personalized agent module is a major differentiator in the codebase. The form collects user demographics, dependents, employment profile, monthly cash flow,
+      taxes, assets, retirement balances, liabilities, emergency fund cover, goals, time horizon, risk preference, liquidity need, and market scope. The engine then:
+    </p>
+    <ol>
+      <li>Normalizes and validates profile input.</li>
+      <li>Builds a financial profile including surplus, debt burden, net worth, emergency fund gap, current allocation, and ideal allocation.</li>
+      <li>Resolves the investment universe based on market scope.</li>
+      <li>Loads security data and risk context.</li>
+      <li>Computes technical, sentiment, fundamentals, DCF, and fit-based scores.</li>
+      <li>Applies weighted personalized scoring.</li>
+      <li>Produces ranked recommendations, action notes, and portfolio suggestions.</li>
+      <li>Supports PDF export of the final report.</li>
+    </ol>
+    <p>
+      The default scoring weights in the code are 40% stock quality, 25% risk compatibility, 20% portfolio fit, and 15% life-stage fit. This is a noteworthy design
+      because it reflects a multi-factor recommendation process rather than a single black-box confidence number.
+    </p>
+
+    <h3>7.8 Q/A Module</h3>
+    <p>
+      The Q/A workbench is a general-purpose chat interface that integrates with Ollama. It checks model availability, discovers installed models, falls back from the
+      configured default when needed, and formats assistant responses into headings, lists, paragraphs, and code blocks. Chat history is autosaved into IndexedDB key-value
+      storage so the conversational state persists locally. Unlike the heuristic learning assistant, this route is intended for broader-purpose interaction and depends on
+      a running local Ollama server.
+    </p>
+
+    <h3>7.9 Learning Module</h3>
+    <p>
+      In the current routed application, the Learning page presents a curated free-course catalog from Khan Academy, MIT OpenCourseWare, and Open Yale Courses. Users can
+      filter by category and search by topic. This makes the learning section practical for project demonstrations because it offers visible educational value without
+      requiring external AI configuration.
+    </p>
+    <p>
+      At the codebase level, the repository also contains a separate <span class="mono">LearningAssistant</span> component and local markdown content files under
+      <span class="mono">src/content/learning</span>. These assets are not currently wired to the active Learning route, which suggests an evolution path from a local
+      knowledge-base assistant toward the current curated-course hub. This is valuable evidence of iterative development rather than a purely static one-shot implementation.
+    </p>
+
+    <h3>7.10 Authentication Module</h3>
+    <p>
+      The auth system uses an adapter pattern. In default mode, a local auth adapter stores registered demo users in IndexedDB and keeps a remembered session in IndexedDB
+      or a temporary session in sessionStorage. Google-based actions intentionally throw informative errors unless Firebase is configured. An optional Firebase adapter
+      provides email/password, Google sign-in, session persistence, password reset, and account deletion handling when the relevant environment variables are present.
+    </p>
+
+    <div class="page-break"></div>
+    <h2>8. Data Sources, Algorithms, and Core Logic</h2>
+
+    <h3>8.1 Market Data Sources</h3>
+    <table>
+      <tr>
+        <th>Data Domain</th>
+        <th>Source</th>
+        <th>How It Is Used</th>
+      </tr>
+      <tr>
+        <td>Quotes and price history</td>
+        <td>Yahoo Finance chart endpoint</td>
+        <td>Used through market quote and history routes for U.S. and Indian symbols.</td>
+      </tr>
+      <tr>
+        <td>Mutual fund NAV history</td>
+        <td>MFAPI / AMFI</td>
+        <td>Used for scheme history and latest NAV calculation.</td>
+      </tr>
+      <tr>
+        <td>U.S. fundamentals and documents</td>
+        <td>SEC EDGAR / XBRL / submissions</td>
+        <td>Used for key metrics, statement tables, and SEC document links.</td>
+      </tr>
+      <tr>
+        <td>Indian company documents</td>
+        <td>Screener/BSE-linked investor documents</td>
+        <td>Latest annual report and presentation discovery from public HTML pages.</td>
+      </tr>
+      <tr>
+        <td>News</td>
+        <td>Google News RSS</td>
+        <td>Relevant headline aggregation with relevance and sentiment scoring.</td>
+      </tr>
+      <tr>
+        <td>FX</td>
+        <td>open.er-api.com</td>
+        <td>USD to INR conversion for cross-market portfolio normalization.</td>
+      </tr>
+      <tr>
+        <td>Entity search indexes</td>
+        <td>Nasdaq Trader, NSE list, MFAPI/AMFI</td>
+        <td>Search universe construction for multiple markets.</td>
+      </tr>
+    </table>
+
+    <h3>8.2 Fallback and Transparency Strategy</h3>
+    <p>
+      One of the strongest engineering decisions in this project is that fallback behavior is explicit rather than hidden. For example, if the quote or historical feed
+      fails, demo history can be generated. If U.S. fundamentals are available only partially, the live SEC bundle is merged with demo statements and peer information.
+      If FX fails, cached data is used and flagged as stale. Missing metrics are hidden instead of guessed. This approach protects the integrity of the user interface by
+      preferring omission over misinformation.
+    </p>
+
+    <h3>8.3 Heuristic AI Layer</h3>
+    <p>
+      The heuristic AI provider is the default analysis engine. It offers statement summaries, AI insight generation, beginner assessment, peer suggestion, learning
+      question answering, and screener query parsing. These capabilities are implemented through deterministic logic rather than remote generative inference, which makes
+      the platform operational even without paid API access.
+    </p>
+    <p>The heuristic layer uses the following notable techniques:</p>
+    <ul>
+      <li>Metric extraction from structured bundles.</li>
+      <li>Trend phase detection from price returns over time.</li>
+      <li>Volatility and maximum drawdown estimation from historical series.</li>
+      <li>Fraud-risk flags based on leverage, pledge, margin weakness, and sales-profit mismatch.</li>
+      <li>Lexicon-based news sentiment with positive and negative token lists.</li>
+      <li>Beginner guidance translated into simple checks and recommendations.</li>
+    </ul>
+
+    <h3>8.4 Personalized Engine Logic</h3>
+    <p>
+      The personalized engine combines household finance and security analysis. It computes monthly investable surplus, EMI burden, emergency fund shortfall, risk profile,
+      allocation gaps, local portfolio concentration, technical signals, sentiment distributions, risk levels, DCF valuation state, tax holding guidance, and recommendation
+      fit. The DCF logic models projected free cash flows for five years and adds a terminal value to produce an intrinsic value per share when sufficient inputs exist.
+      Personalized scoring blends stock quality, risk compatibility, portfolio fit, and life-stage fit into a final recommendation output such as BUY, HOLD, or SELL.
+    </p>
+
+    <h3>8.5 Alert Logic</h3>
+    <p>
+      The price alert evaluator is intentionally simple and testable. It checks whether a price is above or below the target and triggers only when the condition changes
+      from unmet to met. This avoids repeated notifications while the price remains on the same side of the threshold. The message builder then formats a readable subject
+      and body for both in-app storage and email delivery.
+    </p>
+
+    <h3>8.6 Export Utilities</h3>
+    <p>
+      Two export paths exist in the application. First, financial statements can be written to a multi-sheet Excel workbook, including separate consolidated and standalone
+      sheets when available. Second, the personalized agent can generate a PDF report summarizing user profile, household finance score, recommendation, alternatives,
+      and model notes. These export capabilities strengthen the project’s usefulness in real workflows and demonstrate applied data transformation.
+    </p>
+
+    <div class="page-break"></div>
+    <h2>9. Testing, Validation, and Build Verification</h2>
+    <h3>9.1 Testing Approach</h3>
+    <p>
+      The project includes focused unit tests written with Vitest. The test suite does not aim to cover the entire UI surface; instead, it targets logic-heavy modules
+      where regression would be most damaging. This is an appropriate strategy for a project of this size because it prioritizes business rules, parsing, scoring,
+      and integration helper correctness.
+    </p>
+
+    <h3>9.2 Tested Areas</h3>
+    <table>
+      <tr>
+        <th>Test File</th>
+        <th>What It Validates</th>
+      </tr>
+      <tr>
+        <td><span class="mono">alerts-logic.test.ts</span></td>
+        <td>Crossing behavior for price alerts and readability of alert message generation.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">chat-format.test.ts</span></td>
+        <td>Markdown-like parsing of assistant message formatting into structured UI blocks.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">heuristics.test.ts</span></td>
+        <td>Screener phrase parsing, AI insight generation, beginner assessment, and safe handling of missing fields.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">metrics.test.ts</span></td>
+        <td>Correct mapping of metric values to units and omission of missing values.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">ollama-chat.test.ts</span></td>
+        <td>Ollama URL normalization, model fallback logic, message normalization, and error handling when Ollama is unreachable.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">personalized-engine.test.ts</span></td>
+        <td>Input guardrails, negative-value rejection, asset accounting, market-scope normalization, FX conversion, freshness classification, and debt-risk labeling.</td>
+      </tr>
+    </table>
+
+    <h3>9.3 Actual Verification Results</h3>
+    <p>
+      The repository was validated by executing the existing automated test suite and production build on 07 April 2026. Both commands completed successfully.
+    </p>
+    <table>
+      <tr>
+        <th>Verification Step</th>
+        <th>Observed Result</th>
+      </tr>
+      <tr>
+        <td><span class="mono">npm test</span></td>
+        <td>6 test files passed, 26 tests passed, zero failures.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">npm run build</span></td>
+        <td>Production build completed successfully with static page generation and route optimization.</td>
+      </tr>
+    </table>
+
+    <h3>9.4 Build Output Snapshot</h3>
+    <p>
+      The successful production build reported the largest interactive pages as the dynamic stock detail page (~112 kB route size), the agentic page (~48.1 kB),
+      and the screener page (~20.6 kB), with a shared first-load JavaScript footprint of approximately 80.9 kB. This is a reasonable output for a feature-dense
+      financial web application and suggests careful use of route-level splitting and dynamic imports.
+    </p>
+
+    <h3>9.5 Suggested Additional Testing for Future Work</h3>
+    <ul>
+      <li>End-to-end UI testing for search, routing, and watchlist operations.</li>
+      <li>Mocked integration tests for route handlers against external provider failure modes.</li>
+      <li>Cross-browser testing of IndexedDB persistence and auth behavior.</li>
+      <li>Performance profiling for large screener result sets on lower-end devices.</li>
+      <li>Visual regression tests for key dashboard and chart layouts.</li>
+    </ul>
+
+    <div class="page-break"></div>
+    <h2>10. Deployment Model and Operational Characteristics</h2>
+    <h3>10.1 Local Execution</h3>
+    <p>
+      The application is designed for easy local execution. After installing dependencies, the developer can run the application using standard Next.js development mode.
+      This simplicity is a major advantage in an academic environment because it removes heavy setup barriers and allows project evaluation on ordinary machines.
+    </p>
+
+    <h3>10.2 Static-First Hosting Model</h3>
+    <p>
+      Although the app includes route handlers for provider proxying, its general design remains static-first. Public pages and route structure are friendly to static
+      output patterns, while serverless function-style routes handle dynamic provider operations. This makes the system suitable for Vercel as well as Cloudflare Pages
+      with the <span class="mono">build:cloudflare</span> script.
+    </p>
+
+    <h3>10.3 Environment Variables</h3>
+    <p>The following optional groups are exposed in the environment template:</p>
+    <ul>
+      <li>OpenAI-compatible endpoint settings for optional AI answering.</li>
+      <li>Ollama base URL and model selection.</li>
+      <li>Gmail SMTP credentials for alert email delivery.</li>
+      <li>Firebase client configuration for hosted authentication.</li>
+      <li>Feature toggles such as default AI provider and Firebase enablement.</li>
+    </ul>
+
+    <h3>10.4 Operational Notes</h3>
+    <ul>
+      <li>Q/A functionality depends on a reachable Ollama instance.</li>
+      <li>Email alerts depend on SMTP credentials and a logged-in user email.</li>
+      <li>Firebase auth is optional and disabled by default.</li>
+      <li>Data freshness depends on the quality and availability of free external providers.</li>
+      <li>Client-owned data stays in the browser and can be lost if browser storage is cleared.</li>
+    </ul>
+
+    <div class="page-break"></div>
+    <h2>11. Security, Privacy, Reliability, and Limitations</h2>
+    <h3>11.1 Positive Security and Privacy Characteristics</h3>
+    <ul>
+      <li>User watchlists, portfolios, notes, custom screens, and alert history are stored locally rather than sent to a central database by default.</li>
+      <li>External integrations are optional, reducing mandatory attack surface.</li>
+      <li>Auth behavior is abstracted, making it possible to swap implementations without rewriting feature modules.</li>
+      <li>Route handlers validate basic request requirements and return bounded error responses.</li>
+    </ul>
+
+    <h3>11.2 Practical Limitations and Risks</h3>
+    <ul>
+      <li>The local auth adapter uses demo-oriented password hashing and is not suitable for production-grade public deployment.</li>
+      <li>Client-side background alert checks are not always-on monitoring; they require an active browser session.</li>
+      <li>In-memory server cache is process-local and not a shared distributed cache.</li>
+      <li>Free provider coverage for Indian fundamentals is limited and partially supplemented by demo content.</li>
+      <li>News relevance and sentiment are heuristic and should be treated as supportive context, not investment truth.</li>
+      <li>Q/A answers are dependent on local model quality when Ollama is used.</li>
+      <li>Browser storage can be cleared by the user or browser policies, affecting persistence.</li>
+    </ul>
+
+    <h3>11.3 Reliability Strategy</h3>
+    <p>
+      Despite these limitations, the project is robust in a practical sense because it does not depend on a single remote provider or a single AI model. It has a
+      multi-layer fallback strategy, explicit stale labeling, demo data continuity, local storage of user work, and modular adapters that can be replaced in future
+      versions. For a student project, this is a strong reliability posture because it reflects awareness of operational failure modes rather than assuming ideal conditions.
+    </p>
+
+    <div class="page-break"></div>
+    <h2>12. Results, Impact, and Future Scope</h2>
+    <h3>12.1 Achieved Results</h3>
+    <p>
+      The completed project demonstrates an end-to-end financial intelligence platform with meaningful breadth. It successfully unifies stock research, cross-market search,
+      charting, fundamentals, alerting, portfolio observation, rule-based AI analysis, personalized recommendation logic, learning support, and optional external services
+      into a single coherent codebase. The successful build and tests confirm that the repository is not only a design concept but a functioning system.
+    </p>
+
+    <h3>12.2 Academic Value</h3>
+    <p>
+      From an academic perspective, this project shows competency across several areas of software engineering: component-driven frontend design, typed full-stack
+      architecture, data integration, caching, browser persistence, algorithmic reasoning, provider abstraction, environment-based extensibility, test writing, and
+      documentation. It is especially suitable as a final year project because it combines visible user-facing value with substantial internal technical depth.
+    </p>
+
+    <h3>12.3 Future Scope</h3>
+    <ul>
+      <li>Add more reliable and legally stable Indian fundamentals providers.</li>
+      <li>Promote the unused local learning-assistant knowledge-base path into the active Learning route or offer both modes.</li>
+      <li>Introduce server-side scheduled alert checking for true 24x7 notifications.</li>
+      <li>Add benchmark-relative analytics such as beta versus market indexes and sector ETFs.</li>
+      <li>Improve portfolio analytics with realized gains, sector trends, and tax lots.</li>
+      <li>Expand AI explainability with richer score breakdown visualizations.</li>
+      <li>Add stronger production security for auth and secrets management.</li>
+      <li>Extend automated testing to end-to-end coverage.</li>
+      <li>Provide export to Word/PDF from within the application itself.</li>
+    </ul>
+
+    <h2>13. Conclusion</h2>
+    <p>
+      Stock Metrics is a well-structured, ambitious, and technically substantial finance platform. It addresses a real user problem, employs a modern web stack,
+      integrates multiple public data sources, and remains usable even when premium services are unavailable. Its architecture demonstrates thoughtful separation of concerns,
+      especially in the data adapter/provider model and the combination of local-first persistence with lightweight server boundaries.
+    </p>
+    <p>
+      What makes the project especially strong as a final year submission is not only the range of features but the maturity of the engineering decisions behind them.
+      The system is transparent about data quality, intentionally conservative about missing information, test-backed in key logic areas, and extensible in ways that leave
+      clear room for future research and product enhancement. In summary, the project is a strong example of applied full-stack software engineering in the financial domain.
+    </p>
+
+    <div class="page-break"></div>
+    <h2>Appendix A: Implemented Route Inventory</h2>
+    <h3>Page Routes</h3>
+    <ul>
+      <li><span class="mono">/</span></li>
+      <li><span class="mono">/dashboard</span></li>
+      <li><span class="mono">/dashboard/[market]/[symbol]</span></li>
+      <li><span class="mono">/screener</span></li>
+      <li><span class="mono">/watchlist</span></li>
+      <li><span class="mono">/portfolio</span></li>
+      <li><span class="mono">/alerts</span></li>
+      <li><span class="mono">/agentic</span></li>
+      <li><span class="mono">/qa</span></li>
+      <li><span class="mono">/learning</span></li>
+      <li><span class="mono">/login</span></li>
+      <li><span class="mono">/register</span></li>
+      <li><span class="mono">/forgot-password</span></li>
+      <li><span class="mono">/account</span></li>
+    </ul>
+
+    <h3>API Routes</h3>
+    <ul>
+      <li><span class="mono">/api/search/universal</span></li>
+      <li><span class="mono">/api/market/quote</span></li>
+      <li><span class="mono">/api/market/history</span></li>
+      <li><span class="mono">/api/fundamentals/us</span></li>
+      <li><span class="mono">/api/news</span></li>
+      <li><span class="mono">/api/documents</span></li>
+      <li><span class="mono">/api/fx/usd-inr</span></li>
+      <li><span class="mono">/api/qa/status</span></li>
+      <li><span class="mono">/api/qa/chat</span></li>
+      <li><span class="mono">/api/alerts/email</span></li>
+    </ul>
+
+    <h2>Appendix B: IndexedDB Object Stores</h2>
+    <ul>
+      <li><span class="mono">users</span></li>
+      <li><span class="mono">session</span></li>
+      <li><span class="mono">watchlists</span></li>
+      <li><span class="mono">portfolioTxns</span></li>
+      <li><span class="mono">notes</span></li>
+      <li><span class="mono">customScreens</span></li>
+      <li><span class="mono">priceAlerts</span></li>
+      <li><span class="mono">alertMessages</span></li>
+      <li><span class="mono">kv</span></li>
+    </ul>
+
+    <h2>Appendix C: Important Environment Variables</h2>
+    <table>
+      <tr>
+        <th>Variable</th>
+        <th>Purpose</th>
+      </tr>
+      <tr>
+        <td><span class="mono">OPENAI_COMPATIBLE_BASE_URL</span></td>
+        <td>Base URL for optional OpenAI-compatible provider.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">OPENAI_COMPATIBLE_API_KEY</span></td>
+        <td>Credential for optional compatible provider.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">OPENAI_COMPATIBLE_MODEL</span></td>
+        <td>Model identifier for optional compatible provider.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">OLLAMA_BASE_URL</span></td>
+        <td>Local Ollama host used by Q/A and optional learning answers.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">OLLAMA_MODEL</span></td>
+        <td>Preferred Ollama model, defaulting to <span class="mono">qwen3</span> when not set.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">GMAIL_SMTP_USER</span></td>
+        <td>Sender email for alert notifications.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">GMAIL_SMTP_APP_PASSWORD</span></td>
+        <td>SMTP app password for Gmail-based sending.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">NEXT_PUBLIC_ENABLE_FIREBASE_AUTH</span></td>
+        <td>Flag to enable hosted auth flow instead of local auth.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">NEXT_PUBLIC_DEFAULT_AI_PROVIDER</span></td>
+        <td>Selects heuristic, Ollama, or OpenAI-compatible learning provider behavior.</td>
+      </tr>
+    </table>
+
+    <h2>Appendix D: Largest Modules by Approximate Line Count</h2>
+    <table>
+      <tr>
+        <th>File</th>
+        <th>Approximate Lines</th>
+        <th>Reason It Matters</th>
+      </tr>
+      <tr>
+        <td><span class="mono">src/components/agentic/agentic-ai-workbench.tsx</span></td>
+        <td>3318</td>
+        <td>Main personalized recommendation user workflow.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">src/lib/agentic/personalized-engine.ts</span></td>
+        <td>2618</td>
+        <td>Financial profiling, scoring, and recommendation engine.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">src/components/screener/screener-workbench.tsx</span></td>
+        <td>2227</td>
+        <td>Advanced screening logic and large feature surface.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">src/lib/ai/heuristics.ts</span></td>
+        <td>1629</td>
+        <td>Rule-based AI reasoning and beginner assessment.</td>
+      </tr>
+      <tr>
+        <td><span class="mono">src/components/dashboard/stock-detail-view.tsx</span></td>
+        <td>1579</td>
+        <td>Primary company analysis interface.</td>
+      </tr>
+    </table>
+
+    <h2>Appendix E: Primary Internal Sources Used to Prepare This Report</h2>
+    <ul>
+      <li><span class="mono">README.md</span></li>
+      <li><span class="mono">docs/architecture-diagram.md</span></li>
+      <li><span class="mono">package.json</span></li>
+      <li><span class="mono">src/components/dashboard/*</span></li>
+      <li><span class="mono">src/components/screener/screener-workbench.tsx</span></li>
+      <li><span class="mono">src/components/agentic/agentic-ai-workbench.tsx</span></li>
+      <li><span class="mono">src/components/portfolio/portfolio-manager.tsx</span></li>
+      <li><span class="mono">src/components/watchlist/watchlist-manager.tsx</span></li>
+      <li><span class="mono">src/components/alerts/*</span></li>
+      <li><span class="mono">src/components/qa/qa-workbench.tsx</span></li>
+      <li><span class="mono">src/components/learning/*</span></li>
+      <li><span class="mono">src/lib/data/adapters/*</span></li>
+      <li><span class="mono">src/lib/data/providers/*</span></li>
+      <li><span class="mono">src/lib/agentic/*</span></li>
+      <li><span class="mono">src/lib/ai/*</span></li>
+      <li><span class="mono">src/lib/storage/*</span></li>
+      <li><span class="mono">src/lib/auth/*</span></li>
+      <li><span class="mono">src/app/api/*</span></li>
+      <li><span class="mono">tests/*</span></li>
+    </ul>
+  </body>
+</html>

@@ -1,8 +1,8 @@
 import { openDB } from 'idb';
 import type { MarketKind } from '@/types';
 
-const DB_NAME = 'stock-metrics-db';
-const DB_VERSION = 2;
+export const DB_NAME = 'stock-metrics-db';
+export const DB_VERSION = 2;
 
 export type LocalUserRecord = {
   id: string;
