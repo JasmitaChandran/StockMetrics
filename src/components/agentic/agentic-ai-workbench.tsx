@@ -482,6 +482,15 @@ function recommendationSubtitle(item: {
   return item.market === 'india' ? 'Indian Stock' : 'US Stock';
 }
 
+function hasDcfValue(item: {
+  dcf: {
+    marginOfSafetyPct?: number;
+    valuationLabel: 'Undervalued' | 'Fairly Valued' | 'Overvalued' | 'Insufficient Data';
+  };
+}) {
+  return typeof item.dcf.marginOfSafetyPct === 'number';
+}
+
 function phaseIndex(progress: AgenticProgressTelemetry | null) {
   switch (progress?.phase) {
     case 'profile':
@@ -1248,6 +1257,9 @@ function SecurityPoolTable({
   items: AgenticAnalysisReport['stockRecommendations'];
   baseCurrency: 'INR' | 'USD';
 }) {
+  const isMutualFundTable = items.length > 0 && items.every((item) => recommendationType(item) === 'mutual_fund');
+  const missingDcfCount = items.filter((item) => recommendationType(item) === 'stock' && !hasDcfValue(item)).length;
+
   return (
     <div className="agentic-panel p-5">
       <div className="flex items-start justify-between gap-3">
@@ -1262,20 +1274,18 @@ function SecurityPoolTable({
 
       {items.length ? (
         <>
-          <div className="mt-4 overflow-auto rounded-2xl border border-slate-200 dark:border-slate-800">
-            <table className="min-w-full text-sm">
+          <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            <table className="min-w-[1080px] text-sm xl:min-w-full">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500 dark:bg-slate-900 dark:text-slate-400">
                 <tr>
-                  <th className="px-3 py-2">Security</th>
-                  <th className="px-3 py-2 text-right">Fit</th>
-                  <th className="px-3 py-2 text-right">Reco</th>
-                  <th className="px-3 py-2 text-right">Confidence</th>
-                  <th className="px-3 py-2 text-right">Quality</th>
-                  <th className="px-3 py-2 text-right">Risk Fit</th>
-                  <th className="px-3 py-2 text-right">Risk Level</th>
-                  <th className="px-3 py-2 text-right">P/E</th>
-                  <th className="px-3 py-2 text-right">DCF</th>
-                  <th className="px-3 py-2 text-right">Allocation</th>
+                  <th className="min-w-[220px] px-3 py-2">Security</th>
+                  <th className="min-w-[150px] px-3 py-2 text-right">Recommendation</th>
+                  <th className="min-w-[90px] px-3 py-2 text-right">Quality</th>
+                  <th className="min-w-[95px] px-3 py-2 text-right">Risk Fit</th>
+                  <th className="min-w-[95px] px-3 py-2 text-right">Risk Level</th>
+                  {!isMutualFundTable ? <th className="min-w-[80px] px-3 py-2 text-right">P/E</th> : null}
+                  {!isMutualFundTable ? <th className="min-w-[100px] px-3 py-2 text-right">DCF</th> : null}
+                  <th className="min-w-[120px] px-3 py-2 text-right">Allocation</th>
                 </tr>
               </thead>
               <tbody>
@@ -1285,26 +1295,23 @@ function SecurityPoolTable({
                       <div className="font-semibold text-slate-900 dark:text-white">{item.displaySymbol}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">{recommendationSubtitle(item)}</div>
                     </td>
-                    <td className="px-3 py-2 text-right font-semibold text-slate-900 dark:text-white">{item.scores.personalizedFit}</td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="whitespace-nowrap px-3 py-2 text-right">
                       <ScorePill value={item.scores.personalizedFit} recommendation={item.recommendation} />
                     </td>
-                    <td className="px-3 py-2 text-right text-xs">
-                      <div className="font-semibold text-slate-900 dark:text-white">
-                        {item.confidence.label} ({item.confidence.score})
-                      </div>
-                      <div className="text-slate-500 dark:text-slate-400">
-                        {item.confidence.fitLow}-{item.confidence.fitHigh}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right">{item.scores.stockQuality}</td>
-                    <td className="px-3 py-2 text-right">{item.scores.riskCompatibility}</td>
-                    <td className="px-3 py-2 text-right">{item.risk.level}</td>
-                    <td className="px-3 py-2 text-right">{typeof item.fundamentals.pe === 'number' ? item.fundamentals.pe.toFixed(1) : 'N/A'}</td>
-                    <td className="px-3 py-2 text-right">
-                      {typeof item.dcf.marginOfSafetyPct === 'number' ? `${item.dcf.marginOfSafetyPct.toFixed(1)}%` : item.dcf.valuationLabel}
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold">
+                    <td className="whitespace-nowrap px-3 py-2 text-right">{item.scores.stockQuality}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right">{item.scores.riskCompatibility}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right">{item.risk.level}</td>
+                    {!isMutualFundTable ? (
+                      <td className={cn('whitespace-nowrap px-3 py-2 text-right', typeof item.fundamentals.pe === 'number' ? '' : 'text-slate-500 dark:text-slate-400')}>
+                        {typeof item.fundamentals.pe === 'number' ? item.fundamentals.pe.toFixed(1) : 'N/A'}
+                      </td>
+                    ) : null}
+                    {!isMutualFundTable ? (
+                      <td className={cn('whitespace-nowrap px-3 py-2 text-right', hasDcfValue(item) ? '' : 'text-slate-500 dark:text-slate-400')}>
+                        {hasDcfValue(item) ? `${item.dcf.marginOfSafetyPct!.toFixed(1)}%` : 'N/A'}
+                      </td>
+                    ) : null}
+                    <td className="whitespace-nowrap px-3 py-2 text-right font-semibold">
                       <div>{formatCurrency(item.allocation.baseAmountMonthly, baseCurrency)}</div>
                       {item.allocation.baseCurrency !== item.allocation.securityCurrency ? (
                         <div className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
@@ -1319,6 +1326,7 @@ function SecurityPoolTable({
           </div>
           <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
             `Risk Fit` is compatibility with your selected profile (higher means better aligned, not riskier).
+            {!isMutualFundTable && missingDcfCount > 0 ? ` DCF shows N/A when valuation inputs are incomplete for a stock.` : ''}
           </p>
         </>
       ) : (
@@ -3298,7 +3306,7 @@ export function AgenticAiWorkbench() {
               </div>
             ) : null}
 
-            <div className="mt-5 grid gap-4 xl:grid-cols-3">
+            <div className="mt-5 space-y-4">
               <SecurityPoolTable
                 title="Best 10 India Stocks"
                 subtitle="Top India equities from the full screened universe."
