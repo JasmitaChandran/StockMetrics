@@ -8,6 +8,21 @@ function currencyForReport(report: AgenticAnalysisReport): 'INR' | 'USD' {
   return report.baseCurrency ?? report.userProfileSummary.baseCurrency ?? 'INR';
 }
 
+function recommendationPrimaryLabel(item: AgenticAnalysisReport['stockRecommendations'][number]) {
+  if (item.securityType === 'mutual_fund' || item.market === 'mf') {
+    return item.name.trim() || item.displaySymbol.trim();
+  }
+  return item.displaySymbol.trim() || item.name.trim();
+}
+
+function recommendationBadgeLabel(item: AgenticAnalysisReport['stockRecommendations'][number]) {
+  if (item.securityType === 'mutual_fund' || item.market === 'mf') {
+    const schemeCode = item.displaySymbol.trim();
+    return schemeCode ? `AMFI ${schemeCode}` : item.name.trim();
+  }
+  return item.name.trim() || item.displaySymbol.trim();
+}
+
 export async function downloadPersonalizedReportPdf(report: AgenticAnalysisReport) {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
@@ -117,7 +132,7 @@ export async function downloadPersonalizedReportPdf(report: AgenticAnalysisRepor
 
   if (primary) {
     writeSection('Primary Recommendation');
-    writeLabelValue('Stock', `${primary.displaySymbol} (${primary.name})`);
+    writeLabelValue('Stock', `${recommendationPrimaryLabel(primary)} (${recommendationBadgeLabel(primary)})`);
     writeLabelValue('Recommendation', primary.recommendation);
     writeLabelValue('Personalized fit', `${primary.scores.personalizedFit}/100`);
     writeLabelValue(
@@ -163,7 +178,11 @@ export async function downloadPersonalizedReportPdf(report: AgenticAnalysisRepor
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
-      doc.text(`${stock.displaySymbol} • ${stock.recommendation} • ${stock.scores.personalizedFit}/100`, PAGE_MARGIN + 12, y + 12);
+      doc.text(
+        `${recommendationPrimaryLabel(stock)} • ${stock.recommendation} • ${stock.scores.personalizedFit}/100`,
+        PAGE_MARGIN + 12,
+        y + 12,
+      );
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(71, 85, 105);
       const lines = doc.splitTextToSize(stock.keyReason, contentWidth - 24);

@@ -309,6 +309,12 @@ export interface PersonalizedStockRecommendation {
   personalityTags: string[];
 }
 
+export interface RecommendationMix {
+  buy: number;
+  hold: number;
+  avoid: number;
+}
+
 export type AgenticEngineType =
   | 'Agentic Orchestrator (Rules + Heuristic AI)'
   | 'Rules + Heuristic AI';
@@ -342,6 +348,11 @@ export interface AgenticAnalysisReport {
     analyzedUsStocks: number;
     analyzedMutualFunds: number;
     displayedStocks: number;
+    recommendationMix: {
+      indiaStocks: RecommendationMix;
+      usStocks: RecommendationMix;
+      mutualFunds: RecommendationMix;
+    };
     marketScope: AgentMarketScope;
     analysisMode: AnalysisMode;
     universeSource: 'live_index' | 'demo_fallback' | 'mixed_live_demo';
@@ -1675,6 +1686,47 @@ function recommendFromScore(score: number): PersonalizedStockRecommendation['rec
   return 'AVOID';
 }
 
+function hasCompleteTopPoolValuation(candidate: PersonalizedStockRecommendation) {
+  return candidate.securityType === 'stock' && typeof candidate.fundamentals.pe === 'number' && typeof candidate.dcf.marginOfSafetyPct === 'number';
+}
+
+function dedupeRecommendations(items: PersonalizedStockRecommendation[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = `${item.market}:${item.symbol}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function emptyRecommendationMix(): RecommendationMix {
+  return { buy: 0, hold: 0, avoid: 0 };
+}
+
+function summarizeRecommendationMix(items: PersonalizedStockRecommendation[]): RecommendationMix {
+  return items.reduce<RecommendationMix>((mix, item) => {
+    if (item.recommendation === 'BUY') mix.buy += 1;
+    else if (item.recommendation === 'HOLD') mix.hold += 1;
+    else mix.avoid += 1;
+    return mix;
+  }, emptyRecommendationMix());
+}
+
+function ensureRecommendationCoverage(items: PersonalizedStockRecommendation[], limit: number) {
+  const keyFor = (item: PersonalizedStockRecommendation) => `${item.market}:${item.symbol}`;
+  const guaranteedKeys = new Set<string>();
+
+  for (const recommendation of ['BUY', 'HOLD', 'AVOID'] as const) {
+    const match = items.find((item) => item.recommendation === recommendation);
+    if (match) guaranteedKeys.add(keyFor(match));
+  }
+
+  const guaranteed = items.filter((item) => guaranteedKeys.has(keyFor(item)));
+  const remainder = items.filter((item) => !guaranteedKeys.has(keyFor(item)));
+  return [...guaranteed, ...remainder].slice(0, limit);
+}
+
 async function analyzeStock(
   entity: SearchEntity,
   input: AgenticFormInput,
@@ -2394,6 +2446,24 @@ export async function generatePersonalizedAgenticAnalysis(
     .slice()
     .sort((left, right) => right.scores.personalizedFit - left.scores.personalizedFit);
   const topPools = {
+    indiaStocks: ensureRecommendationCoverage(
+      rankedAllCandidates
+        .filter((candidate) => candidate.securityType === 'stock' && candidate.market === 'india')
+        .filter(hasCompleteTopPoolValuation),
+      TOP_PER_POOL,
+    ),
+    usStocks: ensureRecommendationCoverage(
+      rankedAllCandidates
+        .filter((candidate) => candidate.securityType === 'stock' && candidate.market === 'us')
+        .filter(hasCompleteTopPoolValuation),
+      TOP_PER_POOL,
+    ),
+    mutualFunds: ensureRecommendationCoverage(
+      rankedAllCandidates.filter((candidate) => candidate.securityType === 'mutual_fund'),
+      TOP_PER_POOL,
+    ),
+  };
+  const recommendationPools = {
     indiaStocks: rankedAllCandidates
       .filter((candidate) => candidate.securityType === 'stock' && candidate.market === 'india')
       .slice(0, TOP_PER_POOL),
@@ -2405,9 +2475,9 @@ export async function generatePersonalizedAgenticAnalysis(
       .slice(0, TOP_PER_POOL),
   };
   let stockRecommendations = [
-    ...topPools.indiaStocks,
-    ...topPools.usStocks,
-    ...topPools.mutualFunds,
+    ...recommendationPools.indiaStocks,
+    ...recommendationPools.usStocks,
+    ...recommendationPools.mutualFunds,
   ]
     .sort((left, right) => right.scores.personalizedFit - left.scores.personalizedFit)
     .slice(0, MAX_DISPLAYED_RECOMMENDATIONS);
@@ -2422,6 +2492,16 @@ export async function generatePersonalizedAgenticAnalysis(
     }
   }
   if (!stockRecommendations.length && focusStock) stockRecommendations = [focusStock];
+  const analyzedUniverse = dedupeRecommendations([...(focusStock ? [focusStock] : []), ...analyzedCandidates]);
+  const recommendationMix = {
+    indiaStocks: summarizeRecommendationMix(
+      analyzedUniverse.filter((entity) => entity.securityType === 'stock' && entity.market === 'india'),
+    ),
+    usStocks: summarizeRecommendationMix(
+      analyzedUniverse.filter((entity) => entity.securityType === 'stock' && entity.market === 'us'),
+    ),
+    mutualFunds: summarizeRecommendationMix(analyzedUniverse.filter((entity) => entity.securityType === 'mutual_fund')),
+  };
 
   const finalRecommendation = buildFinalRecommendation(
     normalizedInput,
@@ -2536,17 +2616,12 @@ export async function generatePersonalizedAgenticAnalysis(
       totalMutualFundsInDataset: loadedUniverse.mutualFundCount,
       eligibleStocks: candidateUniverse.filter((entity) => entity.type === 'stock').length,
       eligibleMutualFunds: candidateUniverse.filter((entity) => entity.type === 'mutual_fund').length,
-      analyzedSecurities: analyzedCandidates.length + (focusStock ? 1 : 0),
-      analyzedIndiaStocks:
-        analyzedCandidates.filter((entity) => entity.securityType === 'stock' && entity.market === 'india').length +
-        (focusStock?.securityType === 'stock' && focusStock.market === 'india' ? 1 : 0),
-      analyzedUsStocks:
-        analyzedCandidates.filter((entity) => entity.securityType === 'stock' && entity.market === 'us').length +
-        (focusStock?.securityType === 'stock' && focusStock.market === 'us' ? 1 : 0),
-      analyzedMutualFunds:
-        analyzedCandidates.filter((entity) => entity.securityType === 'mutual_fund').length +
-        (focusStock?.securityType === 'mutual_fund' ? 1 : 0),
+      analyzedSecurities: analyzedUniverse.length,
+      analyzedIndiaStocks: analyzedUniverse.filter((entity) => entity.securityType === 'stock' && entity.market === 'india').length,
+      analyzedUsStocks: analyzedUniverse.filter((entity) => entity.securityType === 'stock' && entity.market === 'us').length,
+      analyzedMutualFunds: analyzedUniverse.filter((entity) => entity.securityType === 'mutual_fund').length,
       displayedStocks: stockRecommendations.length,
+      recommendationMix,
       marketScope: preferredMarket,
       analysisMode: normalizedInput.analysisMode,
       universeSource: loadedUniverse.source,

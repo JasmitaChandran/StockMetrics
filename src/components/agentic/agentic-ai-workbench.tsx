@@ -454,8 +454,6 @@ function recommendationMarketLabel(market: 'india' | 'us' | 'mf') {
       return 'US';
     case 'mf':
       return 'India';
-    default:
-      return market.toUpperCase();
   }
 }
 
@@ -464,9 +462,11 @@ function recommendationSubtitle(item: {
   market: 'india' | 'us' | 'mf';
   sector?: string;
   industry?: string;
+  displaySymbol?: string;
 }) {
   if (recommendationType(item) === 'mutual_fund') {
-    return 'Mutual Fund • India';
+    const schemeCode = item.displaySymbol?.trim();
+    return schemeCode ? `AMFI ${schemeCode} • India` : 'Mutual Fund • India';
   }
 
   const cleanSector = item.sector?.trim();
@@ -482,6 +482,71 @@ function recommendationSubtitle(item: {
   return item.market === 'india' ? 'Indian Stock' : 'US Stock';
 }
 
+function recommendationPrimaryLabel(item: {
+  securityType?: 'stock' | 'mutual_fund';
+  market: 'india' | 'us' | 'mf';
+  displaySymbol: string;
+  name: string;
+}) {
+  if (recommendationType(item) === 'mutual_fund') {
+    return item.name.trim() || item.displaySymbol.trim();
+  }
+  return item.displaySymbol.trim() || item.name.trim();
+}
+
+function recommendationBadgeLabel(item: {
+  securityType?: 'stock' | 'mutual_fund';
+  market: 'india' | 'us' | 'mf';
+  displaySymbol: string;
+  name: string;
+}) {
+  if (recommendationType(item) === 'mutual_fund') {
+    const schemeCode = item.displaySymbol.trim();
+    return schemeCode ? `AMFI ${schemeCode}` : item.name.trim();
+  }
+  return item.name.trim() || item.displaySymbol.trim();
+}
+
+type RecommendationMixCounts = AgenticAnalysisReport['recommendationUniverse']['recommendationMix']['indiaStocks'];
+
+function buildRecommendationMix(items: Array<Pick<AgenticAnalysisReport['stockRecommendations'][number], 'recommendation'>>): RecommendationMixCounts {
+  return items.reduce<RecommendationMixCounts>(
+    (mix, item) => {
+      if (item.recommendation === 'BUY') mix.buy += 1;
+      else if (item.recommendation === 'HOLD') mix.hold += 1;
+      else mix.avoid += 1;
+      return mix;
+    },
+    { buy: 0, hold: 0, avoid: 0 },
+  );
+}
+
+function recommendationMixLabel(mix: RecommendationMixCounts) {
+  return `${mix.buy} BUY • ${mix.hold} HOLD • ${mix.avoid} SELL`;
+}
+
+function recommendationDisplayLabel(recommendation?: string) {
+  if (!recommendation) return '';
+  return recommendation === 'AVOID' ? 'SELL' : recommendation;
+}
+
+function ensureRecommendationCoverage(
+  items: AgenticAnalysisReport['stockRecommendations'],
+  limit: number,
+) {
+  const keyFor = (item: AgenticAnalysisReport['stockRecommendations'][number]) => `${item.market}:${item.symbol}`;
+  const guaranteedKeys = new Set<string>();
+
+  for (const recommendation of ['BUY', 'HOLD', 'AVOID'] as const) {
+    const match = items.find((item) => item.recommendation === recommendation);
+    if (match) guaranteedKeys.add(keyFor(match));
+  }
+
+  const guaranteed = items.filter((item) => guaranteedKeys.has(keyFor(item)));
+  const remainder = items.filter((item) => !guaranteedKeys.has(keyFor(item)));
+  return [...guaranteed, ...remainder].slice(0, limit);
+}
+
 function hasDcfValue(item: {
   dcf: {
     marginOfSafetyPct?: number;
@@ -489,6 +554,60 @@ function hasDcfValue(item: {
   };
 }) {
   return typeof item.dcf.marginOfSafetyPct === 'number';
+}
+
+function hasCompleteTopPoolValuation(item: {
+  securityType?: 'stock' | 'mutual_fund';
+  market: 'india' | 'us' | 'mf';
+  fundamentals: { pe?: number };
+  dcf: {
+    marginOfSafetyPct?: number;
+    valuationLabel: 'Undervalued' | 'Fairly Valued' | 'Overvalued' | 'Insufficient Data';
+  };
+}) {
+  return recommendationType(item) === 'stock' && typeof item.fundamentals.pe === 'number' && hasDcfValue(item);
+}
+
+function buildDisplayTopPools(
+  recommendations: AgenticAnalysisReport['stockRecommendations'],
+  existingTopPools?: Partial<AgenticAnalysisReport['topPools']>,
+): AgenticAnalysisReport['topPools'] {
+  const dedupe = (items: AgenticAnalysisReport['stockRecommendations']) => {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      const key = `${item.market}:${item.symbol}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
+  const buildStockPool = (
+    market: 'india' | 'us',
+    preferred: AgenticAnalysisReport['stockRecommendations'] = [],
+  ) =>
+    ensureRecommendationCoverage(
+      dedupe([
+        ...preferred,
+        ...recommendations.filter((item) => recommendationType(item) === 'stock' && item.market === market),
+      ]).filter(hasCompleteTopPoolValuation),
+      10,
+    );
+
+  const buildMutualFundPool = (preferred: AgenticAnalysisReport['stockRecommendations'] = []) =>
+    ensureRecommendationCoverage(
+      dedupe([
+        ...preferred,
+        ...recommendations.filter((item) => recommendationType(item) === 'mutual_fund'),
+      ]),
+      10,
+    );
+
+  return {
+    indiaStocks: buildStockPool('india', existingTopPools?.indiaStocks),
+    usStocks: buildStockPool('us', existingTopPools?.usStocks),
+    mutualFunds: buildMutualFundPool(existingTopPools?.mutualFunds),
+  };
 }
 
 function phaseIndex(progress: AgenticProgressTelemetry | null) {
@@ -627,12 +746,12 @@ function updateLearningMemoryFromOutcome(
       working.riskCompatibility += 0.04;
       working.stockQuality -= 0.03;
       working.lifeStageFit += 0.01;
-      note = `Prior BUY on ${prevPrimary.displaySymbol} moved ${deltaPct.toFixed(1)}%; increased risk weight defensively.`;
+      note = `Prior BUY on ${recommendationPrimaryLabel(prevPrimary)} moved ${deltaPct.toFixed(1)}%; increased risk weight defensively.`;
     } else if (/BUY/i.test(prevReco) && deltaPct > 4) {
       working.stockQuality += 0.04;
       working.riskCompatibility -= 0.02;
       working.portfolioFit -= 0.02;
-      note = `Prior BUY on ${prevPrimary.displaySymbol} moved ${deltaPct.toFixed(1)}%; increased quality weight.`;
+      note = `Prior BUY on ${recommendationPrimaryLabel(prevPrimary)} moved ${deltaPct.toFixed(1)}%; increased quality weight.`;
     } else if (/AVOID|HOLD CASH/i.test(prevReco) && deltaPct > 6) {
       working.stockQuality += 0.03;
       working.riskCompatibility -= 0.02;
@@ -663,7 +782,7 @@ function buildChangeAudit(previousReport: AgenticAnalysisReport | null, currentR
 
   const highlights: string[] = [];
   if (prevPrimary.symbol !== nextPrimary.symbol || prevPrimary.market !== nextPrimary.market) {
-    highlights.push(`Primary changed from ${prevPrimary.displaySymbol} to ${nextPrimary.displaySymbol}.`);
+    highlights.push(`Primary changed from ${recommendationPrimaryLabel(prevPrimary)} to ${recommendationPrimaryLabel(nextPrimary)}.`);
   }
   highlights.push(`Recommendation: ${previousReport.finalRecommendation.recommendation} → ${currentReport.finalRecommendation.recommendation}.`);
   highlights.push(`Fit score: ${prevPrimary.scores.personalizedFit} → ${nextPrimary.scores.personalizedFit}.`);
@@ -696,6 +815,14 @@ function buildChangeAudit(previousReport: AgenticAnalysisReport | null, currentR
 function inferRecommendationUniverse(report: Pick<AgenticAnalysisReport, 'stockRecommendations' | 'focusStock'>) {
   const stockUniverse = demoUniverse.filter((entity) => entity.type === 'stock');
   const mutualFundUniverse = demoUniverse.filter((entity) => entity.type === 'mutual_fund');
+  const analyzedItems = [report.focusStock, ...report.stockRecommendations].filter(Boolean) as AgenticAnalysisReport['stockRecommendations'];
+  const seen = new Set<string>();
+  const uniqueAnalyzedItems = analyzedItems.filter((item) => {
+    const key = `${item.market}:${item.symbol}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   const markets = new Set(
     [
       ...(report.focusStock ? [report.focusStock.market] : []),
@@ -716,11 +843,20 @@ function inferRecommendationUniverse(report: Pick<AgenticAnalysisReport, 'stockR
     totalMutualFundsInDataset: mutualFundUniverse.length,
     eligibleStocks,
     eligibleMutualFunds,
-    analyzedSecurities: report.stockRecommendations.length,
-    analyzedIndiaStocks: report.stockRecommendations.filter((item) => recommendationType(item) === 'stock' && item.market === 'india').length,
-    analyzedUsStocks: report.stockRecommendations.filter((item) => recommendationType(item) === 'stock' && item.market === 'us').length,
-    analyzedMutualFunds: report.stockRecommendations.filter((item) => recommendationType(item) === 'mutual_fund').length,
+    analyzedSecurities: uniqueAnalyzedItems.length,
+    analyzedIndiaStocks: uniqueAnalyzedItems.filter((item) => recommendationType(item) === 'stock' && item.market === 'india').length,
+    analyzedUsStocks: uniqueAnalyzedItems.filter((item) => recommendationType(item) === 'stock' && item.market === 'us').length,
+    analyzedMutualFunds: uniqueAnalyzedItems.filter((item) => recommendationType(item) === 'mutual_fund').length,
     displayedStocks: report.stockRecommendations.length,
+    recommendationMix: {
+      indiaStocks: buildRecommendationMix(
+        uniqueAnalyzedItems.filter((item) => recommendationType(item) === 'stock' && item.market === 'india'),
+      ),
+      usStocks: buildRecommendationMix(
+        uniqueAnalyzedItems.filter((item) => recommendationType(item) === 'stock' && item.market === 'us'),
+      ),
+      mutualFunds: buildRecommendationMix(uniqueAnalyzedItems.filter((item) => recommendationType(item) === 'mutual_fund')),
+    },
     marketScope,
     analysisMode: 'suggest' as const,
     universeSource: 'demo_fallback' as const,
@@ -838,23 +974,14 @@ function normalizeSavedReport(report: AgenticAnalysisReport | undefined): Agenti
   const existing = report.recommendationUniverse as Partial<AgenticAnalysisReport['recommendationUniverse']> | undefined;
   const normalizedRecommendations = report.stockRecommendations.map(normalizeRecommendation);
   const normalizedFocus = report.focusStock ? normalizeRecommendation(report.focusStock) : undefined;
-  const topPools =
-    (report.topPools
-      ? {
-          indiaStocks: report.topPools.indiaStocks.map(normalizeRecommendation),
-          usStocks: report.topPools.usStocks.map(normalizeRecommendation),
-          mutualFunds: report.topPools.mutualFunds.map(normalizeRecommendation),
-        }
-      : undefined) ??
-    ({
-      indiaStocks: normalizedRecommendations
-        .filter((item) => recommendationType(item) === 'stock' && item.market === 'india')
-        .slice(0, 10),
-      usStocks: normalizedRecommendations
-        .filter((item) => recommendationType(item) === 'stock' && item.market === 'us')
-        .slice(0, 10),
-      mutualFunds: normalizedRecommendations.filter((item) => recommendationType(item) === 'mutual_fund').slice(0, 10),
-    } as AgenticAnalysisReport['topPools']);
+  const normalizedExistingTopPools = report.topPools
+    ? {
+        indiaStocks: report.topPools.indiaStocks.map(normalizeRecommendation),
+        usStocks: report.topPools.usStocks.map(normalizeRecommendation),
+        mutualFunds: report.topPools.mutualFunds.map(normalizeRecommendation),
+      }
+    : undefined;
+  const topPools = buildDisplayTopPools(normalizedRecommendations, normalizedExistingTopPools);
   return {
     ...report,
     engineType: report.engineType ?? 'Agentic Orchestrator (Rules + Heuristic AI)',
@@ -887,6 +1014,11 @@ function normalizeSavedReport(report: AgenticAnalysisReport | undefined): Agenti
       analyzedIndiaStocks: existing?.analyzedIndiaStocks ?? inferred.analyzedIndiaStocks,
       analyzedUsStocks: existing?.analyzedUsStocks ?? inferred.analyzedUsStocks,
       analyzedMutualFunds: existing?.analyzedMutualFunds ?? inferred.analyzedMutualFunds,
+      recommendationMix: {
+        indiaStocks: existing?.recommendationMix?.indiaStocks ?? inferred.recommendationMix.indiaStocks,
+        usStocks: existing?.recommendationMix?.usStocks ?? inferred.recommendationMix.usStocks,
+        mutualFunds: existing?.recommendationMix?.mutualFunds ?? inferred.recommendationMix.mutualFunds,
+      },
       universeSource: existing?.universeSource ?? inferred.universeSource,
       universeTruncated: existing?.universeTruncated ?? inferred.universeTruncated,
     },
@@ -941,7 +1073,7 @@ function buildAgentMissionPlan(
   const positionCapPct =
     report.finance.riskProfileLabel === 'Conservative' ? 8 : report.finance.riskProfileLabel === 'Moderate' ? 12 : 16;
   const goalLabel = report.userProfileSummary.investmentGoal.replace(/_/g, ' ');
-  const primaryLabel = primary?.displaySymbol ?? report.finalRecommendation.subject;
+  const primaryLabel = primary ? recommendationPrimaryLabel(primary) : report.finalRecommendation.subject;
 
   const emergencyStatus: AgentMissionStatus =
     emergencyGap <= 0 ? 'ready' : investableSurplus <= 0 ? 'blocked' : 'watch';
@@ -1241,7 +1373,7 @@ function ScorePill({
         : 'border-rose-300/60 bg-rose-500/15 text-rose-800 dark:border-rose-800/60 dark:text-rose-300';
   return (
     <span className={cn('inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold backdrop-blur', tone)}>
-      {value}/100{recommendation ? ` • ${recommendation}` : ''}
+      {value}/100{recommendation ? ` • ${recommendationDisplayLabel(recommendation)}` : ''}
     </span>
   );
 }
@@ -1251,14 +1383,15 @@ function SecurityPoolTable({
   subtitle,
   items,
   baseCurrency,
+  recommendationMix,
 }: {
   title: string;
   subtitle: string;
   items: AgenticAnalysisReport['stockRecommendations'];
   baseCurrency: 'INR' | 'USD';
+  recommendationMix?: RecommendationMixCounts;
 }) {
   const isMutualFundTable = items.length > 0 && items.every((item) => recommendationType(item) === 'mutual_fund');
-  const missingDcfCount = items.filter((item) => recommendationType(item) === 'stock' && !hasDcfValue(item)).length;
 
   return (
     <div className="agentic-panel p-5">
@@ -1266,6 +1399,9 @@ function SecurityPoolTable({
         <div>
           <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h4>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
+          {recommendationMix ? (
+            <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Full screen: {recommendationMixLabel(recommendationMix)}</p>
+          ) : null}
         </div>
         <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:text-cyan-300">
           Top {items.length}
@@ -1292,7 +1428,7 @@ function SecurityPoolTable({
                 {items.map((item) => (
                   <tr key={`${item.market}:${item.symbol}`} className="border-t border-slate-200 dark:border-slate-800">
                     <td className="px-3 py-2">
-                      <div className="font-semibold text-slate-900 dark:text-white">{item.displaySymbol}</div>
+                      <div className="font-semibold text-slate-900 dark:text-white">{recommendationPrimaryLabel(item)}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">{recommendationSubtitle(item)}</div>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-right">
@@ -1326,7 +1462,8 @@ function SecurityPoolTable({
           </div>
           <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
             `Risk Fit` is compatibility with your selected profile (higher means better aligned, not riskier).
-            {!isMutualFundTable && missingDcfCount > 0 ? ` DCF shows N/A when valuation inputs are incomplete for a stock.` : ''}
+            {!isMutualFundTable ? ' Stock Top 10 pools only include names with both P/E and DCF available.' : ''}
+            {recommendationMix ? ' When available, this pool also surfaces HOLD and SELL names from the wider screened universe instead of showing only BUY ideas.' : ''}
           </p>
         </>
       ) : (
@@ -1762,22 +1899,14 @@ export function AgenticAiWorkbench() {
 
   const rankedRecommendations =
     report?.stockRecommendations.slice().sort((left, right) => right.scores.personalizedFit - left.scores.personalizedFit) ?? [];
-  const topPools =
-    report?.topPools ?? {
-      indiaStocks: rankedRecommendations
-        .filter((candidate) => recommendationType(candidate) === 'stock' && candidate.market === 'india')
-        .slice(0, 10),
-      usStocks: rankedRecommendations
-        .filter((candidate) => recommendationType(candidate) === 'stock' && candidate.market === 'us')
-        .slice(0, 10),
-      mutualFunds: rankedRecommendations.filter((candidate) => recommendationType(candidate) === 'mutual_fund').slice(0, 10),
-    };
+  const topPools = report ? buildDisplayTopPools(rankedRecommendations, report.topPools) : buildDisplayTopPools(rankedRecommendations);
   const primaryStock = report?.focusStock ?? rankedRecommendations.find((candidate) => candidate.recommendation === 'BUY') ?? rankedRecommendations[0] ?? null;
   const alternativeStocks =
     rankedRecommendations
       .filter((stock) => !(stock.symbol === primaryStock?.symbol && stock.market === primaryStock?.market))
       .slice(0, 3) ?? [];
   const recommendationUniverse = report?.recommendationUniverse ?? (report ? inferRecommendationUniverse(report) : null);
+  const recommendationMix = recommendationUniverse?.recommendationMix;
   const totalStocksInDataset = recommendationUniverse?.totalStocksInDataset ?? 0;
   const totalMutualFundsInDataset = recommendationUniverse?.totalMutualFundsInDataset ?? 0;
   const eligibleStocks = recommendationUniverse?.eligibleStocks ?? report?.stockRecommendations.length ?? 0;
@@ -2868,7 +2997,7 @@ export function AgenticAiWorkbench() {
                     <div className="rounded-2xl border border-slate-200 bg-white/80 p-3 text-sm dark:border-slate-700 dark:bg-slate-950/60">
                       <div className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Estimated fit band</div>
                       <div className="mt-1 font-semibold text-slate-900 dark:text-white">
-                        {whatIfFit}/100 • {whatIfRecommendation}
+                        {whatIfFit}/100 • {recommendationDisplayLabel(whatIfRecommendation)}
                       </div>
                       <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         Risk compatibility {Math.round(whatIfRiskCompatibility)}/100
@@ -2909,9 +3038,9 @@ export function AgenticAiWorkbench() {
                       {primaryStock.market.toUpperCase()} • {primaryStock.sector}
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-3">
-                      <h3 className="text-2xl font-semibold text-slate-900 dark:text-white">{primaryStock.displaySymbol}</h3>
+                      <h3 className="text-2xl font-semibold text-slate-900 dark:text-white">{recommendationPrimaryLabel(primaryStock)}</h3>
                       <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-200">
-                        {primaryStock.name}
+                        {recommendationBadgeLabel(primaryStock)}
                       </span>
                     </div>
                     <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-slate-200">{primaryStock.keyReason}</p>
@@ -3296,7 +3425,7 @@ export function AgenticAiWorkbench() {
                 <div className="font-semibold">Why you are seeing these names</div>
                 <p className="mt-2 leading-6">
                   {recommendationUniverse?.analysisMode === 'specific'
-                    ? `You selected ${report.focusStock?.displaySymbol ?? 'a specific security'}, so the engine analyzed that security first and then ranked alternatives in your chosen scope (${recommendationUniverse?.marketScope?.toUpperCase() ?? 'BOTH'}).`
+                    ? `You selected ${report.focusStock ? recommendationPrimaryLabel(report.focusStock) : 'a specific security'}, so the engine analyzed that security first and then ranked alternatives in your chosen scope (${recommendationUniverse?.marketScope?.toUpperCase() ?? 'BOTH'}).`
                     : `You did not pick a specific security, so the agent screened your chosen scope (${recommendationUniverse?.marketScope?.toUpperCase() ?? 'BOTH'}) from the ${universeSourceLabel}.`}
                   {' '}It found <span className="font-semibold">{totalStocksInDataset}</span> stocks and <span className="font-semibold">{totalMutualFundsInDataset}</span> mutual funds in scope.
                   From that, <span className="font-semibold">{eligibleStocks}</span> stocks + <span className="font-semibold">{eligibleMutualFunds}</span> funds were eligible,{' '}
@@ -3308,22 +3437,25 @@ export function AgenticAiWorkbench() {
 
             <div className="mt-5 space-y-4">
               <SecurityPoolTable
-                title="Best 10 India Stocks"
+                title="Best Indian Stocks"
                 subtitle="Top India equities from the full screened universe."
                 items={topPools.indiaStocks}
                 baseCurrency={reportCurrency}
+                recommendationMix={recommendationMix?.indiaStocks}
               />
               <SecurityPoolTable
-                title="Best 10 US Stocks"
+                title="Best US Stocks"
                 subtitle="Top US equities from the full screened universe."
                 items={topPools.usStocks}
                 baseCurrency={reportCurrency}
+                recommendationMix={recommendationMix?.usStocks}
               />
               <SecurityPoolTable
-                title="Best 10 Mutual Funds"
+                title="Best Mutual Funds"
                 subtitle="Top mutual funds matched to your profile."
                 items={topPools.mutualFunds}
                 baseCurrency={reportCurrency}
+                recommendationMix={recommendationMix?.mutualFunds}
               />
             </div>
             </SectionCard>
@@ -3472,8 +3604,8 @@ export function AgenticAiWorkbench() {
                               <div key={`${stock.market}:${stock.symbol}`} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
                                 <div className="flex items-center justify-between gap-3">
                                   <div>
-                                    <div className="text-sm font-semibold text-slate-900 dark:text-white">{stock.displaySymbol}</div>
-                                    <div className="text-xs text-slate-500 dark:text-slate-400">{stock.sector} • {stock.market.toUpperCase()}</div>
+                                    <div className="text-sm font-semibold text-slate-900 dark:text-white">{recommendationPrimaryLabel(stock)}</div>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400">{recommendationSubtitle(stock)}</div>
                                   </div>
                                   <ScorePill value={stock.scores.personalizedFit} recommendation={stock.recommendation} />
                                 </div>
