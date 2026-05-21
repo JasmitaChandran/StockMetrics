@@ -2,26 +2,18 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Download, Filter, Info, PenLine, Save, Search, Share2, SlidersHorizontal, Sparkles, X } from 'lucide-react';
 import { VirtualizedTable } from '@/components/common/virtualized-table';
 import { demoFundamentalsBySymbol, demoUniverse, generateDemoHistory } from '@/lib/data/mock/demo-data';
-import { heuristicAiProvider } from '@/lib/ai';
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/utils/format';
-import { listCustomScreens, upsertCustomScreen } from '@/lib/storage/repositories';
 import { cn } from '@/lib/utils/cn';
 import type { SearchEntity } from '@/types';
 
 type FilterCategory =
   | 'Stock Universe'
   | 'Price & Volume'
-  | 'Technical Indicators'
   | 'Valuation'
   | 'Profitability'
-  | 'Financial Ratios'
-  | 'Balance Sheet & Cash Flow'
-  | 'Growth'
-  | 'Ownership'
-  | 'Income Statement';
+  | 'Financial Ratios';
 
 interface ScreenerRow {
   id: string;
@@ -31,7 +23,7 @@ interface ScreenerRow {
   exchange: string;
   sector: string;
   industry: string;
-  stockUniverse: 'India Stocks' | 'US Stocks';
+  stockUniverse: 'Indian Stocks' | 'US Stocks';
   marketCapBucket: 'Smallcap' | 'Midcap' | 'Largecap';
   currency: 'USD' | 'INR';
   closePrice?: number;
@@ -137,19 +129,30 @@ type ActiveFilter =
       selected: string[];
     };
 
-type SortField = 'name' | 'marketCap' | 'closePrice' | 'pe' | 'roe' | 'return1m' | 'return1d' | 'dailyVolume';
+type SortField =
+  | 'name'
+  | 'stockUniverse'
+  | 'marketCap'
+  | 'closePrice'
+  | 'pe'
+  | 'pb'
+  | 'evEbitda'
+  | 'priceToSales'
+  | 'pegRatio'
+  | 'dividendYield'
+  | 'roe'
+  | 'roce'
+  | 'debtToEquity'
+  | 'return1m'
+  | 'return1d'
+  | 'dailyVolume';
 
 const FILTER_CATEGORIES: FilterCategory[] = [
   'Stock Universe',
   'Price & Volume',
-  'Technical Indicators',
   'Valuation',
   'Profitability',
   'Financial Ratios',
-  'Balance Sheet & Cash Flow',
-  'Growth',
-  'Ownership',
-  'Income Statement',
 ];
 
 const FILTER_DEFINITIONS: FilterDefinition[] = [
@@ -157,49 +160,9 @@ const FILTER_DEFINITIONS: FilterDefinition[] = [
     id: 'stock-universe',
     kind: 'enum',
     field: 'stockUniverse',
-    label: 'Stock Universe',
+    label: 'Stocks',
     category: 'Stock Universe',
     description: 'Choose India or US stock universe.',
-  },
-  {
-    id: 'market',
-    kind: 'enum',
-    field: 'market',
-    label: 'Market',
-    category: 'Stock Universe',
-    description: 'Filter by market code.',
-  },
-  {
-    id: 'exchange',
-    kind: 'enum',
-    field: 'exchange',
-    label: 'Exchange',
-    category: 'Stock Universe',
-    description: 'Filter by exchange (NSE, NASDAQ, etc).',
-  },
-  {
-    id: 'currency',
-    kind: 'enum',
-    field: 'currency',
-    label: 'Currency',
-    category: 'Stock Universe',
-    description: 'Filter by quote currency (INR / USD).',
-  },
-  {
-    id: 'sector',
-    kind: 'enum',
-    field: 'sector',
-    label: 'Sector',
-    category: 'Stock Universe',
-    description: 'Filter by sector.',
-  },
-  {
-    id: 'industry',
-    kind: 'enum',
-    field: 'industry',
-    label: 'Industry',
-    category: 'Stock Universe',
-    description: 'Filter by industry/sub-sector.',
   },
   {
     id: 'market-cap-bucket',
@@ -210,228 +173,12 @@ const FILTER_DEFINITIONS: FilterDefinition[] = [
     description: 'Smallcap / Midcap / Largecap segmentation.',
   },
   {
-    id: 'close-price',
-    kind: 'numeric',
-    field: 'closePrice',
-    label: 'Close Price',
-    category: 'Price & Volume',
-    description: 'Latest close price.',
-    valueType: 'currency',
-  },
-  {
-    id: 'return-1d',
-    kind: 'numeric',
-    field: 'return1d',
-    label: '1D Return',
-    category: 'Price & Volume',
-    description: 'One-day return percentage.',
-    valueType: 'percent',
-  },
-  {
-    id: 'return-1w',
-    kind: 'numeric',
-    field: 'return1w',
-    label: '1W Return',
-    category: 'Price & Volume',
-    description: 'One-week return percentage.',
-    valueType: 'percent',
-  },
-  {
     id: 'return-1m',
     kind: 'numeric',
     field: 'return1m',
     label: '1M Return',
     category: 'Price & Volume',
     description: 'One-month return percentage.',
-    valueType: 'percent',
-  },
-  {
-    id: 'return-3m',
-    kind: 'numeric',
-    field: 'return3m',
-    label: '3M Return',
-    category: 'Price & Volume',
-    description: 'Three-month return percentage.',
-    valueType: 'percent',
-  },
-  {
-    id: 'return-6m',
-    kind: 'numeric',
-    field: 'return6m',
-    label: '6M Return',
-    category: 'Price & Volume',
-    description: 'Six-month return percentage.',
-    valueType: 'percent',
-  },
-  {
-    id: 'return-1y',
-    kind: 'numeric',
-    field: 'return1y',
-    label: '1Y Return',
-    category: 'Price & Volume',
-    description: 'One-year return percentage.',
-    valueType: 'percent',
-  },
-  {
-    id: 'return-1m-vs-benchmark',
-    kind: 'numeric',
-    field: 'return1mVsBenchmark',
-    label: '1M Return vs Benchmark',
-    category: 'Price & Volume',
-    description: 'Excess return vs broad benchmark.',
-    valueType: 'percent',
-  },
-  {
-    id: 'return-6m-vs-benchmark',
-    kind: 'numeric',
-    field: 'return6mVsBenchmark',
-    label: '6M Return vs Benchmark',
-    category: 'Price & Volume',
-    description: 'Excess return vs broad benchmark.',
-    valueType: 'percent',
-  },
-  {
-    id: 'return-1y-vs-benchmark',
-    kind: 'numeric',
-    field: 'return1yVsBenchmark',
-    label: '1Y Return vs Benchmark',
-    category: 'Price & Volume',
-    description: 'Excess return vs broad benchmark.',
-    valueType: 'percent',
-  },
-  {
-    id: 'away-52w-high',
-    kind: 'numeric',
-    field: 'awayFrom52wHigh',
-    label: '% Away From 52W High',
-    category: 'Price & Volume',
-    description: 'Distance from 52-week high.',
-    valueType: 'percent',
-  },
-  {
-    id: 'away-52w-low',
-    kind: 'numeric',
-    field: 'awayFrom52wLow',
-    label: '% Away From 52W Low',
-    category: 'Price & Volume',
-    description: 'Distance from 52-week low.',
-    valueType: 'percent',
-  },
-  {
-    id: 'daily-volume',
-    kind: 'numeric',
-    field: 'dailyVolume',
-    label: 'Daily Volume',
-    category: 'Price & Volume',
-    description: 'Latest daily traded volume.',
-    valueType: 'number',
-  },
-  {
-    id: 'avg-volume-1m',
-    kind: 'numeric',
-    field: 'avgVolume1m',
-    label: '1M Average Volume',
-    category: 'Price & Volume',
-    description: 'Average volume over ~1 month.',
-    valueType: 'number',
-  },
-  {
-    id: 'change-volume-1d',
-    kind: 'numeric',
-    field: 'changeVolume1d',
-    label: '1D Change in Volume',
-    category: 'Price & Volume',
-    description: 'Change in volume vs previous day.',
-    valueType: 'percent',
-  },
-  {
-    id: 'volume-vs-1m-avg',
-    kind: 'numeric',
-    field: 'volumeVsAvg1m',
-    label: 'Volume vs 1M Average',
-    category: 'Price & Volume',
-    description: 'Current daily volume relative to 1M average.',
-    valueType: 'number',
-  },
-  {
-    id: 'sma-50',
-    kind: 'numeric',
-    field: 'sma50',
-    label: '50 DMA',
-    category: 'Technical Indicators',
-    description: '50-day moving average.',
-    valueType: 'currency',
-  },
-  {
-    id: 'sma-200',
-    kind: 'numeric',
-    field: 'sma200',
-    label: '200 DMA',
-    category: 'Technical Indicators',
-    description: '200-day moving average.',
-    valueType: 'currency',
-  },
-  {
-    id: 'price-vs-sma-50',
-    kind: 'numeric',
-    field: 'priceVsSma50',
-    label: 'Price vs 50 DMA',
-    category: 'Technical Indicators',
-    description: 'Percent distance of price from 50 DMA.',
-    valueType: 'percent',
-  },
-  {
-    id: 'price-vs-sma-200',
-    kind: 'numeric',
-    field: 'priceVsSma200',
-    label: 'Price vs 200 DMA',
-    category: 'Technical Indicators',
-    description: 'Percent distance of price from 200 DMA.',
-    valueType: 'percent',
-  },
-  {
-    id: 'rsi-14',
-    kind: 'numeric',
-    field: 'rsi14',
-    label: 'RSI (14)',
-    category: 'Technical Indicators',
-    description: 'Relative Strength Index over 14 sessions.',
-    valueType: 'number',
-  },
-  {
-    id: 'volatility-30d',
-    kind: 'numeric',
-    field: 'volatility30d',
-    label: 'Volatility (30D)',
-    category: 'Technical Indicators',
-    description: 'Annualized volatility using last 30 sessions.',
-    valueType: 'percent',
-  },
-  {
-    id: 'volatility-90d',
-    kind: 'numeric',
-    field: 'volatility90d',
-    label: 'Volatility (90D)',
-    category: 'Technical Indicators',
-    description: 'Annualized volatility using last 90 sessions.',
-    valueType: 'percent',
-  },
-  {
-    id: 'drawdown-1y',
-    kind: 'numeric',
-    field: 'drawdown1y',
-    label: 'Max Drawdown (1Y)',
-    category: 'Technical Indicators',
-    description: 'Largest peak-to-trough drawdown in last 1Y.',
-    valueType: 'percent',
-  },
-  {
-    id: 'trend-strength',
-    kind: 'numeric',
-    field: 'trendStrength',
-    label: 'Trend Strength',
-    category: 'Technical Indicators',
-    description: 'Weighted momentum score from 1M/3M/6M returns.',
     valueType: 'percent',
   },
   {
@@ -444,48 +191,21 @@ const FILTER_DEFINITIONS: FilterDefinition[] = [
     valueType: 'currency',
   },
   {
-    id: 'enterprise-value',
-    kind: 'numeric',
-    field: 'enterpriseValue',
-    label: 'Enterprise Value',
-    category: 'Valuation',
-    description: 'Enterprise value.',
-    valueType: 'currency',
-  },
-  {
     id: 'pe',
     kind: 'numeric',
     field: 'pe',
-    label: 'PE Ratio',
+    label: 'P/E Ratio',
     category: 'Valuation',
-    description: 'Price to earnings ratio.',
+    description: 'Price divided by earnings per share; lower can indicate cheaper valuation.',
     valueType: 'number',
   },
   {
     id: 'pb',
     kind: 'numeric',
     field: 'pb',
-    label: 'PB Ratio',
+    label: 'P/B Ratio',
     category: 'Valuation',
-    description: 'Price to book ratio.',
-    valueType: 'number',
-  },
-  {
-    id: 'price-to-sales',
-    kind: 'numeric',
-    field: 'priceToSales',
-    label: 'Price to Sales',
-    category: 'Valuation',
-    description: 'Price to sales ratio.',
-    valueType: 'number',
-  },
-  {
-    id: 'price-to-fcf',
-    kind: 'numeric',
-    field: 'priceToFcf',
-    label: 'Price to FCF',
-    category: 'Valuation',
-    description: 'Price to free cash flow ratio.',
+    description: 'Price relative to book value per share.',
     valueType: 'number',
   },
   {
@@ -494,7 +214,16 @@ const FILTER_DEFINITIONS: FilterDefinition[] = [
     field: 'evEbitda',
     label: 'EV/EBITDA',
     category: 'Valuation',
-    description: 'Enterprise value to EBITDA.',
+    description: 'Enterprise value divided by EBITDA; compares total firm value to operating earnings.',
+    valueType: 'number',
+  },
+  {
+    id: 'price-to-sales',
+    kind: 'numeric',
+    field: 'priceToSales',
+    label: 'Price/Sales',
+    category: 'Valuation',
+    description: 'Price relative to annual sales per share.',
     valueType: 'number',
   },
   {
@@ -503,17 +232,8 @@ const FILTER_DEFINITIONS: FilterDefinition[] = [
     field: 'pegRatio',
     label: 'PEG Ratio',
     category: 'Valuation',
-    description: 'PE relative to growth.',
+    description: 'P/E adjusted by earnings growth rate.',
     valueType: 'number',
-  },
-  {
-    id: 'opm',
-    kind: 'numeric',
-    field: 'opm',
-    label: 'OPM',
-    category: 'Profitability',
-    description: 'Operating profit margin.',
-    valueType: 'percent',
   },
   {
     id: 'roe',
@@ -530,25 +250,7 @@ const FILTER_DEFINITIONS: FilterDefinition[] = [
     field: 'roce',
     label: 'ROCE',
     category: 'Profitability',
-    description: 'Return on capital employed.',
-    valueType: 'percent',
-  },
-  {
-    id: 'roa',
-    kind: 'numeric',
-    field: 'roa',
-    label: 'ROA',
-    category: 'Profitability',
-    description: 'Return on assets.',
-    valueType: 'percent',
-  },
-  {
-    id: 'earnings-yield',
-    kind: 'numeric',
-    field: 'earningsYield',
-    label: 'Earnings Yield',
-    category: 'Profitability',
-    description: 'Earnings yield metric.',
+    description: 'Return on capital employed; efficiency of capital usage.',
     valueType: 'percent',
   },
   {
@@ -557,7 +259,7 @@ const FILTER_DEFINITIONS: FilterDefinition[] = [
     field: 'dividendYield',
     label: 'Dividend Yield',
     category: 'Profitability',
-    description: 'Dividend yield.',
+    description: 'Annual dividend as a percent of current price.',
     valueType: 'percent',
   },
   {
@@ -567,177 +269,6 @@ const FILTER_DEFINITIONS: FilterDefinition[] = [
     label: 'Debt to Equity',
     category: 'Financial Ratios',
     description: 'Leverage ratio.',
-    valueType: 'number',
-  },
-  {
-    id: 'current-ratio',
-    kind: 'numeric',
-    field: 'currentRatio',
-    label: 'Current Ratio',
-    category: 'Financial Ratios',
-    description: 'Short-term liquidity ratio.',
-    valueType: 'number',
-  },
-  {
-    id: 'interest-coverage',
-    kind: 'numeric',
-    field: 'interestCoverage',
-    label: 'Interest Coverage',
-    category: 'Financial Ratios',
-    description: 'Coverage of interest obligations.',
-    valueType: 'number',
-  },
-  {
-    id: 'debt',
-    kind: 'numeric',
-    field: 'debt',
-    label: 'Total Debt',
-    category: 'Balance Sheet & Cash Flow',
-    description: 'Total debt reported in available fundamentals.',
-    valueType: 'currency',
-  },
-  {
-    id: 'debt-to-market-cap',
-    kind: 'numeric',
-    field: 'debtToMarketCap',
-    label: 'Debt to Market Cap',
-    category: 'Balance Sheet & Cash Flow',
-    description: 'Debt as a percentage of market capitalization.',
-    valueType: 'percent',
-  },
-  {
-    id: 'enterprise-to-sales',
-    kind: 'numeric',
-    field: 'enterpriseToSales',
-    label: 'EV to Sales',
-    category: 'Balance Sheet & Cash Flow',
-    description: 'Enterprise value divided by annual sales.',
-    valueType: 'number',
-  },
-  {
-    id: 'net-profit-margin',
-    kind: 'numeric',
-    field: 'netProfitMargin',
-    label: 'Net Profit Margin',
-    category: 'Balance Sheet & Cash Flow',
-    description: 'Net profit as a percentage of sales.',
-    valueType: 'percent',
-  },
-  {
-    id: 'profit-to-debt',
-    kind: 'numeric',
-    field: 'profitToDebt',
-    label: 'Profit to Debt',
-    category: 'Balance Sheet & Cash Flow',
-    description: 'Profit as percentage of total debt.',
-    valueType: 'percent',
-  },
-  {
-    id: 'free-cash-flow-proxy',
-    kind: 'numeric',
-    field: 'freeCashFlowProxy',
-    label: 'Free Cash Flow (Proxy)',
-    category: 'Balance Sheet & Cash Flow',
-    description: 'Derived from market cap and Price/FCF ratio.',
-    valueType: 'currency',
-  },
-  {
-    id: 'sales-growth',
-    kind: 'numeric',
-    field: 'salesGrowth',
-    label: 'Sales Growth',
-    category: 'Growth',
-    description: 'Sales growth percentage.',
-    valueType: 'percent',
-  },
-  {
-    id: 'profit-growth',
-    kind: 'numeric',
-    field: 'profitGrowth',
-    label: 'Profit Growth',
-    category: 'Growth',
-    description: 'Profit growth percentage.',
-    valueType: 'percent',
-  },
-  {
-    id: 'yoy-quarterly-sales-growth',
-    kind: 'numeric',
-    field: 'yoyQuarterlySalesGrowth',
-    label: 'YOY Quarterly Sales Growth',
-    category: 'Growth',
-    description: 'Quarterly sales growth vs last year.',
-    valueType: 'percent',
-  },
-  {
-    id: 'yoy-quarterly-profit-growth',
-    kind: 'numeric',
-    field: 'yoyQuarterlyProfitGrowth',
-    label: 'YOY Quarterly Profit Growth',
-    category: 'Growth',
-    description: 'Quarterly profit growth vs last year.',
-    valueType: 'percent',
-  },
-  {
-    id: 'promoter-holding',
-    kind: 'numeric',
-    field: 'promoterHolding',
-    label: 'Promoter Holding',
-    category: 'Ownership',
-    description: 'Promoter shareholding percentage.',
-    valueType: 'percent',
-  },
-  {
-    id: 'pledged-percentage',
-    kind: 'numeric',
-    field: 'pledgedPercentage',
-    label: 'Pledged Percentage',
-    category: 'Ownership',
-    description: 'Promoter pledged shares percentage.',
-    valueType: 'percent',
-  },
-  {
-    id: 'sales',
-    kind: 'numeric',
-    field: 'sales',
-    label: 'Sales',
-    category: 'Income Statement',
-    description: 'Annual sales figure.',
-    valueType: 'currency',
-  },
-  {
-    id: 'pat',
-    kind: 'numeric',
-    field: 'pat',
-    label: 'Profit After Tax',
-    category: 'Income Statement',
-    description: 'Annual PAT.',
-    valueType: 'currency',
-  },
-  {
-    id: 'sales-latest-quarter',
-    kind: 'numeric',
-    field: 'salesLatestQuarter',
-    label: 'Sales Latest Quarter',
-    category: 'Income Statement',
-    description: 'Latest quarter sales.',
-    valueType: 'currency',
-  },
-  {
-    id: 'pat-latest-quarter',
-    kind: 'numeric',
-    field: 'patLatestQuarter',
-    label: 'PAT Latest Quarter',
-    category: 'Income Statement',
-    description: 'Latest quarter PAT.',
-    valueType: 'currency',
-  },
-  {
-    id: 'eps',
-    kind: 'numeric',
-    field: 'eps',
-    label: 'EPS',
-    category: 'Income Statement',
-    description: 'Earnings per share.',
     valueType: 'number',
   },
 ];
@@ -930,7 +461,7 @@ function buildRows(): ScreenerRow[] {
         exchange: entity.exchange ?? 'UNKNOWN',
         sector: entity.sector ?? 'Unknown',
         industry: entity.industry ?? 'Unknown',
-        stockUniverse: entity.market === 'india' ? 'India Stocks' : 'US Stocks',
+        stockUniverse: entity.market === 'india' ? 'Indian Stocks' : 'US Stocks',
         marketCapBucket: marketCapBucket(metricMarketCap),
         currency: entity.currency ?? 'INR',
         closePrice,
@@ -1013,7 +544,7 @@ function toScreenerRow(entity: SearchEntity): ScreenerRow | null {
     exchange: entity.exchange ?? 'UNKNOWN',
     sector: entity.sector ?? 'Unknown',
     industry: entity.industry ?? 'Unknown',
-    stockUniverse: entity.market === 'india' ? 'India Stocks' : 'US Stocks',
+    stockUniverse: entity.market === 'india' ? 'Indian Stocks' : 'US Stocks',
     marketCapBucket: 'Smallcap',
     currency: entity.currency ?? (entity.market === 'us' ? 'USD' : 'INR'),
   };
@@ -1064,7 +595,7 @@ const QUOTE_HYDRATION_MAX_CONCURRENT = 4;
 const QUOTE_HYDRATION_BATCH_LIMIT = 24;
 const ADVANCED_HYDRATION_MAX_CONCURRENT = 1;
 const ADVANCED_HYDRATION_BATCH_LIMIT = 8;
-const LIGHT_NUMERIC_FILTER_IDS = new Set(['close-price', 'return-1d', 'daily-volume']);
+const LIGHT_NUMERIC_FILTER_IDS = new Set(['market-cap', 'debt-to-equity']);
 
 function computeReturnPercent(current?: number, previous?: number): number | undefined {
   if (typeof current !== 'number' || typeof previous !== 'number' || previous === 0) return undefined;
@@ -1072,7 +603,7 @@ function computeReturnPercent(current?: number, previous?: number): number | und
 }
 
 async function fetchQuoteSnapshot(row: ScreenerRow): Promise<Partial<ScreenerRow> | null> {
-  const market = row.market === 'india' ? 'india' : row.market === 'us' ? 'us' : row.stockUniverse === 'India Stocks' ? 'india' : 'us';
+  const market = row.market === 'india' ? 'india' : row.market === 'us' ? 'us' : row.stockUniverse === 'Indian Stocks' ? 'india' : 'us';
   const response = await fetch(
     `/api/market/quote?symbol=${encodeURIComponent(row.symbol)}&market=${encodeURIComponent(market)}`,
     { cache: 'no-store' },
@@ -1095,7 +626,7 @@ async function fetchQuoteSnapshot(row: ScreenerRow): Promise<Partial<ScreenerRow
 }
 
 async function fetchAdvancedSnapshot(row: ScreenerRow): Promise<Partial<ScreenerRow> | null> {
-  const market = row.market === 'india' ? 'india' : row.market === 'us' ? 'us' : row.stockUniverse === 'India Stocks' ? 'india' : 'us';
+  const market = row.market === 'india' ? 'india' : row.market === 'us' ? 'us' : row.stockUniverse === 'Indian Stocks' ? 'india' : 'us';
   const patch: Partial<ScreenerRow> = {};
 
   try {
@@ -1329,25 +860,37 @@ function sortRows(rows: ScreenerRow[], field: SortField, direction: 'asc' | 'des
   });
 }
 
-function displayOption(field: EnumField, value: string) {
-  if (field === 'market') return value.toUpperCase();
-  return value;
-}
-
-function formatByDefinition(definition: NumericFilterDefinition, value?: number, currency?: 'USD' | 'INR') {
-  if (typeof value !== 'number') return '—';
-  if (definition.valueType === 'percent') return formatPercent(value);
-  if (definition.valueType === 'currency') return formatCurrency(value, currency ?? 'INR');
-  return formatNumber(value, 2);
-}
-
 function sortIndicator(isActive: boolean, direction: 'asc' | 'desc') {
   if (!isActive) return '↕';
   return direction === 'asc' ? '↑' : '↓';
 }
 
 const TABLE_GRID_CLASS =
-  'grid grid-cols-[minmax(250px,2.4fr)_minmax(170px,1.4fr)_minmax(125px,1fr)_minmax(120px,0.9fr)_minmax(90px,0.7fr)_minmax(90px,0.7fr)_minmax(95px,0.75fr)_minmax(95px,0.75fr)_minmax(120px,0.85fr)] gap-3';
+  'grid grid-cols-[minmax(220px,2fr)_minmax(120px,0.95fr)_minmax(100px,0.8fr)_minmax(90px,0.75fr)_minmax(105px,0.85fr)_minmax(95px,0.8fr)_minmax(90px,0.75fr)_minmax(110px,0.9fr)_minmax(95px,0.8fr)_minmax(95px,0.8fr)_minmax(110px,0.9fr)_minmax(110px,0.9fr)] gap-3';
+
+function metricFilterHelp(filterId: string): string {
+  const definition = FILTER_DEFINITION_BY_ID[filterId];
+  return definition?.description ?? '';
+}
+
+function MetricLabel({ label, tooltip }: { label: string; tooltip: string }) {
+  return (
+    <span className="flex items-center gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+      <span>{label}</span>
+      <span className="group relative inline-flex cursor-help">
+        <span
+          aria-label={tooltip}
+          className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 text-[10px] font-semibold leading-none text-slate-500 dark:border-slate-600 dark:text-slate-300"
+        >
+          i
+        </span>
+        <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 w-56 -translate-x-1/2 rounded-md bg-slate-900 px-2 py-1 text-[11px] font-normal text-white opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100 dark:bg-slate-100 dark:text-slate-900">
+          {tooltip}
+        </span>
+      </span>
+    </span>
+  );
+}
 
 export function ScreenerWorkbench() {
   const [baseRows, setBaseRows] = useState<ScreenerRow[]>(demoRows);
@@ -1365,24 +908,11 @@ export function ScreenerWorkbench() {
   const advancedHydratedSymbolsRef = useRef(new Set<string>());
   const advancedCandidateSymbolsRef = useRef(new Set<string>());
   const rowLookupRef = useRef<Map<string, ScreenerRow>>(new Map());
-  const [query, setQuery] = useState('Show profitable low debt companies with rising sales and high ROE');
-  const [explanation, setExplanation] = useState('');
-  const [strategy, setStrategy] = useState<string>('');
-  const [customName, setCustomName] = useState('');
-  const [saved, setSaved] = useState<Array<{ id: string; name: string; query: string }>>([]);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerCategory, setPickerCategory] = useState<FilterCategory>('Price & Volume');
-  const [filterSearch, setFilterSearch] = useState('');
-  const [expandedSidebarSection, setExpandedSidebarSection] = useState<string | null>('market-cap');
   const [sortConfig, setSortConfig] = useState<{ field: SortField; direction: 'asc' | 'desc' }>({
-    field: 'closePrice',
+    field: 'marketCap',
     direction: 'desc',
   });
-
-  useEffect(() => {
-    listCustomScreens().then((records) => setSaved(records.map((record) => ({ id: record.id, name: record.name, query: record.query }))));
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1422,70 +952,22 @@ export function ScreenerWorkbench() {
     const unique = <T,>(values: T[]) => Array.from(new Set(values));
     return {
       stockUniverse: unique(hydratedBaseRows.map((row) => row.stockUniverse)),
-      market: unique(hydratedBaseRows.map((row) => row.market)),
-      exchange: unique(hydratedBaseRows.map((row) => row.exchange)),
-      sector: unique(hydratedBaseRows.map((row) => row.sector)).sort((a, b) => a.localeCompare(b)),
-      industry: unique(hydratedBaseRows.map((row) => row.industry)).sort((a, b) => a.localeCompare(b)),
-      marketCapBucket: ['Largecap', 'Midcap', 'Smallcap'],
-      currency: unique(hydratedBaseRows.map((row) => row.currency)),
-      id: [],
-      symbol: [],
-      name: [],
     } as Record<string, string[]>;
   }, [hydratedBaseRows]);
 
-  const categoryCounts = useMemo(
-    () =>
-      FILTER_CATEGORIES.reduce(
-        (acc, category) => {
-          acc[category] = FILTER_DEFINITIONS.filter((definition) => definition.category === category).length;
-          return acc;
-        },
-        {} as Record<FilterCategory, number>,
-      ),
-    [],
-  );
-
-  const pickerList = useMemo(() => {
-    const search = normalizeForSearch(filterSearch);
-    return FILTER_DEFINITIONS.filter((definition) => {
-      if (search) {
-        return (
-          normalizeForSearch(definition.label).includes(search) ||
-          normalizeForSearch(definition.description).includes(search) ||
-          normalizeForSearch(definition.category).includes(search)
-        );
-      }
-      return definition.category === pickerCategory;
-    });
-  }, [filterSearch, pickerCategory]);
-
-  const activeCount = activeFilters.length;
-  const marketCapValues = useMemo(
-    () => hydratedBaseRows.map((row) => row.marketCap).filter((value): value is number => typeof value === 'number'),
-    [hydratedBaseRows],
-  );
-  const marketCapBounds = useMemo(
-    () => ({
-      min: marketCapValues.length ? Math.min(...marketCapValues) : 0,
-      max: marketCapValues.length ? Math.max(...marketCapValues) : 1,
-    }),
-    [marketCapValues],
-  );
-
   const activeById = useMemo(() => new Map(activeFilters.map((active) => [active.filterId, active])), [activeFilters]);
-
-  const strategyRows = useMemo(() => {
-    if (!strategy) return hydratedBaseRows;
-    return runBuiltInStrategy(strategy, hydratedBaseRows);
-  }, [strategy, hydratedBaseRows]);
-
-  const filteredRows = useMemo(() => applyAdvancedFilters(strategyRows, activeFilters), [strategyRows, activeFilters]);
+  const filteredRows = useMemo(() => applyAdvancedFilters(hydratedBaseRows, activeFilters), [hydratedBaseRows, activeFilters]);
 
   const rows = useMemo(() => sortRows(filteredRows, sortConfig.field, sortConfig.direction), [filteredRows, sortConfig]);
 
   const shouldRunAdvancedHydration = useMemo(() => {
-    if (sortConfig.field === 'marketCap' || sortConfig.field === 'pe' || sortConfig.field === 'roe' || sortConfig.field === 'return1m') {
+    if (
+      sortConfig.field === 'marketCap' ||
+      sortConfig.field === 'pe' ||
+      sortConfig.field === 'roe' ||
+      sortConfig.field === 'debtToEquity' ||
+      sortConfig.field === 'return1m'
+    ) {
       return true;
     }
     return activeFilters.some((active) => active.kind === 'numeric' && !LIGHT_NUMERIC_FILTER_IDS.has(active.filterId));
@@ -1611,17 +1093,6 @@ export function ScreenerWorkbench() {
     handleVisibleRowsChange(rows.slice(0, QUOTE_HYDRATION_BATCH_LIMIT));
   }, [rows, handleVisibleRowsChange]);
 
-  const activeEntries = useMemo(
-    () =>
-      activeFilters
-        .map((active) => ({
-          active,
-          definition: FILTER_DEFINITION_BY_ID[active.filterId],
-        }))
-        .filter((entry): entry is { active: ActiveFilter; definition: FilterDefinition } => Boolean(entry.definition)),
-    [activeFilters],
-  );
-
   function onSort(field: SortField) {
     setSortConfig((current) =>
       current.field === field
@@ -1632,27 +1103,8 @@ export function ScreenerWorkbench() {
         : {
             field,
             direction: field === 'name' ? 'asc' : 'desc',
-          },
+        },
     );
-  }
-
-  function isFilterActive(filterId: string) {
-    return activeFilters.some((active) => active.filterId === filterId);
-  }
-
-  function toggleFilter(definition: FilterDefinition) {
-    setActiveFilters((previous) => {
-      const existingIndex = previous.findIndex((active) => active.filterId === definition.id);
-      if (existingIndex >= 0) {
-        const next = [...previous];
-        next.splice(existingIndex, 1);
-        return next;
-      }
-      if (definition.kind === 'numeric') {
-        return [...previous, { filterId: definition.id, kind: 'numeric', min: '', max: '' }];
-      }
-      return [...previous, { filterId: definition.id, kind: 'enum', selected: [] }];
-    });
   }
 
   function updateNumericFilter(filterId: string, patch: Partial<{ min: string; max: string }>) {
@@ -1677,59 +1129,16 @@ export function ScreenerWorkbench() {
     });
   }
 
-  function toggleEnumSelection(filterId: string, value: string) {
+  function setEnumFilterValue(filterId: string, value: string) {
     setActiveFilters((previous) => {
-      const existingIndex = previous.findIndex((active) => active.filterId === filterId && active.kind === 'enum');
-      if (existingIndex >= 0) {
-        const next = [...previous];
-        const existing = next[existingIndex];
-        if (existing.kind !== 'enum') return previous;
-        const alreadySelected = existing.selected.some((selected) => normalizeForSearch(selected) === normalizeForSearch(value));
-        const updated = alreadySelected
-          ? existing.selected.filter((selected) => normalizeForSearch(selected) !== normalizeForSearch(value))
-          : [...existing.selected, value];
-        if (!updated.length) {
-          next.splice(existingIndex, 1);
-          return next;
-        }
-        next[existingIndex] = { ...existing, selected: updated };
-        return next;
-      }
-      return [...previous, { filterId, kind: 'enum', selected: [value] }];
+      const rest = previous.filter((active) => active.filterId !== filterId);
+      if (!value) return rest;
+      return [...rest, { filterId, kind: 'enum', selected: [value] }];
     });
   }
 
   function clearAllFilters() {
     setActiveFilters([]);
-    setStrategy('');
-    setExplanation('');
-  }
-
-  async function parseAiQuery() {
-    const parsed = await heuristicAiProvider.parseScreenerQuery({ query });
-    const { activeFilters: mappedFilters, ignored } = buildAiFilters(parsed.filters);
-
-    setActiveFilters(mappedFilters);
-    setStrategy('');
-
-    setExplanation(
-      ignored
-        ? `${parsed.explanation} ${ignored} parsed condition(s) could not be mapped to available filters.`
-        : parsed.explanation,
-    );
-  }
-
-  async function saveScreen() {
-    const name = customName.trim() || `Screen ${saved.length + 1}`;
-    const record = {
-      id: crypto.randomUUID(),
-      name,
-      query,
-      createdAt: new Date().toISOString(),
-    };
-    await upsertCustomScreen(record);
-    setSaved((previous) => [...previous, { id: record.id, name: record.name, query: record.query }]);
-    setCustomName('');
   }
 
   function setNumericBounds(filterId: string, nextMin: string, nextMax: string) {
@@ -1740,29 +1149,39 @@ export function ScreenerWorkbench() {
     updateNumericFilter(filterId, { min: nextMin, max: nextMax });
   }
 
-  const marketCapActive = activeById.get('market-cap');
-  const marketCapMinRaw = marketCapActive?.kind === 'numeric' ? marketCapActive.min : '';
-  const marketCapMaxRaw = marketCapActive?.kind === 'numeric' ? marketCapActive.max : '';
-  const marketCapMinParsed = parseNumber(marketCapMinRaw) ?? marketCapBounds.min;
-  const marketCapMaxParsed = parseNumber(marketCapMaxRaw) ?? marketCapBounds.max;
-  const marketCapMinValue = Math.min(marketCapMinParsed, marketCapMaxParsed);
-  const marketCapMaxValue = Math.max(marketCapMinParsed, marketCapMaxParsed);
-
   const stockUniverseEntry = activeById.get('stock-universe');
-  const stockUniverseSelection = stockUniverseEntry?.kind === 'enum' ? stockUniverseEntry.selected : [];
-  const sectorEntry = activeById.get('sector');
-  const sectorSelection = sectorEntry?.kind === 'enum' ? sectorEntry.selected : [];
-  const marketCapBucketEntry = activeById.get('market-cap-bucket');
-  const marketCapBucketSelection = marketCapBucketEntry?.kind === 'enum' ? marketCapBucketEntry.selected : [];
+  const stockUniverseValue = stockUniverseEntry?.kind === 'enum' ? stockUniverseEntry.selected[0] ?? '' : '';
 
-  const quickNumericFilters = [
-    { id: 'close-price', label: 'Close Price (Rs)' },
-    { id: 'pe', label: 'PE Ratio' },
-    { id: 'return-1m', label: '1M Return (%)' },
-    { id: 'return-1d', label: '1D Return (%)' },
-    { id: 'roe', label: 'Return on Equity (%)' },
-    { id: 'pb', label: 'PB Ratio' },
-  ] as const;
+  const peEntry = activeById.get('pe');
+  const peMin = peEntry?.kind === 'numeric' ? peEntry.min : '';
+  const peMax = peEntry?.kind === 'numeric' ? peEntry.max : '';
+  const pbEntry = activeById.get('pb');
+  const pbMin = pbEntry?.kind === 'numeric' ? pbEntry.min : '';
+  const pbMax = pbEntry?.kind === 'numeric' ? pbEntry.max : '';
+  const evEbitdaEntry = activeById.get('ev-ebitda');
+  const evEbitdaMin = evEbitdaEntry?.kind === 'numeric' ? evEbitdaEntry.min : '';
+  const evEbitdaMax = evEbitdaEntry?.kind === 'numeric' ? evEbitdaEntry.max : '';
+  const priceToSalesEntry = activeById.get('price-to-sales');
+  const priceToSalesMin = priceToSalesEntry?.kind === 'numeric' ? priceToSalesEntry.min : '';
+  const priceToSalesMax = priceToSalesEntry?.kind === 'numeric' ? priceToSalesEntry.max : '';
+  const pegRatioEntry = activeById.get('peg-ratio');
+  const pegRatioMin = pegRatioEntry?.kind === 'numeric' ? pegRatioEntry.min : '';
+  const pegRatioMax = pegRatioEntry?.kind === 'numeric' ? pegRatioEntry.max : '';
+  const dividendYieldEntry = activeById.get('dividend-yield');
+  const dividendYieldMin = dividendYieldEntry?.kind === 'numeric' ? dividendYieldEntry.min : '';
+  const dividendYieldMax = dividendYieldEntry?.kind === 'numeric' ? dividendYieldEntry.max : '';
+  const roeEntry = activeById.get('roe');
+  const roeMin = roeEntry?.kind === 'numeric' ? roeEntry.min : '';
+  const roeMax = roeEntry?.kind === 'numeric' ? roeEntry.max : '';
+  const roceEntry = activeById.get('roce');
+  const roceMin = roceEntry?.kind === 'numeric' ? roceEntry.min : '';
+  const roceMax = roceEntry?.kind === 'numeric' ? roceEntry.max : '';
+  const debtToEquityEntry = activeById.get('debt-to-equity');
+  const debtToEquityMin = debtToEquityEntry?.kind === 'numeric' ? debtToEquityEntry.min : '';
+  const debtToEquityMax = debtToEquityEntry?.kind === 'numeric' ? debtToEquityEntry.max : '';
+  const return1mEntry = activeById.get('return-1m');
+  const return1mMin = return1mEntry?.kind === 'numeric' ? return1mEntry.min : '';
+  const return1mMax = return1mEntry?.kind === 'numeric' ? return1mEntry.max : '';
 
   const showingFrom = rows.length ? 1 : 0;
   const showingTo = rows.length;
@@ -1778,449 +1197,237 @@ export function ScreenerWorkbench() {
   return (
     <div className="space-y-4">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-sm dark:border-border dark:bg-card/40">
-        <div className="grid xl:grid-cols-[296px_minmax(0,1fr)]">
-          <aside className="border-r border-slate-200 bg-slate-50/90 dark:border-border dark:bg-muted/10">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-border">
-              <div className="text-[15px] font-medium text-slate-700 dark:text-slate-100">
-                {activeCount ? `${activeCount} filter${activeCount === 1 ? '' : 's'} applied` : 'No filters applied'}
-              </div>
-              <button
-                onClick={clearAllFilters}
-                className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-border dark:bg-card dark:text-slate-200 dark:hover:bg-muted"
-              >
-                Reset all
-              </button>
+        <div className="border-b border-slate-200 px-5 py-4 dark:border-border">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-[28px] font-semibold text-slate-900 dark:text-white">Stock Screener</h2>
             </div>
-
-            <div className="divide-y divide-slate-200 dark:divide-border">
-              <div className="p-4">
-                <button
-                  onClick={() => setExpandedSidebarSection((current) => (current === 'stock-universe' ? null : 'stock-universe'))}
-                  className="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-800 dark:text-slate-200"
-                >
-                  <span>Stock Universe</span>
-                  {expandedSidebarSection === 'stock-universe' ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </button>
-                {expandedSidebarSection === 'stock-universe' ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(enumOptionsByField.stockUniverse ?? []).map((option) => {
-                      const checked = stockUniverseSelection.some((selected) => normalizeForSearch(selected) === normalizeForSearch(option));
-                      return (
-                        <button
-                          key={option}
-                          onClick={() => toggleEnumSelection('stock-universe', option)}
-                          className={cn(
-                            'rounded-md border px-3 py-1.5 text-xs font-medium',
-                            checked
-                              ? 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/60 dark:bg-blue-500/15 dark:text-blue-200'
-                              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-border dark:bg-card dark:text-slate-300 dark:hover:bg-muted',
-                          )}
-                        >
-                          {option}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="p-4">
-                <button
-                  onClick={() => setExpandedSidebarSection((current) => (current === 'sector' ? null : 'sector'))}
-                  className="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-800 dark:text-slate-200"
-                >
-                  <span>Sector</span>
-                  {expandedSidebarSection === 'sector' ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </button>
-                {expandedSidebarSection === 'sector' ? (
-                  <div className="mt-3 flex max-h-36 flex-wrap gap-2 overflow-auto pr-1">
-                    {(enumOptionsByField.sector ?? []).slice(0, 16).map((option) => {
-                      const checked = sectorSelection.some((selected) => normalizeForSearch(selected) === normalizeForSearch(option));
-                      return (
-                        <button
-                          key={option}
-                          onClick={() => toggleEnumSelection('sector', option)}
-                          className={cn(
-                            'rounded-md border px-2.5 py-1 text-xs font-medium',
-                            checked
-                              ? 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/60 dark:bg-blue-500/15 dark:text-blue-200'
-                              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-border dark:bg-card dark:text-slate-300 dark:hover:bg-muted',
-                          )}
-                        >
-                          {option}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="p-4">
-                <button
-                  onClick={() => setExpandedSidebarSection((current) => (current === 'market-cap' ? null : 'market-cap'))}
-                  className="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-800 dark:text-slate-200"
-                >
-                  <span>Market Cap</span>
-                  {expandedSidebarSection === 'market-cap' ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </button>
-                {expandedSidebarSection === 'market-cap' ? (
-                  <div className="mt-3 max-w-[248px] space-y-3">
-                    <div className="space-y-2">
-                      <input
-                        type="range"
-                        min={Math.round(marketCapBounds.min)}
-                        max={Math.round(marketCapBounds.max)}
-                        value={Math.round(marketCapMinValue)}
-                        onChange={(event) => {
-                          const nextMin = Math.min(Number(event.target.value), marketCapMaxValue);
-                          setNumericBounds('market-cap', String(Math.round(nextMin)), String(Math.round(marketCapMaxValue)));
-                        }}
-                        className="w-full accent-slate-700"
-                      />
-                      <input
-                        type="range"
-                        min={Math.round(marketCapBounds.min)}
-                        max={Math.round(marketCapBounds.max)}
-                        value={Math.round(marketCapMaxValue)}
-                        onChange={(event) => {
-                          const nextMax = Math.max(Number(event.target.value), marketCapMinValue);
-                          setNumericBounds('market-cap', String(Math.round(marketCapMinValue)), String(Math.round(nextMax)));
-                        }}
-                        className="w-full accent-slate-700"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <label className="space-y-1">
-                        <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Min</span>
-                        <input
-                          value={marketCapMinRaw}
-                          onChange={(event) => setNumericBounds('market-cap', event.target.value, marketCapMaxRaw || String(Math.round(marketCapBounds.max)))}
-                          inputMode="decimal"
-                          placeholder="0"
-                          className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-border dark:bg-card"
-                        />
-                      </label>
-                      <label className="space-y-1">
-                        <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Max</span>
-                        <input
-                          value={marketCapMaxRaw}
-                          onChange={(event) => setNumericBounds('market-cap', marketCapMinRaw || String(Math.round(marketCapBounds.min)), event.target.value)}
-                          inputMode="decimal"
-                          placeholder={String(Math.round(marketCapBounds.max))}
-                          className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-border dark:bg-card"
-                        />
-                      </label>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {['Smallcap', 'Midcap', 'Largecap'].map((bucket) => {
-                        const checked = marketCapBucketSelection.some((selected) => normalizeForSearch(selected) === normalizeForSearch(bucket));
-                        return (
-                          <button
-                            key={bucket}
-                            onClick={() => toggleEnumSelection('market-cap-bucket', bucket)}
-                            className={cn(
-                              'rounded-md border px-2 py-1.5 text-xs font-medium',
-                              checked
-                                ? 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/60 dark:bg-blue-500/15 dark:text-blue-200'
-                                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-border dark:bg-card dark:text-slate-300 dark:hover:bg-muted',
-                            )}
-                          >
-                            {bucket}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              {quickNumericFilters.map((item) => {
-                const definition = FILTER_DEFINITION_BY_ID[item.id];
-                if (!definition || definition.kind !== 'numeric') return null;
-                const active = activeById.get(item.id);
-                const currentMin = active?.kind === 'numeric' ? active.min : '';
-                const currentMax = active?.kind === 'numeric' ? active.max : '';
-                const isOpen = expandedSidebarSection === item.id;
-                return (
-                  <div key={item.id} className="p-4">
-                    <button
-                      onClick={() => setExpandedSidebarSection((current) => (current === item.id ? null : item.id))}
-                      className="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-800 dark:text-slate-200"
-                    >
-                      <span>{item.label}</span>
-                      {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </button>
-                    {isOpen ? (
-                      <div className="mt-3 grid max-w-[248px] grid-cols-2 gap-2">
-                        <input
-                          value={currentMin}
-                          onChange={(event) => setNumericBounds(item.id, event.target.value, currentMax)}
-                          inputMode="decimal"
-                          placeholder="Min"
-                          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-border dark:bg-card"
-                        />
-                        <input
-                          value={currentMax}
-                          onChange={(event) => setNumericBounds(item.id, currentMin, event.target.value)}
-                          inputMode="decimal"
-                          placeholder="Max"
-                          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-border dark:bg-card"
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-
-              <div className="p-4">
-                <button
-                  onClick={() => setPickerOpen((value) => !value)}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-border dark:bg-card dark:text-slate-200 dark:hover:bg-muted"
-                >
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  {pickerOpen ? 'Hide More Filters' : `Add More Filters (${FILTER_DEFINITIONS.length})`}
-                </button>
-                {pickerOpen ? (
-                  <div className="mt-3 space-y-2">
-                    <div className="relative">
-                      <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-slate-500" />
-                      <input
-                        value={filterSearch}
-                        onChange={(event) => setFilterSearch(event.target.value)}
-                        placeholder="Search filters"
-                        className="w-full rounded-md border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm dark:border-border dark:bg-card"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <div className="max-h-40 min-w-0 space-y-1 overflow-auto rounded-md border border-slate-300 bg-white p-1.5 dark:border-border dark:bg-card">
-                        {FILTER_CATEGORIES.map((category) => (
-                          <button
-                            key={category}
-                            onClick={() => {
-                              setPickerCategory(category);
-                              setFilterSearch('');
-                            }}
-                            className={cn(
-                              'flex w-full min-w-0 items-center justify-between gap-1 rounded px-2 py-1 text-left text-[11px]',
-                              pickerCategory === category ? 'bg-slate-100 text-slate-900 dark:bg-muted dark:text-slate-100' : 'hover:bg-slate-100 dark:hover:bg-muted',
-                            )}
-                          >
-                            <span className="min-w-0 break-normal">{category}</span>
-                            <span className="shrink-0 text-[10px] text-slate-500">{categoryCounts[category]}</span>
-                          </button>
-                        ))}
-                      </div>
-                      <div className="min-w-0 max-h-56 space-y-1 overflow-y-auto overflow-x-hidden rounded-md border border-slate-300 bg-white p-1.5 dark:border-border dark:bg-card">
-                        {pickerList.map((definition) => {
-                          const active = isFilterActive(definition.id);
-                          return (
-                            <button
-                              key={definition.id}
-                              onClick={() => toggleFilter(definition)}
-                              className={cn(
-                                'flex w-full min-w-0 items-start justify-between gap-2 rounded border px-2 py-1.5 text-left text-xs',
-                                active
-                                  ? 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/50 dark:bg-blue-500/10 dark:text-blue-200'
-                                  : 'border-slate-200 hover:bg-slate-50 dark:border-border dark:hover:bg-muted/60',
-                              )}
-                            >
-                              <span className="min-w-0 flex-1 break-normal leading-snug">{definition.label}</span>
-                              <span className="shrink-0 whitespace-nowrap font-semibold uppercase">{active ? 'Added' : 'Add'}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </aside>
-
-          <div className="min-w-0">
-            <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4 dark:border-border">
-              <div>
-                <h2 className="text-[28px] font-semibold text-slate-900 dark:text-white">Stock Screener</h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Add a note to remember why you created this, like large-cap low PE or sector-specific picks.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 dark:border-border dark:bg-card dark:text-slate-300 dark:hover:bg-muted">
-                  <PenLine className="h-4 w-4" />
-                </button>
-                <button className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 dark:border-border dark:bg-card dark:text-slate-300 dark:hover:bg-muted">
-                  <Share2 className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={saveScreen}
-                  className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-400 bg-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-300 dark:border-border dark:bg-muted dark:text-slate-100 dark:hover:bg-muted/80"
-                >
-                  <Save className="h-4 w-4" /> Save
-                </button>
-              </div>
-            </div>
-
-            <div className="border-b border-slate-200 px-5 py-3 dark:border-border">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative min-w-[260px] flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                  <input
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Type conditions like: low debt, high ROE, PE < 20"
-                    className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm dark:border-border dark:bg-card"
-                  />
-                </div>
-                <button
-                  onClick={parseAiQuery}
-                  className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  <Sparkles className="h-4 w-4" /> Run AI
-                </button>
-                <button
-                  onClick={clearAllFilters}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-border dark:bg-card dark:text-slate-200 dark:hover:bg-muted"
-                >
-                  <Filter className="h-4 w-4" /> Reset
-                </button>
-              </div>
-              {explanation ? <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{explanation}</p> : null}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-3 text-sm dark:border-border">
-              <div className="font-medium text-slate-700 dark:text-slate-200">
-                Showing {showingFrom} - {showingTo} of {rows.length} results
-              </div>
-              <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                <span>last updated at {refreshedAt} IST</span>
-                <Info className="h-4 w-4" />
-                <button className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-border dark:bg-card dark:text-slate-200 dark:hover:bg-muted">
-                  <Download className="h-4 w-4" /> Export
-                </button>
-              </div>
-            </div>
-            {universeLoading || universeError ? (
-              <div className="border-b border-slate-200 px-5 py-2 text-xs text-slate-500 dark:border-border dark:text-slate-400">
-                {universeLoading ? 'Loading full India + US stock universe...' : universeError}
-              </div>
-            ) : null}
-
-            {activeEntries.length ? (
-              <div className="flex flex-wrap gap-2 border-b border-slate-200 px-5 py-2 dark:border-border">
-                {activeEntries.map(({ active, definition }) => {
-                  if (definition.kind === 'numeric' && active.kind === 'numeric') {
-                    return (
-                      <div
-                        key={definition.id}
-                        className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-border dark:bg-card dark:text-slate-200"
-                      >
-                        <span className="font-medium">{definition.label}</span>
-                        <input
-                          value={active.min}
-                          onChange={(event) => setNumericBounds(definition.id, event.target.value, active.max)}
-                          inputMode="decimal"
-                          placeholder="Min"
-                          className="w-20 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] dark:border-border dark:bg-card"
-                        />
-                        <input
-                          value={active.max}
-                          onChange={(event) => setNumericBounds(definition.id, active.min, event.target.value)}
-                          inputMode="decimal"
-                          placeholder="Max"
-                          className="w-20 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] dark:border-border dark:bg-card"
-                        />
-                        <button
-                          onClick={() => setActiveFilters((previous) => previous.filter((item) => item.filterId !== definition.id))}
-                          className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-100"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <span
-                      key={definition.id}
-                      className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 dark:border-border dark:bg-card dark:text-slate-200"
-                    >
-                      {definition.label}
-                      <button
-                        onClick={() => setActiveFilters((previous) => previous.filter((item) => item.filterId !== definition.id))}
-                        className="ml-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-100"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </span>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            <VirtualizedTable
-              rows={rows}
-              height={700}
-              estimateRowHeight={72}
-              onVisibleRowsChange={handleVisibleRowsChange}
-              headerClassName="bg-slate-100 px-4 py-3 text-[14px] text-slate-700 dark:bg-muted/70 dark:text-slate-200"
-              className="rounded-none border-0"
-              header={
-                <div className={TABLE_GRID_CLASS}>
-                  <button onClick={() => onSort('name')} className="flex items-center gap-1 text-left font-semibold">
-                    Name <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'name', sortConfig.direction)}</span>
-                  </button>
-                  <span className="font-semibold">Sub-Sector</span>
-                  <button onClick={() => onSort('marketCap')} className="flex items-center justify-end gap-1 font-semibold">
-                    Market Cap <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'marketCap', sortConfig.direction)}</span>
-                  </button>
-                  <button onClick={() => onSort('closePrice')} className="flex items-center justify-end gap-1 font-semibold">
-                    Close Price <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'closePrice', sortConfig.direction)}</span>
-                  </button>
-                  <button onClick={() => onSort('pe')} className="flex items-center justify-end gap-1 font-semibold">
-                    PE Ratio <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'pe', sortConfig.direction)}</span>
-                  </button>
-                  <button onClick={() => onSort('return1m')} className="flex items-center justify-end gap-1 font-semibold">
-                    1M Return <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'return1m', sortConfig.direction)}</span>
-                  </button>
-                  <button onClick={() => onSort('return1d')} className="flex items-center justify-end gap-1 font-semibold">
-                    1D Return <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'return1d', sortConfig.direction)}</span>
-                  </button>
-                  <button onClick={() => onSort('roe')} className="flex items-center justify-end gap-1 font-semibold">
-                    ROE <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'roe', sortConfig.direction)}</span>
-                  </button>
-                  <button onClick={() => onSort('dailyVolume')} className="flex items-center justify-end gap-1 font-semibold">
-                    Volume <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'dailyVolume', sortConfig.direction)}</span>
-                  </button>
-                </div>
-              }
-              renderRow={(row) => (
-                <div className="border-t border-slate-200 px-4 py-3 text-sm first:border-t-0 hover:bg-slate-50 dark:border-border dark:hover:bg-muted/40">
-                  <div className={cn(TABLE_GRID_CLASS, 'items-center')}>
-                    <div>
-                      <Link href={`/dashboard/${row.market}/${encodeURIComponent(row.symbol)}`} className="text-[15px] font-semibold text-slate-800 hover:text-blue-700 dark:text-slate-100 dark:hover:text-blue-300">
-                        {row.name}
-                      </Link>
-                      <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
-                        <span>{row.symbol}</span>
-                        <span>•</span>
-                        <span>{row.exchange}</span>
-                      </div>
-                    </div>
-                    <div className="text-[13px] text-slate-500 dark:text-slate-400">{row.industry}</div>
-                    <div className="text-right tabular-nums">{typeof row.marketCap === 'number' ? formatCurrency(row.marketCap, row.currency) : '—'}</div>
-                    <div className="text-right tabular-nums">{typeof row.closePrice === 'number' ? formatCurrency(row.closePrice, row.currency) : '—'}</div>
-                    <div className="text-right tabular-nums">{typeof row.pe === 'number' ? formatNumber(row.pe, 2) : '—'}</div>
-                    <div className="text-right tabular-nums">{typeof row.return1m === 'number' ? formatPercent(row.return1m) : '—'}</div>
-                    <div className="text-right tabular-nums">{typeof row.return1d === 'number' ? formatPercent(row.return1d) : '—'}</div>
-                    <div className="text-right tabular-nums">{typeof row.roe === 'number' ? formatPercent(row.roe) : '—'}</div>
-                    <div className="text-right tabular-nums">{typeof row.dailyVolume === 'number' ? formatNumber(row.dailyVolume, 0) : '—'}</div>
-                  </div>
-                </div>
-              )}
-            />
+            <button
+              onClick={clearAllFilters}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-border dark:bg-card dark:text-slate-200 dark:hover:bg-muted"
+            >
+              Reset filters
+            </button>
           </div>
         </div>
+
+        <div className="border-b border-slate-200 px-5 py-3 dark:border-border">
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+            <label className="space-y-1">
+              <span className="block text-xs font-medium text-slate-600 dark:text-slate-300">Stocks</span>
+              <select
+                value={stockUniverseValue}
+                onChange={(event) => setEnumFilterValue('stock-universe', event.target.value)}
+                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+              >
+                <option value="">All</option>
+                {(enumOptionsByField.stockUniverse ?? []).map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1">
+              <MetricLabel label="P/E Ratio (Max)" tooltip={metricFilterHelp('pe')} />
+              <input
+                value={peMax}
+                onChange={(event) => setNumericBounds('pe', peMin, event.target.value)}
+                inputMode="decimal"
+                placeholder="e.g. 20"
+                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+              />
+            </label>
+
+            <label className="space-y-1">
+              <MetricLabel label="P/B Ratio (Max)" tooltip={metricFilterHelp('pb')} />
+              <input
+                value={pbMax}
+                onChange={(event) => setNumericBounds('pb', pbMin, event.target.value)}
+                inputMode="decimal"
+                placeholder="e.g. 4"
+                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+              />
+            </label>
+
+            <label className="space-y-1">
+              <MetricLabel label="EV/EBITDA (Max)" tooltip={metricFilterHelp('ev-ebitda')} />
+              <input
+                value={evEbitdaMax}
+                onChange={(event) => setNumericBounds('ev-ebitda', evEbitdaMin, event.target.value)}
+                inputMode="decimal"
+                placeholder="e.g. 15"
+                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+              />
+            </label>
+
+            <label className="space-y-1">
+              <MetricLabel label="Price/Sales (Max)" tooltip={metricFilterHelp('price-to-sales')} />
+              <input
+                value={priceToSalesMax}
+                onChange={(event) => setNumericBounds('price-to-sales', priceToSalesMin, event.target.value)}
+                inputMode="decimal"
+                placeholder="e.g. 5"
+                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+              />
+            </label>
+
+            <label className="space-y-1">
+              <MetricLabel label="PEG Ratio (Max)" tooltip={metricFilterHelp('peg-ratio')} />
+              <input
+                value={pegRatioMax}
+                onChange={(event) => setNumericBounds('peg-ratio', pegRatioMin, event.target.value)}
+                inputMode="decimal"
+                placeholder="e.g. 1.5"
+                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+              />
+            </label>
+
+            <label className="space-y-1">
+              <MetricLabel label="Dividend Yield Min (%)" tooltip={metricFilterHelp('dividend-yield')} />
+              <input
+                value={dividendYieldMin}
+                onChange={(event) => setNumericBounds('dividend-yield', event.target.value, dividendYieldMax)}
+                inputMode="decimal"
+                placeholder="e.g. 1"
+                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+              />
+            </label>
+
+            <label className="space-y-1">
+              <MetricLabel label="ROE Min (%)" tooltip={metricFilterHelp('roe')} />
+              <input
+                value={roeMin}
+                onChange={(event) => setNumericBounds('roe', event.target.value, roeMax)}
+                inputMode="decimal"
+                placeholder="e.g. 15"
+                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+              />
+            </label>
+
+            <label className="space-y-1">
+              <MetricLabel label="Debt/Equity Max" tooltip={metricFilterHelp('debt-to-equity')} />
+              <input
+                value={debtToEquityMax}
+                onChange={(event) => setNumericBounds('debt-to-equity', debtToEquityMin, event.target.value)}
+                inputMode="decimal"
+                placeholder="e.g. 1"
+                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+              />
+            </label>
+
+            <label className="space-y-1">
+              <MetricLabel label="1M Return Min (%)" tooltip={metricFilterHelp('return-1m')} />
+              <input
+                value={return1mMin}
+                onChange={(event) => setNumericBounds('return-1m', event.target.value, return1mMax)}
+                inputMode="decimal"
+                placeholder="e.g. 3"
+                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+              />
+            </label>
+
+            <label className="space-y-1">
+              <MetricLabel label="ROCE Min (%)" tooltip={metricFilterHelp('roce')} />
+              <input
+                value={roceMin}
+                onChange={(event) => setNumericBounds('roce', event.target.value, roceMax)}
+                inputMode="decimal"
+                placeholder="e.g. 15"
+                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-3 text-sm dark:border-border">
+          <div className="font-medium text-slate-700 dark:text-slate-200">
+            Showing {showingFrom} - {showingTo} of {rows.length} results
+          </div>
+          <div className="text-slate-500 dark:text-slate-400">Updated {refreshedAt} IST</div>
+        </div>
+        {universeLoading || universeError ? (
+          <div className="border-b border-slate-200 px-5 py-2 text-xs text-slate-500 dark:border-border dark:text-slate-400">
+            {universeLoading ? 'Loading full India + US stock universe...' : universeError}
+          </div>
+        ) : null}
+
+        <VirtualizedTable
+          rows={rows}
+          height={700}
+          estimateRowHeight={72}
+          onVisibleRowsChange={handleVisibleRowsChange}
+          headerClassName="bg-slate-100 px-4 py-3 text-[14px] text-slate-700 dark:bg-muted/70 dark:text-slate-200"
+          className="rounded-none border-0"
+          header={
+            <div className={TABLE_GRID_CLASS}>
+              <button onClick={() => onSort('name')} className="flex items-center gap-1 text-left font-semibold">
+                Name <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'name', sortConfig.direction)}</span>
+              </button>
+              <button onClick={() => onSort('stockUniverse')} className="flex items-center gap-1 text-left font-semibold">
+                Stocks <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'stockUniverse', sortConfig.direction)}</span>
+              </button>
+              <button onClick={() => onSort('pe')} className="flex items-center justify-end gap-1 font-semibold">
+                P/E <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'pe', sortConfig.direction)}</span>
+              </button>
+              <button onClick={() => onSort('pb')} className="flex items-center justify-end gap-1 font-semibold">
+                P/B <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'pb', sortConfig.direction)}</span>
+              </button>
+              <button onClick={() => onSort('evEbitda')} className="flex items-center justify-end gap-1 font-semibold">
+                EV/EBITDA <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'evEbitda', sortConfig.direction)}</span>
+              </button>
+              <button onClick={() => onSort('priceToSales')} className="flex items-center justify-end gap-1 font-semibold">
+                P/S <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'priceToSales', sortConfig.direction)}</span>
+              </button>
+              <button onClick={() => onSort('pegRatio')} className="flex items-center justify-end gap-1 font-semibold">
+                PEG <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'pegRatio', sortConfig.direction)}</span>
+              </button>
+              <button onClick={() => onSort('dividendYield')} className="flex items-center justify-end gap-1 font-semibold">
+                Div Yield <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'dividendYield', sortConfig.direction)}</span>
+              </button>
+              <button onClick={() => onSort('roe')} className="flex items-center justify-end gap-1 font-semibold">
+                ROE <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'roe', sortConfig.direction)}</span>
+              </button>
+              <button onClick={() => onSort('roce')} className="flex items-center justify-end gap-1 font-semibold">
+                ROCE <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'roce', sortConfig.direction)}</span>
+              </button>
+              <button onClick={() => onSort('debtToEquity')} className="flex items-center justify-end gap-1 font-semibold">
+                Debt/Equity <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'debtToEquity', sortConfig.direction)}</span>
+              </button>
+              <button onClick={() => onSort('return1m')} className="flex items-center justify-end gap-1 font-semibold">
+                1M Return <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'return1m', sortConfig.direction)}</span>
+              </button>
+            </div>
+          }
+          renderRow={(row) => (
+            <div className="border-t border-slate-200 px-4 py-3 text-sm first:border-t-0 hover:bg-slate-50 dark:border-border dark:hover:bg-muted/40">
+              <div className={cn(TABLE_GRID_CLASS, 'items-center')}>
+                <div>
+                  <Link href={`/dashboard/${row.market}/${encodeURIComponent(row.symbol)}`} className="text-[15px] font-semibold text-slate-800 hover:text-blue-700 dark:text-slate-100 dark:hover:text-blue-300">
+                    {row.name}
+                  </Link>
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
+                    <span>{row.symbol}</span>
+                    <span>•</span>
+                    <span>{row.exchange}</span>
+                  </div>
+                </div>
+                <div className="text-[13px] text-slate-500 dark:text-slate-400">{row.stockUniverse}</div>
+                <div className="text-right tabular-nums">{typeof row.pe === 'number' ? formatNumber(row.pe, 2) : '—'}</div>
+                <div className="text-right tabular-nums">{typeof row.pb === 'number' ? formatNumber(row.pb, 2) : '—'}</div>
+                <div className="text-right tabular-nums">{typeof row.evEbitda === 'number' ? formatNumber(row.evEbitda, 2) : '—'}</div>
+                <div className="text-right tabular-nums">{typeof row.priceToSales === 'number' ? formatNumber(row.priceToSales, 2) : '—'}</div>
+                <div className="text-right tabular-nums">{typeof row.pegRatio === 'number' ? formatNumber(row.pegRatio, 2) : '—'}</div>
+                <div className="text-right tabular-nums">{typeof row.dividendYield === 'number' ? formatPercent(row.dividendYield) : '—'}</div>
+                <div className="text-right tabular-nums">{typeof row.roe === 'number' ? formatPercent(row.roe) : '—'}</div>
+                <div className="text-right tabular-nums">{typeof row.roce === 'number' ? formatPercent(row.roce) : '—'}</div>
+                <div className="text-right tabular-nums">{typeof row.debtToEquity === 'number' ? formatNumber(row.debtToEquity, 2) : '—'}</div>
+                <div className="text-right tabular-nums">{typeof row.return1m === 'number' ? formatPercent(row.return1m) : '—'}</div>
+              </div>
+            </div>
+          )}
+        />
       </section>
     </div>
   );

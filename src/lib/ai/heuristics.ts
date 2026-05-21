@@ -1558,7 +1558,7 @@ export function parseScreenerQueryHeuristic(query: string): { filters: ParsedScr
   if (q.includes('large cap')) push('marketCapBucket', '=', 'Largecap');
   if (q.includes('mid cap')) push('marketCapBucket', '=', 'Midcap');
   if (q.includes('small cap')) push('marketCapBucket', '=', 'Smallcap');
-  if (q.includes('india stock') || q.includes('indian stock')) push('stockUniverse', '=', 'India Stocks');
+  if (q.includes('india stock') || q.includes('indian stock')) push('stockUniverse', '=', 'Indian Stocks');
   if (q.includes('us stock') || q.includes('american stock')) push('stockUniverse', '=', 'US Stocks');
   if (q.includes('high volume')) push('volumeVsAvg1m', '>', 1.2);
   if (q.includes('low volatility')) push('volatility30d', '<', 25);
