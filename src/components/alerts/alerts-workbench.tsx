@@ -363,7 +363,7 @@ export function AlertsWorkbench() {
                         className={cn(
                           'rounded-xl border px-3 py-1.5 text-xs font-medium',
                           alert.enabled
-                            ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                            ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                             : 'border-border text-slate-500 dark:text-slate-300',
                         )}
                       >
@@ -375,7 +375,7 @@ export function AlertsWorkbench() {
                         className={cn(
                           'rounded-xl border px-3 py-1.5 text-xs font-medium',
                           alert.notifyEmail
-                            ? 'border-sky-500/40 bg-sky-500/15 text-sky-300'
+                            ? 'border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300'
                             : 'border-border text-slate-500 dark:text-slate-300',
                         )}
                       >
@@ -456,12 +456,12 @@ export function AlertsWorkbench() {
                 </p>
                 <div className="mt-3 inline-flex items-center gap-2 text-xs">
                   {message.emailStatus === 'sent' ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-emerald-300">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-emerald-700 dark:text-emerald-300">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Email sent
                     </span>
                   ) : message.emailStatus === 'failed' ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-1 text-amber-300">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-1 text-amber-700 dark:text-amber-300">
                       <AlertTriangle className="h-3.5 w-3.5" />
                       Email failed
                     </span>
