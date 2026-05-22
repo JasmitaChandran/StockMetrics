@@ -1,6 +1,5 @@
 'use client';
 
-import { AnimatePresence, motion } from 'framer-motion';
 import { Mic, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -194,18 +193,7 @@ export function UniversalSearch({
         {showAnimatedHint ? (
           <div className="pointer-events-none absolute inset-y-0 left-10 right-28 flex items-center text-sm text-slate-400">
             <span className="mr-1.5">Search for</span>
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.span
-                key={rotatingHints[hintIndex]}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
-                className="inline-block font-medium text-slate-200"
-              >
-                {rotatingHints[hintIndex]}
-              </motion.span>
-            </AnimatePresence>
+            <span className="inline-block font-medium text-slate-500 dark:text-slate-200">{rotatingHints[hintIndex]}</span>
           </div>
         ) : null}
         <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
@@ -238,43 +226,35 @@ export function UniversalSearch({
           </button>
         </div>
       </div>
-      <AnimatePresence>
-        {showDropdown ? (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-border/80 bg-card shadow-panel"
-          >
-            <div className="max-h-96 overflow-auto p-2">
-              {isLoading ? <div className="p-3 text-sm text-slate-500">Searching...</div> : null}
-              {!isLoading && items.length === 0 ? (
-                <div className="p-3 text-sm text-slate-500">No matches. Try ticker (e.g., AAPL, HDFCBANK) or company name.</div>
-              ) : null}
-              {items.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => selectEntity(item)}
-                  className={cn(
-                    'flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2 text-left text-sm transition hover:border-indigo-400/20 hover:bg-muted/50',
-                  )}
-                >
-                  <div className="min-w-0">
-                    <div className="truncate font-medium text-slate-900 dark:text-white">{item.name}</div>
-                    <div className="text-xs text-slate-500">
-                      {item.displaySymbol} • {item.market.toUpperCase()} {item.exchange ? `• ${item.exchange}` : ''}
-                    </div>
+      {showDropdown ? (
+        <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-border/80 bg-card shadow-panel">
+          <div className="max-h-96 overflow-auto p-2">
+            {isLoading ? <div className="p-3 text-sm text-slate-500">Searching...</div> : null}
+            {!isLoading && items.length === 0 ? (
+              <div className="p-3 text-sm text-slate-500">No matches. Try ticker (e.g., AAPL, HDFCBANK) or company name.</div>
+            ) : null}
+            {items.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => selectEntity(item)}
+                className={cn(
+                  'flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2 text-left text-sm transition hover:border-indigo-400/20 hover:bg-muted/50',
+                )}
+              >
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-slate-900 dark:text-white">{item.name}</div>
+                  <div className="text-xs text-slate-500">
+                    {item.displaySymbol} • {item.market.toUpperCase()} {item.exchange ? `• ${item.exchange}` : ''}
                   </div>
-                  <span className="rounded-lg border border-border/70 bg-muted/50 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500">
-                    {item.type === 'mutual_fund' ? 'MF' : 'Stock'}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+                </div>
+                <span className="rounded-lg border border-border/70 bg-muted/50 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500">
+                  {item.type === 'mutual_fund' ? 'MF' : 'Stock'}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

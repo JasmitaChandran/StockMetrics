@@ -47,10 +47,11 @@ export default function DebugDbPage() {
 
     try {
       db = await getDb();
-      const storeNames = Array.from(db.objectStoreNames).sort((left, right) => left.localeCompare(right));
+      const openedDb = db;
+      const storeNames = Array.from(openedDb.objectStoreNames).sort((left, right) => left.localeCompare(right));
       const nextStores = await Promise.all(
         storeNames.map(async (name) => {
-          const records = await db.getAll(name);
+          const records = await openedDb.getAll(name);
           return {
             name,
             count: records.length,

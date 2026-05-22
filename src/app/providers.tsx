@@ -1,13 +1,17 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import { MotionConfig } from 'framer-motion';
 import { useUiStore } from '@/stores/ui-store';
 import { getAuthAdapter } from '@/lib/auth';
 import { useAuthStore } from '@/stores/auth-store';
 import { AlertBackgroundMonitor } from '@/components/alerts/alert-background-monitor';
+
+const ReactQueryDevtools = dynamic(
+  () => import('@tanstack/react-query-devtools').then((mod) => mod.ReactQueryDevtools),
+  { ssr: false },
+);
 
 if (typeof window !== 'undefined') {
   const existingMatchMedia = window.matchMedia?.bind(window);
@@ -28,13 +32,15 @@ if (typeof window !== 'undefined') {
 
     const mediaQueryList = existingMatchMedia(query);
     if (typeof mediaQueryList.addListener !== 'function') {
-      mediaQueryList.addListener = (listener: EventListenerOrEventListenerObject) => {
-        mediaQueryList.addEventListener?.('change', listener);
+      mediaQueryList.addListener = (callback: ((this: MediaQueryList, ev: MediaQueryListEvent) => any) | null) => {
+        if (!callback) return;
+        mediaQueryList.addEventListener?.('change', callback as EventListener);
       };
     }
     if (typeof mediaQueryList.removeListener !== 'function') {
-      mediaQueryList.removeListener = (listener: EventListenerOrEventListenerObject) => {
-        mediaQueryList.removeEventListener?.('change', listener);
+      mediaQueryList.removeListener = (callback: ((this: MediaQueryList, ev: MediaQueryListEvent) => any) | null) => {
+        if (!callback) return;
+        mediaQueryList.removeEventListener?.('change', callback as EventListener);
       };
     }
     return mediaQueryList;
@@ -82,11 +88,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <MotionConfig reducedMotion="user">
-        <AlertBackgroundMonitor />
-        {children}
-      </MotionConfig>
-      <ReactQueryDevtools initialIsOpen={false} />
+      <AlertBackgroundMonitor />
+      {children}
+      {process.env.NODE_ENV === 'development' ? <ReactQueryDevtools initialIsOpen={false} /> : null}
     </QueryClientProvider>
   );
 }

@@ -70,7 +70,15 @@ function maxDrawdown(points: Array<{ close: number }>, lookback: number): number
   return worst;
 }
 
+const aiProfileCache = new Map<
+  string,
+  { valuation: WatchlistValuationLabel; quality: 'Strong' | 'Average' | 'Weak'; growth: 'High' | 'Stable' | 'Slow'; risk: WatchlistRiskLabel; trend: WatchlistTrendLabel }
+>();
+
 function deriveAiProfile(symbol: string) {
+  const cached = aiProfileCache.get(symbol);
+  if (cached) return cached;
+
   const entity = demoUniverse.find((item) => item.symbol === symbol);
   const history = generateDemoHistory(entity ?? demoUniverse[0]).points;
   const latest = history[history.length - 1];
@@ -171,7 +179,9 @@ function deriveAiProfile(symbol: string) {
         ? 'Bearish'
         : 'Sideways';
 
-  return { valuation, quality, growth, risk, trend };
+  const profile = { valuation, quality, growth, risk, trend };
+  aiProfileCache.set(symbol, profile);
+  return profile;
 }
 
 function normalizeWatchlist(record: WatchlistRecord): WatchlistRecord {
