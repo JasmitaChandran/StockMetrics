@@ -376,6 +376,18 @@ const DEFAULT_SELECT_SELECTION_STATE: ProfileSelectSelectionState = {
   marketScope: false,
 };
 
+const REQUIRED_PROFILE_SELECTIONS: Array<{ key: ProfileSelectKey; label: string }> = [
+  { key: 'maritalStatus', label: 'Marital Status' },
+  { key: 'employmentType', label: 'Employment Type' },
+  { key: 'residency', label: 'Residency' },
+  { key: 'investmentGoal', label: 'Goal' },
+  { key: 'investmentHorizon', label: 'Horizon' },
+  { key: 'riskPreference', label: 'Risk Preference' },
+  { key: 'liquidityNeed', label: 'Liquidity Need' },
+  { key: 'analysisMode', label: 'Analysis Mode' },
+  { key: 'marketScope', label: 'Market Scope' },
+];
+
 interface ChangeAuditSummary {
   title: string;
   highlights: string[];
@@ -522,6 +534,19 @@ function totalDependents(form: Pick<AgenticFormInput, 'dependentsKids' | 'depend
   return form.dependentsKids + form.dependentsParents + form.dependentsSpouse + form.dependentsOthers;
 }
 
+function listMissingCompulsoryFields(
+  selectionState: Partial<ProfileSelectSelectionState> | undefined,
+  loans: LoanInput[],
+  loanTypeSelectionState: Record<string, boolean>,
+) {
+  const missing = REQUIRED_PROFILE_SELECTIONS.filter((field) => !selectionState?.[field.key]).map((field) => field.label);
+  const missingLoanTypeCount = loans.filter((loan) => !loanTypeSelectionState[loan.id]).length;
+  if (missingLoanTypeCount > 0) {
+    missing.push(missingLoanTypeCount === 1 ? 'Loan Type (1 loan)' : `Loan Type (${missingLoanTypeCount} loans)`);
+  }
+  return missing;
+}
+
 function getDisplayCurrency(input: Pick<AgenticFormInput, 'countryCode' | 'country'>): 'INR' | 'USD' {
   if (input.countryCode === 'US') return 'USD';
   if (input.countryCode === 'IN') return 'INR';
@@ -546,13 +571,12 @@ function headlineSentimentClass(score?: number) {
 
 function validateFormInput(
   form: AgenticFormInput,
-  selectionState?: Pick<ProfileSelectSelectionState, 'analysisMode' | 'marketScope'>,
+  selectionState?: Partial<ProfileSelectSelectionState>,
+  loanTypeSelectionState: Record<string, boolean> = {},
 ): string | null {
-  if (!selectionState?.analysisMode) {
-    return 'Select Analysis Mode before running the agent.';
-  }
-  if (!selectionState?.marketScope) {
-    return 'Select Market Scope before running the agent.';
+  const missingCompulsoryFields = listMissingCompulsoryFields(selectionState, form.loans, loanTypeSelectionState);
+  if (missingCompulsoryFields.length) {
+    return `Select compulsory fields: ${missingCompulsoryFields.join(', ')}.`;
   }
   if (!Number.isFinite(form.age) || form.age < 18 || form.age > 100) {
     return 'Age must be between 18 and 100.';
