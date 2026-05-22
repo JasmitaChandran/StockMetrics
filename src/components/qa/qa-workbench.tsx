@@ -61,7 +61,7 @@ function renderInlineSegments(segments: ChatInlineSegment[]) {
 
     if (segment.type === 'strong') {
       return (
-        <strong key={key} className="font-semibold text-slate-100 dark:text-white">
+        <strong key={key} className="font-semibold text-slate-900 dark:text-white">
           {segment.content}
         </strong>
       );
@@ -69,7 +69,7 @@ function renderInlineSegments(segments: ChatInlineSegment[]) {
 
     if (segment.type === 'em') {
       return (
-        <em key={key} className="italic text-slate-100/95 dark:text-slate-100">
+        <em key={key} className="italic text-slate-700 dark:text-slate-100">
           {segment.content}
         </em>
       );
@@ -77,7 +77,7 @@ function renderInlineSegments(segments: ChatInlineSegment[]) {
 
     if (segment.type === 'code') {
       return (
-        <code key={key} className="rounded-md bg-slate-900/10 px-1.5 py-0.5 text-[0.95em] text-indigo-200 dark:bg-white/10 dark:text-indigo-100">
+        <code key={key} className="rounded-md bg-slate-900/10 px-1.5 py-0.5 text-[0.95em] text-indigo-700 dark:bg-white/10 dark:text-indigo-100">
           {segment.content}
         </code>
       );
@@ -105,7 +105,7 @@ function FormattedAssistantMessage({ content }: { content: string }) {
 
         if (block.type === 'unordered-list') {
           return (
-            <ul key={key} className="list-disc space-y-2 pl-6 marker:text-indigo-300">
+            <ul key={key} className="list-disc space-y-2 pl-6 marker:text-indigo-500 dark:marker:text-indigo-300">
               {block.items.map((item, itemIndex) => (
                 <li key={`${key}-${itemIndex}`} className="pl-1">
                   {renderInlineSegments(item)}
@@ -117,7 +117,7 @@ function FormattedAssistantMessage({ content }: { content: string }) {
 
         if (block.type === 'ordered-list') {
           return (
-            <ol key={key} className="list-decimal space-y-2 pl-6 marker:text-indigo-300">
+            <ol key={key} className="list-decimal space-y-2 pl-6 marker:text-indigo-500 dark:marker:text-indigo-300">
               {block.items.map((item, itemIndex) => (
                 <li key={`${key}-${itemIndex}`} className="pl-1">
                   {renderInlineSegments(item)}
