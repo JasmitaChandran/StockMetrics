@@ -755,6 +755,27 @@ html.dark .agentic-mode-toggle {
     0 12px 24px -20px rgba(6, 182, 212, 0.46);
 }
 
+.portfolio-date-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+  color: inherit;
+}
+
+.portfolio-date-input::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
+}
+
+.portfolio-date-input::-webkit-clear-button,
+.portfolio-date-input::-webkit-inner-spin-button {
+  display: none;
+}
+
+html.dark .portfolio-date-input {
+  color-scheme: dark;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .surface-hover,
   .surface-hover:hover,

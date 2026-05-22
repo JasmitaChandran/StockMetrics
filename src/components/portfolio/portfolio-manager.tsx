@@ -1,13 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { Calendar, Search } from 'lucide-react';
 import { SectionCard } from '@/components/common/section-card';
 import { demoUniverse, demoFundamentalsBySymbol } from '@/lib/data/mock/demo-data';
 import { listPortfolioTxns, upsertPortfolioTxn } from '@/lib/storage/repositories';
 import type { PortfolioTxn } from '@/lib/storage/idb';
+import type { SearchEntity } from '@/types';
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/utils/format';
-import { useFxUsdInr } from '@/lib/hooks/use-stock-data';
+import { cn } from '@/lib/utils/cn';
+import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
+import { useFxUsdInr, useSearchEntities } from '@/lib/hooks/use-stock-data';
 
 interface HoldingRow {
   symbol: string;
@@ -72,10 +76,18 @@ export function PortfolioManager() {
   const { data: fx } = useFxUsdInr();
   const [txns, setTxns] = useState<PortfolioTxn[]>([]);
   const [symbol, setSymbol] = useState('AAPL');
+  const [selectedSymbolSuggestion, setSelectedSymbolSuggestion] = useState<SearchEntity | null>(null);
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [quantity, setQuantity] = useState(10);
   const [price, setPrice] = useState(100);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const debouncedSymbolQuery = useDebouncedValue(symbol, 250);
+  const { data: symbolSearchData, isLoading: isSymbolSearching } = useSearchEntities(debouncedSymbolQuery);
+  const symbolSuggestions = useMemo(() => symbolSearchData ?? [], [symbolSearchData]);
+  const visibleSymbolSuggestions = useMemo(() => symbolSuggestions.slice(0, 6), [symbolSuggestions]);
+  const hasSymbolQuery = symbol.trim().length >= 2;
+  const showSymbolSuggestions = hasSymbolQuery && !selectedSymbolSuggestion;
 
   useEffect(() => {
     listPortfolioTxns().then((records) => {
@@ -92,11 +104,34 @@ export function PortfolioManager() {
     });
   }, []);
 
-  async function addTxn() {
-    const match = demoUniverse.find((e) => e.symbol.toUpperCase() === symbol.toUpperCase() || e.displaySymbol.toUpperCase() === symbol.toUpperCase());
+  function pickSymbolSuggestion(entity: SearchEntity) {
+    setSymbol(entity.displaySymbol);
+    setSelectedSymbolSuggestion(entity);
+  }
+
+  function openDatePicker() {
+    const input = dateInputRef.current;
+    if (!input) return;
+    input.focus();
+    if (typeof input.showPicker === 'function') input.showPicker();
+  }
+
+  async function addTxn(preferredMatch?: SearchEntity) {
+    const normalizedSymbol = symbol.trim().toUpperCase();
+    if (!normalizedSymbol) return;
+    const exactSuggestion = symbolSuggestions.find(
+      (entity) => entity.symbol.toUpperCase() === normalizedSymbol || entity.displaySymbol.toUpperCase() === normalizedSymbol,
+    );
+    const match =
+      preferredMatch ??
+      selectedSymbolSuggestion ??
+      exactSuggestion ??
+      demoUniverse.find((entity) => entity.symbol.toUpperCase() === normalizedSymbol || entity.displaySymbol.toUpperCase() === normalizedSymbol);
+
+    const finalSymbol = match?.symbol ?? normalizedSymbol;
     const txn: PortfolioTxn = {
       id: crypto.randomUUID(),
-      symbol: match?.symbol ?? symbol.toUpperCase(),
+      symbol: finalSymbol,
       market: (match?.market ?? 'us') as PortfolioTxn['market'],
       side,
       quantity,
@@ -105,6 +140,7 @@ export function PortfolioManager() {
     };
     await upsertPortfolioTxn(txn);
     setTxns((prev) => [...prev, txn]);
+    setSelectedSymbolSuggestion(null);
   }
 
   const holdings = useMemo(() => deriveHoldings(txns), [txns]);
@@ -119,22 +155,94 @@ export function PortfolioManager() {
 
   return (
     <div className="space-y-6">
-      <SectionCard title="Portfolio" subtitle="Add buy/sell transactions; holdings and P&L are stored locally in IndexedDB.">
-        <div className="grid gap-3 md:grid-cols-6">
-          <input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="Symbol" className="rounded-xl border border-border bg-card px-3 py-2 text-sm" />
+      <SectionCard title="Portfolio" subtitle="Add buy/sell transactions">
+        <div className="grid gap-3 md:grid-cols-[minmax(220px,1.6fr)_120px_120px_140px_180px_auto]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={symbol}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSymbol(value);
+                setSelectedSymbolSuggestion(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Tab' && hasSymbolQuery && visibleSymbolSuggestions.length) {
+                  event.preventDefault();
+                  pickSymbolSuggestion(visibleSymbolSuggestions[0]);
+                  return;
+                }
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  if (showSymbolSuggestions && visibleSymbolSuggestions.length) {
+                    void addTxn(visibleSymbolSuggestions[0]);
+                    return;
+                  }
+                  void addTxn();
+                }
+              }}
+              placeholder="Search stock (e.g., AAPL, HDFCBANK)"
+              className="w-full rounded-xl border border-border bg-card py-2 pl-10 pr-3 text-sm"
+            />
+          </div>
           <select value={side} onChange={(e) => setSide(e.target.value as 'buy' | 'sell')} className="rounded-xl border border-border bg-card px-3 py-2 text-sm">
             <option value="buy">Buy</option>
             <option value="sell">Sell</option>
           </select>
-          <input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="rounded-xl border border-border bg-card px-3 py-2 text-sm" />
-          <input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} className="rounded-xl border border-border bg-card px-3 py-2 text-sm" />
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-xl border border-border bg-card px-3 py-2 text-sm" />
-          <button onClick={addTxn} className="rounded-xl bg-accent px-3 py-2 text-sm font-medium text-white">Add Transaction</button>
+          <input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} placeholder="Qty" className="rounded-xl border border-border bg-card px-3 py-2 text-sm" />
+          <input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} placeholder="Price" className="rounded-xl border border-border bg-card px-3 py-2 text-sm" />
+          <div className="portfolio-date-field flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
+            <input
+              ref={dateInputRef}
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="portfolio-date-input min-w-0 flex-1 border-0 bg-transparent p-0 text-sm outline-none"
+            />
+            <button
+              type="button"
+              onClick={openDatePicker}
+              className="shrink-0 text-slate-500 transition hover:text-slate-700 dark:text-slate-300 dark:hover:text-white"
+              aria-label="Open date picker"
+            >
+              <Calendar className="h-4 w-4" />
+            </button>
+          </div>
+          <button onClick={() => void addTxn()} className="rounded-xl bg-accent px-3 py-2 text-sm font-medium text-white">Add</button>
         </div>
       </SectionCard>
+      {showSymbolSuggestions ? (
+        <div className="rounded-xl border border-border/80 bg-card/80">
+          {isSymbolSearching ? <div className="px-3 py-2 text-sm text-slate-500">Searching...</div> : null}
+          {!isSymbolSearching && visibleSymbolSuggestions.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-slate-500">
+              No matches. Try ticker (e.g., AAPL, HDFCBANK) or company name.
+            </div>
+          ) : null}
+          {!isSymbolSearching && visibleSymbolSuggestions.length > 0 ? (
+            <div className="divide-y divide-border/60">
+              {visibleSymbolSuggestions.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => pickSymbolSuggestion(item)}
+                  className={cn('flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-muted/40')}
+                >
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-slate-900 dark:text-white">{item.name}</div>
+                    <div className="text-xs text-slate-500">
+                      {item.displaySymbol} • {item.market.toUpperCase()} {item.exchange ? `• ${item.exchange}` : ''}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-        <SectionCard title="Holdings" subtitle="Current values are based on available market price feeds and may be delayed.">
+        <SectionCard title="Holdings">
           <div className="overflow-auto rounded-xl border border-border">
             <table className="min-w-full text-sm">
               <thead className="bg-muted/30 text-xs uppercase tracking-wide text-slate-500">
@@ -152,10 +260,11 @@ export function PortfolioManager() {
                   holdings.map((h) => {
                     const entity = demoUniverse.find((e) => e.symbol === h.symbol);
                     const currency = h.currency;
+                    const market = entity?.market ?? h.market;
                     return (
                       <tr key={h.symbol} className="border-t border-border">
                         <td className="px-3 py-2">
-                          <Link href={`/dashboard/${entity?.market ?? 'us'}/${encodeURIComponent(h.symbol)}`} className="font-medium hover:text-accent">
+                          <Link href={`/dashboard/${market}/${encodeURIComponent(h.symbol)}`} className="font-medium hover:text-accent">
                             {entity?.displaySymbol ?? h.symbol}
                           </Link>
                           <div className="text-xs text-slate-500">{entity?.name ?? h.symbol}</div>
@@ -180,7 +289,7 @@ export function PortfolioManager() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Allocation" subtitle="Portfolio summary and allocation chart (lightweight bars).">
+        <SectionCard title="Allocation" subtitle="Portfolio summary and allocation chart">
           <div className="space-y-3">
             <div className="rounded-xl border border-border p-3">
               <div className="grid gap-2 text-sm">
