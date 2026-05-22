@@ -12,10 +12,26 @@ export type LocalUserRecord = {
   createdAt: string;
 };
 
+export type WatchlistValuationLabel = 'Undervalued' | 'Fair' | 'Expensive';
+export type WatchlistQualityLabel = 'Strong' | 'Average' | 'Weak';
+export type WatchlistGrowthLabel = 'High' | 'Stable' | 'Slow';
+export type WatchlistRiskLabel = 'Low' | 'Moderate' | 'High';
+export type WatchlistTrendLabel = 'Bullish' | 'Sideways' | 'Bearish';
+
+export interface WatchlistSymbolProfile {
+  reasonForAdding?: string;
+  valuation?: WatchlistValuationLabel;
+  quality?: WatchlistQualityLabel;
+  growth?: WatchlistGrowthLabel;
+  risk?: WatchlistRiskLabel;
+  trend?: WatchlistTrendLabel;
+}
+
 export interface WatchlistRecord {
   id: string;
   name: string;
   symbols: string[];
+  symbolProfiles?: Record<string, WatchlistSymbolProfile>;
   createdAt: string;
   updatedAt: string;
 }
