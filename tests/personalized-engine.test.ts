@@ -10,11 +10,15 @@ function makeForm(overrides: Partial<AgenticFormInput> = {}): AgenticFormInput {
     maritalStatus: 'single',
     dependentsKids: 0,
     dependentsParents: 0,
+    dependentsSpouse: 0,
+    dependentsOthers: 0,
     employmentType: 'salaried',
     monthlyIncome: 100000,
     monthlyFixedExpenses: 40000,
     monthlyDiscretionaryExpenses: 10000,
     effectiveTaxRate: 20,
+    insuranceCover: 1000000,
+    debtFdInterestAnnual: 24000,
     assets: {
       equity: 1000000,
       debt: 300000,
@@ -76,6 +80,40 @@ describe('personalized engine guardrails and core math', () => {
         }),
       ),
     ).toThrow();
+  });
+
+  it('allows zero salary income when debt/FD interest income is provided', () => {
+    expect(() =>
+      personalizedEngineTestables.validateAgenticInput(
+        makeForm({
+          monthlyIncome: 0,
+          debtFdInterestAnnual: 60000,
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects salaried profile with no income source', () => {
+    expect(() =>
+      personalizedEngineTestables.validateAgenticInput(
+        makeForm({
+          monthlyIncome: 0,
+          debtFdInterestAnnual: 0,
+        }),
+      ),
+    ).toThrow();
+  });
+
+  it('allows unemployed profile with no recurring income source', () => {
+    expect(() =>
+      personalizedEngineTestables.validateAgenticInput(
+        makeForm({
+          employmentType: 'unemployed',
+          monthlyIncome: 0,
+          debtFdInterestAnnual: 0,
+        }),
+      ),
+    ).not.toThrow();
   });
 
   it('rejects negative cash-flow and liability values', () => {

@@ -12,11 +12,21 @@ export type AnalysisMode = 'suggest' | 'specific';
 export type CountryCode = 'IN' | 'US';
 export type AgentMarketScope = 'india' | 'us' | 'both';
 export type MaritalStatus = 'single' | 'married' | 'divorced';
-export type EmploymentType = 'salaried' | 'self_employed' | 'business_owner';
+export type EmploymentType = 'salaried' | 'self_employed' | 'business_owner' | 'unemployed' | 'retired';
 export type InvestmentHorizon = 'short' | 'medium' | 'long';
 export type RiskPreference = 'conservative' | 'moderate' | 'aggressive';
 export type LiquidityNeed = 'low' | 'medium' | 'high';
-export type InvestmentGoal = 'wealth_creation' | 'retirement' | 'child_education' | 'house_purchase' | 'income';
+export type InvestmentGoal =
+  | 'wealth_creation'
+  | 'retirement'
+  | 'child_education'
+  | 'house_purchase'
+  | 'income'
+  | 'passive_income'
+  | 'capital_preservation'
+  | 'emergency_buffer'
+  | 'tax_saving'
+  | 'business_expansion';
 export type DataFreshness = 'Live' | 'Delayed' | 'Demo fallback';
 
 export interface MetricProvenance {
@@ -95,11 +105,15 @@ export interface AgenticFormInput {
   maritalStatus: MaritalStatus;
   dependentsKids: number;
   dependentsParents: number;
+  dependentsSpouse: number;
+  dependentsOthers: number;
   employmentType: EmploymentType;
   monthlyIncome: number;
   monthlyFixedExpenses: number;
   monthlyDiscretionaryExpenses: number;
   effectiveTaxRate: number;
+  insuranceCover: number;
+  debtFdInterestAnnual: number;
   assets: AssetBreakdownInput;
   retirement: RetirementBreakdownInput;
   loans: LoanInput[];
@@ -429,6 +443,11 @@ const GOAL_LABELS: Record<InvestmentGoal, string> = {
   child_education: 'Child education',
   house_purchase: 'House purchase',
   income: 'Income generation',
+  passive_income: 'Passive income',
+  capital_preservation: 'Capital preservation',
+  emergency_buffer: 'Emergency buffer',
+  tax_saving: 'Tax saving',
+  business_expansion: 'Business expansion',
 };
 
 const HORIZON_LABELS: Record<InvestmentHorizon, string> = {
@@ -484,6 +503,50 @@ const MUTUAL_FUND_DEBT_REGEX =
   /liquid|overnight|money market|short duration|ultra short|gilt|debt|bond|banking\s*&\s*psu|corporate bond/i;
 const MUTUAL_FUND_GOLD_REGEX = /gold|gold etf/i;
 const MUTUAL_FUND_HYBRID_REGEX = /hybrid|balanced|asset allocation|equity savings|arbitrage/i;
+
+const INCOME_FOCUSED_GOALS = new Set<InvestmentGoal>(['income', 'passive_income', 'retirement']);
+const STABILITY_FOCUSED_GOALS = new Set<InvestmentGoal>(['capital_preservation', 'emergency_buffer']);
+const EXPENSE_SENSITIVE_GOALS = new Set<InvestmentGoal>(['child_education', 'house_purchase', 'emergency_buffer']);
+const VALID_EMPLOYMENT_TYPES = new Set<EmploymentType>(['salaried', 'self_employed', 'business_owner', 'unemployed', 'retired']);
+const VALID_INVESTMENT_GOALS = new Set<InvestmentGoal>([
+  'wealth_creation',
+  'retirement',
+  'child_education',
+  'house_purchase',
+  'income',
+  'passive_income',
+  'capital_preservation',
+  'emergency_buffer',
+  'tax_saving',
+  'business_expansion',
+]);
+
+function isIncomeFocusedGoal(goal: InvestmentGoal) {
+  return INCOME_FOCUSED_GOALS.has(goal);
+}
+
+function isStabilityFocusedGoal(goal: InvestmentGoal) {
+  return STABILITY_FOCUSED_GOALS.has(goal);
+}
+
+function normalizeEmploymentType(value: EmploymentType): EmploymentType {
+  return VALID_EMPLOYMENT_TYPES.has(value) ? value : 'salaried';
+}
+
+function normalizeInvestmentGoal(value: InvestmentGoal): InvestmentGoal {
+  return VALID_INVESTMENT_GOALS.has(value) ? value : 'wealth_creation';
+}
+
+function normalizeDependentCount(value: number | undefined) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.floor(value as number));
+}
+
+function totalDependentsCount(
+  input: Pick<AgenticFormInput, 'dependentsKids' | 'dependentsParents' | 'dependentsSpouse' | 'dependentsOthers'>,
+) {
+  return input.dependentsKids + input.dependentsParents + input.dependentsSpouse + input.dependentsOthers;
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -581,6 +644,14 @@ function normalizeInput(input: AgenticFormInput): AgenticFormInput {
   const country = input.country?.trim() || (countryCode === 'US' ? 'NRI' : 'Indian');
   return {
     ...input,
+    employmentType: normalizeEmploymentType(input.employmentType),
+    investmentGoal: normalizeInvestmentGoal(input.investmentGoal),
+    dependentsKids: normalizeDependentCount(input.dependentsKids),
+    dependentsParents: normalizeDependentCount(input.dependentsParents),
+    dependentsSpouse: normalizeDependentCount(input.dependentsSpouse),
+    dependentsOthers: normalizeDependentCount(input.dependentsOthers),
+    insuranceCover: Number.isFinite(input.insuranceCover) ? Math.max(0, input.insuranceCover) : 0,
+    debtFdInterestAnnual: Number.isFinite(input.debtFdInterestAnnual) ? Math.max(0, input.debtFdInterestAnnual) : 0,
     country,
     countryCode,
     marketScope,
@@ -641,6 +712,8 @@ function validateAgenticInput(input: AgenticFormInput) {
     { label: 'Monthly income', value: input.monthlyIncome },
     { label: 'Monthly fixed expenses', value: input.monthlyFixedExpenses },
     { label: 'Monthly discretionary expenses', value: input.monthlyDiscretionaryExpenses },
+    { label: 'Insurance cover', value: input.insuranceCover },
+    { label: 'Debt/FD annual interest', value: input.debtFdInterestAnnual },
     { label: 'Equity assets', value: input.assets.equity },
     { label: 'Debt assets', value: input.assets.debt },
     { label: 'Gold assets', value: input.assets.gold },
@@ -665,8 +738,12 @@ function validateAgenticInput(input: AgenticFormInput) {
     }
   }
 
-  if (input.monthlyIncome <= 0) {
-    throw new Error('Monthly income must be greater than 0.');
+  if (input.monthlyIncome < 0) {
+    throw new Error('Monthly income must be non-negative.');
+  }
+  const requiresIncomeSource = input.employmentType !== 'unemployed' && input.employmentType !== 'retired';
+  if (requiresIncomeSource && input.monthlyIncome + input.debtFdInterestAnnual / 12 <= 0) {
+    throw new Error('Add at least one income source (monthly income or annual debt/FD interest) for salaried/self-employed/business-owner profiles.');
   }
 
   if (!Number.isFinite(input.effectiveTaxRate) || input.effectiveTaxRate < 0 || input.effectiveTaxRate > 60) {
@@ -675,11 +752,17 @@ function validateAgenticInput(input: AgenticFormInput) {
   if (!Number.isFinite(input.expectedReturnTarget) || input.expectedReturnTarget < 0 || input.expectedReturnTarget > 40) {
     throw new Error('Expected return target must be between 0% and 40%.');
   }
-  if (!Number.isFinite(input.dependentsKids) || input.dependentsKids < 0 || input.dependentsKids > 10) {
-    throw new Error('Dependents (kids) must be between 0 and 10.');
+  if (!Number.isFinite(input.dependentsKids) || input.dependentsKids < 0) {
+    throw new Error('Dependents (kids) must be 0 or higher.');
   }
-  if (!Number.isFinite(input.dependentsParents) || input.dependentsParents < 0 || input.dependentsParents > 10) {
-    throw new Error('Dependents (parents) must be between 0 and 10.');
+  if (!Number.isFinite(input.dependentsParents) || input.dependentsParents < 0) {
+    throw new Error('Dependents (parents) must be 0 or higher.');
+  }
+  if (!Number.isFinite(input.dependentsSpouse) || input.dependentsSpouse < 0) {
+    throw new Error('Dependents (spouse) must be 0 or higher.');
+  }
+  if (!Number.isFinite(input.dependentsOthers) || input.dependentsOthers < 0) {
+    throw new Error('Dependents (others) must be 0 or higher.');
   }
   if (!Number.isFinite(input.emergencyFundMonths) || input.emergencyFundMonths < 0 || input.emergencyFundMonths > 36) {
     throw new Error('Emergency fund coverage must be between 0 and 36 months.');
@@ -876,7 +959,7 @@ function scorePreScreenCandidate(
       input.investmentHorizon,
       input.liquidityNeed,
       Math.floor(input.age / 5).toString(),
-      (input.dependentsKids + input.dependentsParents).toString(),
+      totalDependentsCount(input).toString(),
       finance.riskProfileLabel,
     ].join('|'),
   );
@@ -886,7 +969,7 @@ function scorePreScreenCandidate(
     score += 4;
     if (input.riskPreference === 'conservative') score += 18;
     if (input.riskPreference === 'aggressive' && bucket === 'debt') score -= 10;
-    if (input.investmentGoal === 'income' || input.liquidityNeed === 'high') score += 10;
+    if (isIncomeFocusedGoal(input.investmentGoal) || isStabilityFocusedGoal(input.investmentGoal) || input.liquidityNeed === 'high') score += 10;
   } else if (input.riskPreference === 'aggressive') {
     score += 10;
   } else if (input.riskPreference === 'conservative') {
@@ -901,8 +984,11 @@ function scorePreScreenCandidate(
     score += 8;
   }
 
-  if (input.investmentGoal === 'income' && bucket === 'debt') score += 10;
+  if (isIncomeFocusedGoal(input.investmentGoal) && bucket === 'debt') score += 10;
   if (input.investmentGoal === 'wealth_creation' && bucket === 'equity') score += 8;
+  if (isStabilityFocusedGoal(input.investmentGoal) && (bucket === 'debt' || bucket === 'gold')) score += 8;
+  if (input.investmentGoal === 'tax_saving' && entity.market === 'india' && entity.type === 'mutual_fund') score += 6;
+  if (input.investmentGoal === 'business_expansion' && input.investmentHorizon !== 'long' && bucket === 'debt') score += 5;
   if (input.investmentHorizon === 'short' && bucket === 'debt') score += 8;
   if (input.investmentHorizon === 'long' && bucket === 'equity') score += 8;
   if (entity.market === 'us' && input.investmentHorizon === 'long') score += 4;
@@ -1433,9 +1519,9 @@ function buildDividendSuitability(
   growthScore: number,
 ) {
   const needsIncome =
-    input.investmentGoal === 'income' ||
+    isIncomeFocusedGoal(input.investmentGoal) ||
     input.age >= 55 ||
-    finance.investableSurplusMonthly < input.monthlyIncome * 0.15 ||
+    finance.investableSurplusMonthly < (input.monthlyIncome + input.debtFdInterestAnnual / 12) * 0.15 ||
     input.liquidityNeed === 'high';
 
   if (needsIncome) {
@@ -1500,25 +1586,42 @@ function normalizeAllocation(weights: AllocationWeights): AllocationWeights {
   };
 }
 
+function clampAllocationWeights(weights: AllocationWeights): AllocationWeights {
+  return {
+    equity: Math.max(0, weights.equity),
+    debt: Math.max(0, weights.debt),
+    gold: Math.max(0, weights.gold),
+    cash: Math.max(0, weights.cash),
+  };
+}
+
 function buildFinancialProfile(input: AgenticFormInput, holdings: HoldingSnapshot[]): FinancialProfileAnalysis {
-  const totalDependents = input.dependentsKids + input.dependentsParents;
+  const totalDependents = totalDependentsCount(input);
   const totalEmisMonthly = sum(input.loans.map((loan) => loan.monthlyEmi));
   const totalExpensesMonthly = input.monthlyFixedExpenses + input.monthlyDiscretionaryExpenses;
   const monthlyCoreSpend = totalExpensesMonthly + totalEmisMonthly;
+  const monthlyInterestIncome = input.debtFdInterestAnnual / 12;
+  const monthlyReliableIncome = input.monthlyIncome + monthlyInterestIncome;
+  const annualCoreSpend = monthlyCoreSpend * 12;
+  const insuranceAdequacyRatio = annualCoreSpend > 0 ? input.insuranceCover / annualCoreSpend : 0;
+  const debtYieldPct = input.assets.debt > 0 ? safePct(input.debtFdInterestAnnual, input.assets.debt) : 0;
 
   let emergencyFundTargetMonths =
     input.riskPreference === 'conservative' ? 9 : input.riskPreference === 'moderate' ? 6 : 4;
   if (totalDependents > 0) emergencyFundTargetMonths += 1;
-  if (input.employmentType !== 'salaried') emergencyFundTargetMonths += 1;
+  if (input.employmentType === 'self_employed' || input.employmentType === 'business_owner') emergencyFundTargetMonths += 1;
+  if (input.employmentType === 'unemployed' || input.employmentType === 'retired') emergencyFundTargetMonths += 2;
   if (input.investmentGoal === 'house_purchase' && input.investmentHorizon !== 'long') emergencyFundTargetMonths += 1;
-  emergencyFundTargetMonths = clamp(emergencyFundTargetMonths, 4, 12);
+  if (input.investmentGoal === 'emergency_buffer') emergencyFundTargetMonths += 1;
+  if (totalDependents > 0 && insuranceAdequacyRatio < 3) emergencyFundTargetMonths += 1;
+  emergencyFundTargetMonths = clamp(emergencyFundTargetMonths, 4, 15);
 
   const emergencyFundCurrentValue = input.emergencyFundMonths * monthlyCoreSpend;
   const emergencyFundTargetValue = emergencyFundTargetMonths * monthlyCoreSpend;
   const emergencyFundShortfallValue = Math.max(0, emergencyFundTargetValue - emergencyFundCurrentValue);
   const emergencyFundTopUpMonthly = emergencyFundShortfallValue / 12;
-  const investableSurplusMonthly = Math.max(0, input.monthlyIncome - monthlyCoreSpend - emergencyFundTopUpMonthly);
-  const debtBurdenRatioPct = safePct(totalEmisMonthly, input.monthlyIncome);
+  const investableSurplusMonthly = Math.max(0, monthlyReliableIncome - monthlyCoreSpend - emergencyFundTopUpMonthly);
+  const debtBurdenRatioPct = monthlyReliableIncome > 0 ? safePct(totalEmisMonthly, monthlyReliableIncome) : totalEmisMonthly > 0 ? 100 : 0;
   const debtBurdenFlag =
     debtBurdenRatioPct > 40 ? 'High' : debtBurdenRatioPct > 25 ? 'Watch' : 'Healthy';
 
@@ -1536,12 +1639,38 @@ function buildFinancialProfile(input: AgenticFormInput, holdings: HoldingSnapsho
   riskProfileScore += input.riskPreference === 'aggressive' ? 12 : input.riskPreference === 'moderate' ? 4 : -6;
   riskProfileScore += input.expectedReturnTarget >= 15 ? 4 : input.expectedReturnTarget <= 8 ? -4 : 0;
   riskProfileScore += input.liquidityNeed === 'high' ? -8 : input.liquidityNeed === 'low' ? 2 : 0;
-  riskProfileScore += input.employmentType === 'salaried' ? 2 : -4;
+  riskProfileScore +=
+    input.employmentType === 'salaried'
+      ? 2
+      : input.employmentType === 'self_employed'
+        ? -2
+        : input.employmentType === 'business_owner'
+          ? -4
+          : input.employmentType === 'retired'
+            ? -7
+            : -10;
+  if (totalDependents > 0) {
+    riskProfileScore +=
+      insuranceAdequacyRatio >= 8
+        ? 8
+        : insuranceAdequacyRatio >= 5
+          ? 4
+          : insuranceAdequacyRatio >= 3
+            ? 0
+            : insuranceAdequacyRatio >= 2
+              ? -4
+              : -10;
+  } else if (input.insuranceCover > 0) {
+    riskProfileScore += 2;
+  }
+  if (monthlyInterestIncome > 0) riskProfileScore += 2;
   riskProfileScore = clamp(riskProfileScore, 0, 100);
 
   let riskProfileLabel = getRiskLabelFromScore(riskProfileScore);
   if (debtBurdenFlag === 'High') riskProfileLabel = 'Conservative';
   else if (input.emergencyFundMonths < 3 && riskProfileLabel === 'Aggressive') riskProfileLabel = 'Moderate';
+  else if ((input.employmentType === 'unemployed' || input.employmentType === 'retired') && riskProfileLabel === 'Aggressive') riskProfileLabel = 'Moderate';
+  else if (totalDependents > 0 && insuranceAdequacyRatio < 2.5 && riskProfileLabel === 'Aggressive') riskProfileLabel = 'Moderate';
 
   const currentAllocation = normalizeAllocation({
     equity: input.assets.equity + input.assets.alternatives * 0.4,
@@ -1593,7 +1722,52 @@ function buildFinancialProfile(input: AgenticFormInput, holdings: HoldingSnapsho
     };
   }
 
-  idealAllocation = normalizeAllocation(idealAllocation);
+  if (isIncomeFocusedGoal(input.investmentGoal)) {
+    idealAllocation = {
+      equity: idealAllocation.equity - 5,
+      debt: idealAllocation.debt + 5,
+      gold: idealAllocation.gold,
+      cash: idealAllocation.cash,
+    };
+  }
+
+  if (isStabilityFocusedGoal(input.investmentGoal)) {
+    idealAllocation = {
+      equity: idealAllocation.equity - 10,
+      debt: idealAllocation.debt + 5,
+      gold: idealAllocation.gold + 3,
+      cash: idealAllocation.cash + 2,
+    };
+  }
+
+  if (input.investmentGoal === 'emergency_buffer') {
+    idealAllocation = {
+      equity: idealAllocation.equity - 8,
+      debt: idealAllocation.debt + 3,
+      gold: idealAllocation.gold,
+      cash: idealAllocation.cash + 5,
+    };
+  }
+
+  if (input.investmentGoal === 'tax_saving' && input.investmentHorizon === 'long') {
+    idealAllocation = {
+      equity: idealAllocation.equity + 5,
+      debt: idealAllocation.debt - 3,
+      gold: idealAllocation.gold,
+      cash: idealAllocation.cash - 2,
+    };
+  }
+
+  if (input.investmentGoal === 'business_expansion') {
+    idealAllocation = {
+      equity: idealAllocation.equity - 3,
+      debt: idealAllocation.debt - 2,
+      gold: idealAllocation.gold,
+      cash: idealAllocation.cash + 5,
+    };
+  }
+
+  idealAllocation = normalizeAllocation(clampAllocationWeights(idealAllocation));
 
   const allocationGap: AllocationGap[] = (Object.keys(idealAllocation) as Array<keyof AllocationWeights>)
     .map((bucket) => {
@@ -1612,7 +1786,15 @@ function buildFinancialProfile(input: AgenticFormInput, holdings: HoldingSnapsho
   const biggestIncrease = allocationGap.find((gap) => gap.action === 'increase') ?? allocationGap[0];
   const suggestedStockStyles = [
     riskProfileLabel === 'Conservative' || debtBurdenFlag === 'High' ? 'large-cap quality' : 'growth at reasonable price',
-    input.investmentGoal === 'income' || input.age >= 55 ? 'dividend support' : 'compounding runway',
+    isIncomeFocusedGoal(input.investmentGoal)
+      ? 'dividend support'
+      : isStabilityFocusedGoal(input.investmentGoal)
+        ? 'capital protection'
+        : input.investmentGoal === 'tax_saving'
+          ? 'tax-efficient compounding'
+          : input.age >= 55
+            ? 'income resilience'
+            : 'compounding runway',
     input.liquidityNeed === 'high' ? 'staggered entries only' : 'SIP-style deployment',
   ];
 
@@ -1626,9 +1808,24 @@ function buildFinancialProfile(input: AgenticFormInput, holdings: HoldingSnapsho
     input.age <= 35 ? 'You still have time on your side for compounding.' : 'Life-stage responsibilities reduce the room for deep drawdowns.',
     totalDependents > 0 ? `Dependents (${totalDependents}) increase the need for downside control.` : 'No dependents improves flexibility for long-duration investing.',
     debtBurdenFlag === 'High' ? 'Debt burden is elevated, so risky stock picks should be capped.' : 'Debt load is manageable relative to income.',
+    totalDependents > 0
+      ? insuranceAdequacyRatio >= 5
+        ? 'Insurance cover appears meaningful relative to household spend.'
+        : 'Insurance cover appears low relative to household spend; protection upgrades can reduce fragility.'
+      : input.insuranceCover > 0
+        ? 'Insurance cover is present and adds downside protection.'
+        : 'No insurance cover entered.',
+    monthlyInterestIncome > 0
+      ? `Debt/FD interest contributes about ${formatCurrency(monthlyInterestIncome, getDisplayCurrency(input), false)}/month of cash flow.`
+      : input.assets.debt > 0
+        ? 'Debt/FD holdings are entered without interest income; update this if your deposits/funds yield income.'
+        : 'No debt-interest income entered.',
     input.emergencyFundMonths >= emergencyFundTargetMonths
       ? 'Emergency cover already meets the target range.'
       : `Emergency cover is below target by ${round((emergencyFundTargetValue - emergencyFundCurrentValue) / Math.max(1, monthlyCoreSpend), 1)} month(s).`,
+    debtYieldPct > 0
+      ? `Debt/FD yield implied from inputs is ~${round(debtYieldPct, 1)}% annually.`
+      : 'Debt/FD annual yield could not be inferred from current inputs.',
   ];
 
   return {
@@ -1897,24 +2094,27 @@ async function analyzeStock(
     if (topSector?.sector === entity.sector && topSector.weightPct > 35) portfolioFit -= 14;
     if (!finance.localPortfolio.sectorExposure.some((entry) => entry.sector === entity.sector)) portfolioFit += 10;
   }
-  if (entity.type === 'mutual_fund' && securityBucket === 'debt' && (input.investmentGoal === 'income' || input.liquidityNeed === 'high')) {
+  if (entity.type === 'mutual_fund' && securityBucket === 'debt' && (isIncomeFocusedGoal(input.investmentGoal) || input.liquidityNeed === 'high')) {
     portfolioFit += 8;
   }
 
-  if (input.investmentGoal === 'income' && (dividendYieldPct ?? 0) >= 1.2) portfolioFit += 8;
+  if (isIncomeFocusedGoal(input.investmentGoal) && (dividendYieldPct ?? 0) >= 1.2) portfolioFit += 8;
   if (input.investmentGoal === 'wealth_creation' && (revenueGrowthPct ?? 0) >= 12 && (profitGrowthPct ?? 0) >= 12) portfolioFit += 6;
+  if (isStabilityFocusedGoal(input.investmentGoal) && riskSnapshot.level === 'Low') portfolioFit += 8;
+  if (input.investmentGoal === 'emergency_buffer' && securityBucket === 'debt') portfolioFit += 8;
   if (finance.debtBurdenFlag === 'High' && riskSnapshot.level === 'High') portfolioFit -= 24;
   if (isSecurityInScope(entity, resolveMarketScope(input))) portfolioFit += 4;
   portfolioFit = clamp(portfolioFit, 0, 100);
 
   let lifeStageFit = 50;
-  const dependents = input.dependentsKids + input.dependentsParents;
+  const dependents = totalDependentsCount(input);
   if (input.age < 35 && input.investmentHorizon === 'long' && fundamentalsScore.growthScore >= 65) lifeStageFit += 18;
   if (input.age >= 55 && riskSnapshot.level === 'Low') lifeStageFit += 15;
   if (input.age >= 55 && riskSnapshot.level === 'High') lifeStageFit -= 20;
-  if (input.investmentGoal === 'income' && (dividendYieldPct ?? 0) >= 1.2) lifeStageFit += 18;
-  if (input.investmentGoal === 'income' && (dividendYieldPct ?? 0) < 1.2) lifeStageFit -= 10;
-  if ((input.investmentGoal === 'child_education' || input.investmentGoal === 'house_purchase') && riskSnapshot.level === 'High') lifeStageFit -= 18;
+  if (isIncomeFocusedGoal(input.investmentGoal) && (dividendYieldPct ?? 0) >= 1.2) lifeStageFit += 18;
+  if (isIncomeFocusedGoal(input.investmentGoal) && (dividendYieldPct ?? 0) < 1.2) lifeStageFit -= 10;
+  if (EXPENSE_SENSITIVE_GOALS.has(input.investmentGoal) && riskSnapshot.level === 'High') lifeStageFit -= 18;
+  if (isStabilityFocusedGoal(input.investmentGoal) && riskSnapshot.level === 'High') lifeStageFit -= 16;
   if (dependents >= 2 && riskSnapshot.level === 'High') lifeStageFit -= 14;
   if (input.liquidityNeed === 'high' && riskSnapshot.level === 'High') lifeStageFit -= 16;
   if (finance.emergencyFundShortfallValue > 0 && riskSnapshot.level === 'High') lifeStageFit -= 12;
@@ -2202,7 +2402,7 @@ async function analyzeStock(
 }
 
 function buildUserProfileSummary(input: AgenticFormInput, baseCurrency: 'INR' | 'USD'): PersonalProfileSummary {
-  const dependents = input.dependentsKids + input.dependentsParents;
+  const dependents = totalDependentsCount(input);
   return {
     lifeStage: `${RISK_LABELS[input.riskPreference]} ${input.maritalStatus} investor, age ${input.age}, ${dependents} dependent${dependents === 1 ? '' : 's'}`,
     dependents,
@@ -2300,7 +2500,7 @@ function buildExportJson(
   baseCurrency: 'INR' | 'USD',
 ) {
   const displayCurrency = baseCurrency;
-  const lifeStage = `${input.maritalStatus}, ${input.dependentsKids + input.dependentsParents} dependents, ${HORIZON_LABELS[input.investmentHorizon]}`;
+  const lifeStage = `${input.maritalStatus}, ${totalDependentsCount(input)} dependents, ${HORIZON_LABELS[input.investmentHorizon]}`;
 
   return {
     user_profile_summary: {
@@ -2309,6 +2509,8 @@ function buildExportJson(
       portfolio_gap: finance.portfolioGapSummary,
       tax_bracket: `${round(input.effectiveTaxRate, 0)}%`,
       life_stage: lifeStage,
+      debt_fd_interest_annual: formatCurrency(input.debtFdInterestAnnual, displayCurrency, false),
+      insurance_cover: formatCurrency(input.insuranceCover, displayCurrency, false),
     },
     stock_analysis: primary
       ? {

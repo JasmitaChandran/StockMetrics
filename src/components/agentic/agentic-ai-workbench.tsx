@@ -66,6 +66,8 @@ const EMPLOYMENT_OPTIONS: Array<{ value: EmploymentType; label: string }> = [
   { value: 'salaried', label: 'Salaried' },
   { value: 'self_employed', label: 'Self-employed' },
   { value: 'business_owner', label: 'Business owner' },
+  { value: 'unemployed', label: 'Unemployed' },
+  { value: 'retired', label: 'Retired' },
 ];
 
 const GOAL_OPTIONS: Array<{ value: InvestmentGoal; label: string }> = [
@@ -74,6 +76,24 @@ const GOAL_OPTIONS: Array<{ value: InvestmentGoal; label: string }> = [
   { value: 'child_education', label: 'Child education' },
   { value: 'house_purchase', label: 'House purchase' },
   { value: 'income', label: 'Income generation' },
+  { value: 'passive_income', label: 'Passive income' },
+  { value: 'capital_preservation', label: 'Capital preservation' },
+  { value: 'emergency_buffer', label: 'Emergency buffer' },
+  { value: 'tax_saving', label: 'Tax saving' },
+  { value: 'business_expansion', label: 'Business expansion' },
+];
+
+type DependentCategoryKey = 'kids' | 'parents' | 'spouse' | 'others';
+
+const DEPENDENT_CATEGORY_OPTIONS: Array<{
+  key: DependentCategoryKey;
+  label: string;
+  countField: keyof Pick<AgenticFormInput, 'dependentsKids' | 'dependentsParents' | 'dependentsSpouse' | 'dependentsOthers'>;
+}> = [
+  { key: 'kids', label: 'Kids', countField: 'dependentsKids' },
+  { key: 'parents', label: 'Parents', countField: 'dependentsParents' },
+  { key: 'spouse', label: 'Spouse', countField: 'dependentsSpouse' },
+  { key: 'others', label: 'Others', countField: 'dependentsOthers' },
 ];
 
 const HORIZON_OPTIONS: Array<{ value: InvestmentHorizon; label: string }> = [
@@ -103,6 +123,11 @@ const MARKET_SCOPE_OPTIONS: Array<{ value: AgentMarketScope; label: string }> = 
   { value: 'india', label: 'India + Mutual Funds' },
   { value: 'us', label: 'US only' },
   { value: 'both', label: 'India + US + Mutual Funds' },
+];
+
+const ANALYSIS_MODE_OPTIONS: Array<{ value: AgenticFormInput['analysisMode']; label: string }> = [
+  { value: 'suggest', label: 'Let the agent suggest stocks + funds' },
+  { value: 'specific', label: 'Analyze a specific stock or fund' },
 ];
 
 const LOAN_TYPE_OPTIONS: Array<{ value: LoanInput['type']; label: string }> = [
@@ -163,12 +188,16 @@ type FieldInfoItem = {
 const FIELD_INFO = {
   age: [{ label: 'Why', detail: 'Used to judge life stage, time horizon, and risk capacity.' }],
   maritalStatus: [{ label: 'Why', detail: 'Adds context about household responsibility and planning needs.' }],
-  dependentsKids: [{ label: 'Why', detail: 'Children increase future cash-flow pressure and goal planning.' }],
-  dependentsParents: [{ label: 'Why', detail: 'Parent support can reduce free cash available for investing.' }],
+  dependents: [
+    { label: 'Why', detail: 'Dependents reduce free cash available and increase downside-protection needs.' },
+    { label: 'How', detail: 'Enable the categories that apply, then enter each count. Use 0 or any higher number.' },
+  ],
   employmentType: [
     { label: 'Salary', detail: 'Usually implies steadier monthly cash flow.' },
     { label: 'Self', detail: 'Income may vary, so liquidity usually matters more.' },
     { label: 'Biz', detail: 'Business owners often need a larger safety buffer.' },
+    { label: 'Retired', detail: 'Protective allocation and liquidity buffers become more important.' },
+    { label: 'Unemp', detail: 'Uses surplus from savings/interest; defensive positioning is preferred.' },
   ],
   residency: [
     { label: 'Indian', detail: 'Uses INR as the planning currency.' },
@@ -183,6 +212,8 @@ const FIELD_INFO = {
   gold: [{ label: 'Use', detail: 'Gold holdings that act as a defensive diversification bucket.' }],
   realEstate: [{ label: 'Use', detail: 'Property value you want included in household net worth.' }],
   cashSavings: [{ label: 'Use', detail: 'Bank balance and liquid savings available right now.' }],
+  insuranceCover: [{ label: 'Use', detail: 'Total active life/health insurance cover for household protection.' }],
+  debtFdInterestAnnual: [{ label: 'Use', detail: 'Annual interest received from debt funds, FDs, or bonds.' }],
   alternatives: [{ label: 'Use', detail: 'Other assets like REITs, crypto, startup equity, or similar holdings.' }],
   epf: [{ label: 'Use', detail: 'Employee Provident Fund retirement corpus.' }],
   ppf: [{ label: 'Use', detail: 'Public Provident Fund long-term savings balance.' }],
@@ -253,11 +284,15 @@ function createDefaultForm(): AgenticFormInput {
     maritalStatus: 'single',
     dependentsKids: 0,
     dependentsParents: 0,
+    dependentsSpouse: 0,
+    dependentsOthers: 0,
     employmentType: 'salaried',
     monthlyIncome: 0,
     monthlyFixedExpenses: 0,
     monthlyDiscretionaryExpenses: 0,
     effectiveTaxRate: 0,
+    insuranceCover: 0,
+    debtFdInterestAnnual: 0,
     assets: {
       equity: 0,
       debt: 0,
@@ -289,6 +324,8 @@ function createDefaultForm(): AgenticFormInput {
 interface SavedProfileDraft {
   form: Partial<AgenticFormInput>;
   profileStep?: number;
+  selectSelectionState?: Partial<ProfileSelectSelectionState>;
+  loanTypeSelectionState?: Record<string, boolean>;
   updatedAt?: string;
 }
 
@@ -313,6 +350,31 @@ interface MonitoringAlertState {
   symbols: string[];
   autoRerunTriggered: boolean;
 }
+
+type ProfileSelectKey =
+  | 'maritalStatus'
+  | 'employmentType'
+  | 'residency'
+  | 'investmentGoal'
+  | 'investmentHorizon'
+  | 'riskPreference'
+  | 'liquidityNeed'
+  | 'analysisMode'
+  | 'marketScope';
+
+type ProfileSelectSelectionState = Record<ProfileSelectKey, boolean>;
+
+const DEFAULT_SELECT_SELECTION_STATE: ProfileSelectSelectionState = {
+  maritalStatus: false,
+  employmentType: false,
+  residency: false,
+  investmentGoal: false,
+  investmentHorizon: false,
+  riskPreference: false,
+  liquidityNeed: false,
+  analysisMode: false,
+  marketScope: false,
+};
 
 interface ChangeAuditSummary {
   title: string;
@@ -344,10 +406,30 @@ const DEFAULT_MONITORING_SETTINGS: MonitoringSettings = {
 function parseSavedDraft(value: unknown): SavedProfileDraft | undefined {
   if (!value || typeof value !== 'object') return undefined;
   if ('form' in value && typeof (value as { form?: unknown }).form === 'object') {
-    const typed = value as SavedProfileDraft;
+    const typed = value as {
+      form?: Partial<AgenticFormInput>;
+      profileStep?: unknown;
+      selectSelectionState?: unknown;
+      loanTypeSelectionState?: unknown;
+      updatedAt?: unknown;
+    };
+    const selectSelectionState =
+      typed.selectSelectionState && typeof typed.selectSelectionState === 'object'
+        ? (typed.selectSelectionState as Partial<ProfileSelectSelectionState>)
+        : undefined;
+    const loanTypeSelectionState =
+      typed.loanTypeSelectionState && typeof typed.loanTypeSelectionState === 'object'
+        ? Object.fromEntries(
+            Object.entries(typed.loanTypeSelectionState as Record<string, unknown>).filter(
+              (entry): entry is [string, boolean] => typeof entry[1] === 'boolean',
+            ),
+          )
+        : undefined;
     return {
       form: typed.form ?? {},
       profileStep: typeof typed.profileStep === 'number' ? typed.profileStep : undefined,
+      selectSelectionState,
+      loanTypeSelectionState,
       updatedAt: typeof typed.updatedAt === 'string' ? typed.updatedAt : undefined,
     };
   }
@@ -379,6 +461,45 @@ function hydrateForm(value: Partial<AgenticFormInput> | undefined): AgenticFormI
   };
 }
 
+function deriveSelectSelectionState(
+  form: AgenticFormInput,
+  saved?: Partial<ProfileSelectSelectionState>,
+): ProfileSelectSelectionState {
+  const defaults = createDefaultForm();
+  const derived: ProfileSelectSelectionState = {
+    maritalStatus: form.maritalStatus !== defaults.maritalStatus,
+    employmentType: form.employmentType !== defaults.employmentType,
+    residency: form.countryCode !== defaults.countryCode,
+    investmentGoal: form.investmentGoal !== defaults.investmentGoal,
+    investmentHorizon: form.investmentHorizon !== defaults.investmentHorizon,
+    riskPreference: form.riskPreference !== defaults.riskPreference,
+    liquidityNeed: form.liquidityNeed !== defaults.liquidityNeed,
+    analysisMode: form.analysisMode !== defaults.analysisMode,
+    marketScope: form.marketScope !== defaults.marketScope,
+  };
+  if (!saved) return derived;
+  return {
+    maritalStatus: typeof saved.maritalStatus === 'boolean' ? saved.maritalStatus : derived.maritalStatus,
+    employmentType: typeof saved.employmentType === 'boolean' ? saved.employmentType : derived.employmentType,
+    residency: typeof saved.residency === 'boolean' ? saved.residency : derived.residency,
+    investmentGoal: typeof saved.investmentGoal === 'boolean' ? saved.investmentGoal : derived.investmentGoal,
+    investmentHorizon: typeof saved.investmentHorizon === 'boolean' ? saved.investmentHorizon : derived.investmentHorizon,
+    riskPreference: typeof saved.riskPreference === 'boolean' ? saved.riskPreference : derived.riskPreference,
+    liquidityNeed: typeof saved.liquidityNeed === 'boolean' ? saved.liquidityNeed : derived.liquidityNeed,
+    analysisMode: typeof saved.analysisMode === 'boolean' ? saved.analysisMode : derived.analysisMode,
+    marketScope: typeof saved.marketScope === 'boolean' ? saved.marketScope : derived.marketScope,
+  };
+}
+
+function deriveLoanTypeSelectionState(
+  loans: LoanInput[],
+  saved?: Record<string, boolean>,
+) {
+  return Object.fromEntries(
+    loans.map((loan) => [loan.id, typeof saved?.[loan.id] === 'boolean' ? saved[loan.id] : true]),
+  );
+}
+
 function parseNumber(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -395,6 +516,10 @@ function round(value: number, digits = 1) {
 
 function sum(values: number[]) {
   return values.reduce((total, value) => total + value, 0);
+}
+
+function totalDependents(form: Pick<AgenticFormInput, 'dependentsKids' | 'dependentsParents' | 'dependentsSpouse' | 'dependentsOthers'>) {
+  return form.dependentsKids + form.dependentsParents + form.dependentsSpouse + form.dependentsOthers;
 }
 
 function getDisplayCurrency(input: Pick<AgenticFormInput, 'countryCode' | 'country'>): 'INR' | 'USD' {
@@ -419,12 +544,30 @@ function headlineSentimentClass(score?: number) {
   return 'border-slate-300 bg-slate-500/10 text-slate-700 dark:border-slate-700 dark:text-slate-300';
 }
 
-function validateFormInput(form: AgenticFormInput): string | null {
-  if (form.monthlyIncome <= 0) return 'Monthly income must be greater than 0.';
+function validateFormInput(
+  form: AgenticFormInput,
+  selectionState?: Pick<ProfileSelectSelectionState, 'analysisMode' | 'marketScope'>,
+): string | null {
+  if (!selectionState?.analysisMode) {
+    return 'Select Analysis Mode before running the agent.';
+  }
+  if (!selectionState?.marketScope) {
+    return 'Select Market Scope before running the agent.';
+  }
+  if (!Number.isFinite(form.age) || form.age < 18 || form.age > 100) {
+    return 'Age must be between 18 and 100.';
+  }
+  if (form.monthlyIncome < 0) return 'Monthly income cannot be negative.';
+  const requiresIncomeSource = form.employmentType !== 'unemployed' && form.employmentType !== 'retired';
+  if (requiresIncomeSource && form.monthlyIncome + form.debtFdInterestAnnual / 12 <= 0) {
+    return 'Add at least one income source (monthly income or annual debt/FD interest) for salaried/self-employed/business-owner profiles.';
+  }
   if (form.monthlyFixedExpenses < 0 || form.monthlyDiscretionaryExpenses < 0) {
     return 'Expenses cannot be negative.';
   }
   const nonNegativePool = [
+    form.insuranceCover,
+    form.debtFdInterestAnnual,
     ...Object.values(form.assets),
     ...Object.values(form.retirement),
     ...form.loans.flatMap((loan) => [loan.outstandingAmount, loan.monthlyEmi, loan.interestRate]),
@@ -434,8 +577,12 @@ function validateFormInput(form: AgenticFormInput): string | null {
   }
   if (form.effectiveTaxRate < 0 || form.effectiveTaxRate > 60) return 'Effective tax rate must be between 0% and 60%.';
   if (form.expectedReturnTarget < 0 || form.expectedReturnTarget > 40) return 'Expected return target must be between 0% and 40%.';
-  if (form.dependentsKids < 0 || form.dependentsKids > 10 || form.dependentsParents < 0 || form.dependentsParents > 10) {
-    return 'Dependents must be between 0 and 10 for kids and parents.';
+  if (
+    [form.dependentsKids, form.dependentsParents, form.dependentsSpouse, form.dependentsOthers].some(
+      (count) => !Number.isFinite(count) || count < 0,
+    )
+  ) {
+    return 'Dependent counts must be 0 or higher.';
   }
   if (form.emergencyFundMonths < 0 || form.emergencyFundMonths > 36) return 'Emergency fund coverage must be between 0 and 36 months.';
   return null;
@@ -679,15 +826,22 @@ function normalizeScoringWeights(weights?: Partial<ScoringWeights>): ScoringWeig
 function collectClarificationPrompts(form: AgenticFormInput) {
   const prompts: string[] = [];
   const totalEmi = sum(form.loans.map((loan) => loan.monthlyEmi));
-  const debtBurdenPct = form.monthlyIncome > 0 ? (totalEmi / form.monthlyIncome) * 100 : 0;
+  const monthlyReliableIncome = form.monthlyIncome + form.debtFdInterestAnnual / 12;
+  const debtBurdenPct = monthlyReliableIncome > 0 ? (totalEmi / monthlyReliableIncome) * 100 : totalEmi > 0 ? 100 : 0;
   if (form.riskPreference === 'aggressive' && (debtBurdenPct > 35 || form.emergencyFundMonths < 3)) {
     prompts.push('Risk preference is aggressive, but debt/emergency profile suggests tighter risk capacity. Continue as aggressive?');
   }
   if (form.investmentHorizon === 'short' && form.expectedReturnTarget > 14) {
     prompts.push('Short horizon with high return target can cause unstable outcomes. Reduce target or extend horizon?');
   }
-  if (form.investmentGoal === 'income' && form.riskPreference === 'aggressive') {
+  if ((form.investmentGoal === 'income' || form.investmentGoal === 'passive_income') && form.riskPreference === 'aggressive') {
     prompts.push('Income goal is selected with aggressive risk. Should we shift to moderate income-first scoring?');
+  }
+  if ((form.employmentType === 'unemployed' || form.employmentType === 'retired') && form.emergencyFundMonths < 6) {
+    prompts.push('Retired/unemployed profile with low emergency cover can be fragile. Increase liquidity buffer before higher-risk allocation?');
+  }
+  if (totalDependents(form) > 0 && form.insuranceCover <= 0) {
+    prompts.push('Dependents are present but insurance cover is zero. Add cover details for a more realistic downside plan?');
   }
   if (form.age >= 55 && form.riskPreference === 'aggressive') {
     prompts.push('Age profile indicates lower drawdown tolerance. Confirm that aggressive risk is intentional.');
@@ -1136,20 +1290,25 @@ function FieldShell({
   label,
   hint,
   info,
+  className,
+  required,
   children,
 }: {
   label: string;
   hint?: string;
   info?: FieldInfoItem[];
+  className?: string;
+  required?: boolean;
   children: React.ReactNode;
 }) {
   const [infoOpen, setInfoOpen] = useState(false);
 
   return (
-    <div className="block text-sm">
+    <div className={cn('block text-sm', className)}>
       <div className="mb-1.5 flex min-h-[1.5rem] items-center justify-between gap-2">
-        <span className="flex-1 text-[11px] font-semibold uppercase leading-[1.3] tracking-[0.16em] text-slate-500 dark:text-slate-300">
-          {label}
+        <span className="flex flex-1 items-center gap-1 text-[11px] font-semibold uppercase leading-[1.3] tracking-[0.16em] text-slate-500 dark:text-slate-300">
+          <span>{label}</span>
+          {required ? <span className="text-rose-500 dark:text-rose-400">*</span> : null}
         </span>
         {info ? (
           <span className="inline-flex shrink-0">
@@ -1220,6 +1379,7 @@ function NumberField({
   onChange,
   hint,
   info,
+  required,
   suffix,
   min = 0,
   step = 1,
@@ -1229,12 +1389,13 @@ function NumberField({
   onChange: (next: number) => void;
   hint?: string;
   info?: FieldInfoItem[];
+  required?: boolean;
   suffix?: string;
   min?: number;
   step?: number;
 }) {
   return (
-    <FieldShell label={label} hint={hint} info={info}>
+    <FieldShell label={label} hint={hint} info={info} required={required}>
       <div className="relative">
         <input
           type="number"
@@ -1258,13 +1419,17 @@ function NumberField({
   );
 }
 
-function SelectField<T extends string>({
+function SelectField<T extends string | number>({
   label,
   value,
   options,
   onChange,
   hint,
   info,
+  required,
+  hasSelection = true,
+  noSelectionLabel = 'No selection',
+  onSelectionChange,
 }: {
   label: string;
   value: T;
@@ -1272,16 +1437,32 @@ function SelectField<T extends string>({
   onChange: (next: T) => void;
   hint?: string;
   info?: FieldInfoItem[];
+  required?: boolean;
+  hasSelection?: boolean;
+  noSelectionLabel?: string;
+  onSelectionChange?: (selected: boolean) => void;
 }) {
+  const selectValue = hasSelection ? String(value) : '';
+
   return (
-    <FieldShell label={label} hint={hint} info={info}>
+    <FieldShell label={label} hint={hint} info={info} required={required}>
       <select
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
+        value={selectValue}
+        onChange={(event) => {
+          const raw = event.target.value;
+          if (raw === '') {
+            onSelectionChange?.(false);
+            return;
+          }
+          const next = typeof value === 'number' ? Number(raw) : raw;
+          onSelectionChange?.(true);
+          onChange(next as T);
+        }}
         className="agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
       >
+        <option value="">{noSelectionLabel}</option>
         {options.map((option) => (
-          <option key={option.value} value={option.value}>
+          <option key={String(option.value)} value={String(option.value)}>
             {option.label}
           </option>
         ))}
@@ -1490,6 +1671,14 @@ export function AgenticAiWorkbench() {
   const [whatIfEmiDelta, setWhatIfEmiDelta] = useState(0);
   const [whatIfRiskPreference, setWhatIfRiskPreference] = useState<RiskPreference>('moderate');
   const [clarificationPrompts, setClarificationPrompts] = useState<string[]>([]);
+  const [selectSelectionState, setSelectSelectionState] = useState<ProfileSelectSelectionState>(DEFAULT_SELECT_SELECTION_STATE);
+  const [dependentCategoriesEnabled, setDependentCategoriesEnabled] = useState<Record<DependentCategoryKey, boolean>>({
+    kids: false,
+    parents: false,
+    spouse: false,
+    others: false,
+  });
+  const [loanTypeSelectionState, setLoanTypeSelectionState] = useState<Record<string, boolean>>({});
   const [learningMemory, setLearningMemory] = useState<LearningMemoryState>(DEFAULT_LEARNING_MEMORY);
   const [monitoringSettings, setMonitoringSettings] = useState<MonitoringSettings>(DEFAULT_MONITORING_SETTINGS);
   const [monitoringAlert, setMonitoringAlert] = useState<MonitoringAlertState | null>(null);
@@ -1513,6 +1702,14 @@ export function AgenticAiWorkbench() {
         if (disposed) return;
         setPortfolioTxns(txns);
         setForm(hydrated);
+        setSelectSelectionState(deriveSelectSelectionState(hydrated, savedDraft?.selectSelectionState));
+        setDependentCategoriesEnabled({
+          kids: hydrated.dependentsKids > 0,
+          parents: hydrated.dependentsParents > 0,
+          spouse: hydrated.dependentsSpouse > 0,
+          others: hydrated.dependentsOthers > 0,
+        });
+        setLoanTypeSelectionState(deriveLoanTypeSelectionState(hydrated.loans, savedDraft?.loanTypeSelectionState));
         setProfileStep(clamp(savedDraft?.profileStep ?? 1, 1, PROFILE_STEPS.length));
         setLastDraftSavedAt(savedDraft?.updatedAt ?? null);
         if (savedReport) {
@@ -1533,6 +1730,14 @@ export function AgenticAiWorkbench() {
         if (!disposed) {
           setPortfolioTxns([]);
           setForm(createDefaultForm());
+          setSelectSelectionState(DEFAULT_SELECT_SELECTION_STATE);
+          setDependentCategoriesEnabled({
+            kids: false,
+            parents: false,
+            spouse: false,
+            others: false,
+          });
+          setLoanTypeSelectionState({});
           setProfileStep(1);
         }
       } finally {
@@ -1555,6 +1760,8 @@ export function AgenticAiWorkbench() {
       void setKv(PROFILE_STORAGE_KEY, {
         form,
         profileStep,
+        selectSelectionState,
+        loanTypeSelectionState,
         updatedAt,
       } satisfies SavedProfileDraft)
         .then(() => setLastDraftSavedAt(updatedAt))
@@ -1566,7 +1773,7 @@ export function AgenticAiWorkbench() {
     return () => {
       if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
     };
-  }, [form, profileStep]);
+  }, [form, profileStep, selectSelectionState, loanTypeSelectionState]);
 
   useEffect(() => {
     if (!draftHydratedRef.current) return;
@@ -1749,8 +1956,32 @@ export function AgenticAiWorkbench() {
   const totalLiabilitiesPreview = sum(form.loans.map((loan) => loan.outstandingAmount));
   const totalEmiPreview = sum(form.loans.map((loan) => loan.monthlyEmi));
   const monthlyBurnPreview = form.monthlyFixedExpenses + form.monthlyDiscretionaryExpenses + totalEmiPreview;
-  const instantSurplusPreview = Math.max(0, form.monthlyIncome - monthlyBurnPreview);
-  const instantDebtRatioPreview = form.monthlyIncome > 0 ? (totalEmiPreview / form.monthlyIncome) * 100 : 0;
+  const monthlyReliableIncomePreview = form.monthlyIncome + form.debtFdInterestAnnual / 12;
+  const requiresIncomeSource = form.employmentType !== 'unemployed' && form.employmentType !== 'retired';
+  const monthlyIncomeHint = requiresIncomeSource
+    ? 'Compulsory with Debt/FD Interest: fill at least one of the two.'
+    : 'Optional for unemployed/retired. Enter if you still receive recurring income (pension, rent, stipend, etc.).';
+  const debtFdInterestHint = requiresIncomeSource
+    ? 'Compulsory with Monthly Income: fill at least one of the two.'
+    : 'Optional for unemployed/retired. Add if debt funds/FDs generate regular interest.';
+  const hasDependentSelection = DEPENDENT_CATEGORY_OPTIONS.some((option) => dependentCategoriesEnabled[option.key]);
+  const reviewMaritalStatus =
+    selectSelectionState.maritalStatus
+      ? (MARITAL_OPTIONS.find((option) => option.value === form.maritalStatus)?.label ?? form.maritalStatus)
+      : 'No selection';
+  const reviewAnalysisMode =
+    selectSelectionState.analysisMode
+      ? (ANALYSIS_MODE_OPTIONS.find((option) => option.value === form.analysisMode)?.label ??
+        (form.analysisMode === 'specific' ? 'Specific security' : 'Suggest best options'))
+      : 'No selection';
+  const reviewMarketScope =
+    selectSelectionState.marketScope
+      ? (MARKET_SCOPE_OPTIONS.find((option) => option.value === form.marketScope)?.label ?? form.marketScope.toUpperCase())
+      : 'No selection';
+  const reviewDependents = hasDependentSelection ? String(totalDependents(form)) : 'No selection';
+  const canRunAgent = selectSelectionState.analysisMode && selectSelectionState.marketScope;
+  const instantSurplusPreview = Math.max(0, monthlyReliableIncomePreview - monthlyBurnPreview);
+  const instantDebtRatioPreview = monthlyReliableIncomePreview > 0 ? (totalEmiPreview / monthlyReliableIncomePreview) * 100 : 0;
   const instantEmergencyTargetMonths =
     form.riskPreference === 'conservative' ? 9 : form.riskPreference === 'aggressive' ? 4 : 6;
   const instantEmergencyGapMonths = Math.max(0, instantEmergencyTargetMonths - form.emergencyFundMonths);
@@ -1763,6 +1994,19 @@ export function AgenticAiWorkbench() {
 
   function updateField<K extends keyof AgenticFormInput>(key: K, value: AgenticFormInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setDependentCount(field: 'dependentsKids' | 'dependentsParents' | 'dependentsSpouse' | 'dependentsOthers', value: number) {
+    const normalized = Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
+    updateField(field, normalized);
+  }
+
+  function toggleDependentCategory(key: DependentCategoryKey, enabled: boolean) {
+    setDependentCategoriesEnabled((prev) => ({ ...prev, [key]: enabled }));
+    if (!enabled) {
+      const option = DEPENDENT_CATEGORY_OPTIONS.find((item) => item.key === key);
+      if (option) setDependentCount(option.countField, 0);
+    }
   }
 
   function updateAssets<K extends keyof AssetBreakdownInput>(key: K, value: AssetBreakdownInput[K]) {
@@ -1781,11 +2025,18 @@ export function AgenticAiWorkbench() {
   }
 
   function addLoan() {
-    setForm((prev) => ({ ...prev, loans: [...prev.loans, createBlankLoan()] }));
+    const nextLoan = createBlankLoan();
+    setForm((prev) => ({ ...prev, loans: [...prev.loans, nextLoan] }));
+    setLoanTypeSelectionState((prev) => ({ ...prev, [nextLoan.id]: false }));
   }
 
   function removeLoan(id: string) {
     setForm((prev) => ({ ...prev, loans: prev.loans.filter((loan) => loan.id !== id) }));
+    setLoanTypeSelectionState((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }
 
   function cancelAnalysis() {
@@ -1798,7 +2049,10 @@ export function AgenticAiWorkbench() {
       setError('Enter a stock or mutual fund ticker/name when specific mode is selected.');
       return;
     }
-    const validationError = validateFormInput(form);
+    const validationError = validateFormInput(form, {
+      analysisMode: selectSelectionState.analysisMode,
+      marketScope: selectSelectionState.marketScope,
+    });
     if (validationError) {
       setError(validationError);
       return;
@@ -1851,6 +2105,8 @@ export function AgenticAiWorkbench() {
           {
             form,
             profileStep,
+            selectSelectionState,
+            loanTypeSelectionState,
             updatedAt,
           } satisfies SavedProfileDraft,
         ),
@@ -2079,33 +2335,75 @@ export function AgenticAiWorkbench() {
                   <Briefcase className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
                   Demographics & Life Stage
                 </div>
-                <div className="grid gap-4 md:grid-cols-4">
-                  <NumberField label="Age" value={form.age} onChange={(value) => updateField('age', value)} info={FIELD_INFO.age} />
+                <div className="mb-3 text-xs text-rose-500 dark:text-rose-400">Fields marked * are compulsory.</div>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <NumberField label="Age" value={form.age} onChange={(value) => updateField('age', value)} info={FIELD_INFO.age} required />
                   <SelectField
                     label="Marital Status"
                     value={form.maritalStatus}
                     options={MARITAL_OPTIONS}
                     onChange={(value) => updateField('maritalStatus', value)}
                     info={FIELD_INFO.maritalStatus}
+                    hasSelection={selectSelectionState.maritalStatus}
+                    onSelectionChange={(selected) =>
+                      setSelectSelectionState((prev) => ({ ...prev, maritalStatus: selected }))
+                    }
                   />
-                  <NumberField
-                    label="Dependents (Kids)"
-                    value={form.dependentsKids}
-                    onChange={(value) => updateField('dependentsKids', value)}
-                    info={FIELD_INFO.dependentsKids}
-                  />
-                  <NumberField
-                    label="Dependents (Parents)"
-                    value={form.dependentsParents}
-                    onChange={(value) => updateField('dependentsParents', value)}
-                    info={FIELD_INFO.dependentsParents}
-                  />
+                  <FieldShell
+                    label="Dependents"
+                    hint={hasDependentSelection ? 'Select categories and set count (0 or more).' : 'No selection'}
+                    info={FIELD_INFO.dependents}
+                    className="md:col-span-2"
+                  >
+                    {!hasDependentSelection ? (
+                      <div className="mb-2 rounded-lg border border-dashed border-slate-300/70 px-3 py-2 text-xs font-medium text-slate-500 dark:border-slate-600 dark:text-slate-400">
+                        No selection
+                      </div>
+                    ) : null}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {DEPENDENT_CATEGORY_OPTIONS.map((option) => {
+                        const count = form[option.countField] ?? 0;
+                        const enabled = dependentCategoriesEnabled[option.key];
+                        return (
+                          <div
+                            key={option.key}
+                            className={cn(
+                              'flex items-center justify-between gap-2 rounded-xl border px-3 py-2',
+                              'border-slate-200 bg-white/70 dark:border-slate-700 dark:bg-slate-950/40',
+                            )}
+                          >
+                            <label className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                              <input
+                                type="checkbox"
+                                checked={enabled}
+                                onChange={(event) => toggleDependentCategory(option.key, event.target.checked)}
+                              />
+                              {option.label}
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={count}
+                              disabled={!enabled}
+                              onChange={(event) => setDependentCount(option.countField, parseNumber(event.target.value))}
+                              className="agentic-input w-20 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </FieldShell>
                   <SelectField
                     label="Employment Type"
                     value={form.employmentType}
                     options={EMPLOYMENT_OPTIONS}
                     onChange={(value) => updateField('employmentType', value)}
                     info={FIELD_INFO.employmentType}
+                    hasSelection={selectSelectionState.employmentType}
+                    onSelectionChange={(selected) =>
+                      setSelectSelectionState((prev) => ({ ...prev, employmentType: selected }))
+                    }
                   />
                   <SelectField
                     label="Residency"
@@ -2113,6 +2411,10 @@ export function AgenticAiWorkbench() {
                     value={form.countryCode}
                     options={RESIDENCY_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
                     info={FIELD_INFO.residency}
+                    hasSelection={selectSelectionState.residency}
+                    onSelectionChange={(selected) =>
+                      setSelectSelectionState((prev) => ({ ...prev, residency: selected }))
+                    }
                     onChange={(value) => {
                       const selected = RESIDENCY_OPTIONS.find((option) => option.value === value);
                       updateField('countryCode', value);
@@ -2133,6 +2435,8 @@ export function AgenticAiWorkbench() {
                     value={form.monthlyIncome}
                     onChange={(value) => updateField('monthlyIncome', value)}
                     info={FIELD_INFO.monthlyIncome}
+                    required={requiresIncomeSource}
+                    hint={monthlyIncomeHint}
                   />
                   <NumberField
                     label="Fixed Expenses"
@@ -2170,9 +2474,23 @@ export function AgenticAiWorkbench() {
               <div className="grid gap-4 md:grid-cols-3">
                 <NumberField label="Equity (stocks + MF)" value={form.assets.equity} onChange={(value) => updateAssets('equity', value)} info={FIELD_INFO.equityAssets} />
                 <NumberField label="Debt / FD" value={form.assets.debt} onChange={(value) => updateAssets('debt', value)} info={FIELD_INFO.debtAssets} />
+                <NumberField
+                  label="Debt/FD Interest (Annual)"
+                  value={form.debtFdInterestAnnual}
+                  onChange={(value) => updateField('debtFdInterestAnnual', value)}
+                  info={FIELD_INFO.debtFdInterestAnnual}
+                  required={requiresIncomeSource}
+                  hint={debtFdInterestHint}
+                />
                 <NumberField label="Gold" value={form.assets.gold} onChange={(value) => updateAssets('gold', value)} info={FIELD_INFO.gold} />
                 <NumberField label="Real Estate" value={form.assets.realEstate} onChange={(value) => updateAssets('realEstate', value)} info={FIELD_INFO.realEstate} />
                 <NumberField label="Cash / Savings" value={form.assets.cash} onChange={(value) => updateAssets('cash', value)} info={FIELD_INFO.cashSavings} />
+                <NumberField
+                  label="Insurance Cover"
+                  value={form.insuranceCover}
+                  onChange={(value) => updateField('insuranceCover', value)}
+                  info={FIELD_INFO.insuranceCover}
+                />
                 <NumberField label="Alternatives" value={form.assets.alternatives} onChange={(value) => updateAssets('alternatives', value)} info={FIELD_INFO.alternatives} />
               </div>
 
@@ -2216,6 +2534,10 @@ export function AgenticAiWorkbench() {
                             options={LOAN_TYPE_OPTIONS}
                             onChange={(value) => updateLoan(loan.id, 'type', value)}
                             info={FIELD_INFO.loanType}
+                            hasSelection={loanTypeSelectionState[loan.id] ?? true}
+                            onSelectionChange={(selected) =>
+                              setLoanTypeSelectionState((prev) => ({ ...prev, [loan.id]: selected }))
+                            }
                           />
                           <NumberField
                             label="Outstanding"
@@ -2274,6 +2596,10 @@ export function AgenticAiWorkbench() {
                   options={GOAL_OPTIONS}
                   onChange={(value) => updateField('investmentGoal', value)}
                   info={FIELD_INFO.goal}
+                  hasSelection={selectSelectionState.investmentGoal}
+                  onSelectionChange={(selected) =>
+                    setSelectSelectionState((prev) => ({ ...prev, investmentGoal: selected }))
+                  }
                 />
                 <SelectField
                   label="Horizon"
@@ -2281,6 +2607,10 @@ export function AgenticAiWorkbench() {
                   options={HORIZON_OPTIONS}
                   onChange={(value) => updateField('investmentHorizon', value)}
                   info={FIELD_INFO.horizon}
+                  hasSelection={selectSelectionState.investmentHorizon}
+                  onSelectionChange={(selected) =>
+                    setSelectSelectionState((prev) => ({ ...prev, investmentHorizon: selected }))
+                  }
                 />
                 <SelectField
                   label="Risk Preference"
@@ -2288,6 +2618,10 @@ export function AgenticAiWorkbench() {
                   options={RISK_OPTIONS}
                   onChange={(value) => updateField('riskPreference', value)}
                   info={FIELD_INFO.riskPreference}
+                  hasSelection={selectSelectionState.riskPreference}
+                  onSelectionChange={(selected) =>
+                    setSelectSelectionState((prev) => ({ ...prev, riskPreference: selected }))
+                  }
                 />
                 <SelectField
                   label="Liquidity Need"
@@ -2295,6 +2629,10 @@ export function AgenticAiWorkbench() {
                   options={LIQUIDITY_OPTIONS}
                   onChange={(value) => updateField('liquidityNeed', value)}
                   info={FIELD_INFO.liquidityNeed}
+                  hasSelection={selectSelectionState.liquidityNeed}
+                  onSelectionChange={(selected) =>
+                    setSelectSelectionState((prev) => ({ ...prev, liquidityNeed: selected }))
+                  }
                 />
                 <NumberField
                   label="Expected Return Target"
@@ -2312,16 +2650,18 @@ export function AgenticAiWorkbench() {
                   suffix="months"
                   step={0.5}
                 />
-                <FieldShell label="Analysis Mode" info={FIELD_INFO.analysisMode}>
-                  <select
-                    value={form.analysisMode}
-                    onChange={(event) => updateField('analysisMode', event.target.value as AgenticFormInput['analysisMode'])}
-                    className="agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
-                  >
-                    <option value="suggest">Let the agent suggest stocks + funds</option>
-                    <option value="specific">Analyze a specific stock or fund</option>
-                  </select>
-                </FieldShell>
+                <SelectField
+                  label="Analysis Mode"
+                  value={form.analysisMode}
+                  options={ANALYSIS_MODE_OPTIONS}
+                  onChange={(value) => updateField('analysisMode', value)}
+                  info={FIELD_INFO.analysisMode}
+                  required
+                  hasSelection={selectSelectionState.analysisMode}
+                  onSelectionChange={(selected) =>
+                    setSelectSelectionState((prev) => ({ ...prev, analysisMode: selected }))
+                  }
+                />
                 <SelectField
                   label="Market Scope"
                   value={form.marketScope}
@@ -2329,11 +2669,17 @@ export function AgenticAiWorkbench() {
                   onChange={(value) => updateField('marketScope', value)}
                   info={FIELD_INFO.marketScope}
                   hint="Explicitly choose India, US, or both for suggest mode and specific-mode alternatives."
+                  required
+                  hasSelection={selectSelectionState.marketScope}
+                  onSelectionChange={(selected) =>
+                    setSelectSelectionState((prev) => ({ ...prev, marketScope: selected }))
+                  }
                 />
                 <FieldShell
                   label="Ticker / Fund / Company"
                   info={FIELD_INFO.tickerOrFund}
                   hint="Examples: INFY, HDFCBANK, AAPL, AMFI:119551, Parag Parikh Flexi Cap"
+                  required={form.analysisMode === 'specific'}
                 >
                   <input
                     value={form.targetTicker ?? ''}
@@ -2382,20 +2728,16 @@ export function AgenticAiWorkbench() {
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-2xl border border-slate-200 p-3 text-sm dark:border-slate-700">
                   <div className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Household</div>
-                  <div className="mt-2 text-slate-700 dark:text-slate-200">
-                    Age {form.age > 0 ? form.age : 'not set'}, {form.maritalStatus}, dependents {form.dependentsKids + form.dependentsParents}
-                  </div>
-                  <div className="mt-1 text-slate-700 dark:text-slate-200">
-                    Income {formatCurrency(form.monthlyIncome, displayCurrency)} / month
-                  </div>
+                  <div className="mt-2 text-slate-700 dark:text-slate-200">Age: {form.age > 0 ? form.age : 'Not set'}</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">Marital Status: {reviewMaritalStatus}</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">Dependents: {reviewDependents}</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">Income: {formatCurrency(form.monthlyIncome, displayCurrency)} / month</div>
                 </div>
                 <div className="rounded-2xl border border-slate-200 p-3 text-sm dark:border-slate-700">
                   <div className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Analysis</div>
-                  <div className="mt-2 text-slate-700 dark:text-slate-200">
-                    Mode {form.analysisMode === 'specific' ? 'Specific security' : 'Suggest best options'}
-                  </div>
-                  <div className="mt-1 text-slate-700 dark:text-slate-200">Scope {form.marketScope.toUpperCase()}</div>
-                  <div className="mt-1 text-slate-700 dark:text-slate-200">Base currency {displayCurrency}</div>
+                  <div className="mt-2 text-slate-700 dark:text-slate-200">Mode: {reviewAnalysisMode}</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">Scope: {reviewMarketScope}</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">Base Currency: {displayCurrency}</div>
                 </div>
               </div>
             </StepPanel>
@@ -2491,12 +2833,17 @@ export function AgenticAiWorkbench() {
                 onClick={() => {
                   void runAnalysis();
                 }}
-                disabled={loading}
+                disabled={loading || !canRunAgent}
                 className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-70 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 {loading ? 'Analyzing profile + markets...' : 'Run Personalized Agent'}
               </button>
+              {!canRunAgent ? (
+                <div className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                  Select compulsory fields: Analysis Mode and Market Scope.
+                </div>
+              ) : null}
 
               {clarificationPrompts.length ? (
                 <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-500/10 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:text-amber-300">
