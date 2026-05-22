@@ -22,9 +22,9 @@ import {
 } from '@/lib/learning/free-course-catalog';
 
 const providerStyles: Record<LearningProvider, string> = {
-  'Khan Academy': 'bg-emerald-500/15 text-emerald-200 border border-emerald-400/20',
-  'MIT OpenCourseWare': 'bg-sky-500/15 text-sky-200 border border-sky-400/20',
-  'Open Yale Courses': 'bg-rose-500/15 text-rose-200 border border-rose-400/20',
+  'Khan Academy': 'bg-emerald-500/15 text-emerald-700 border border-emerald-400/30 dark:text-emerald-200 dark:border-emerald-400/20',
+  'MIT OpenCourseWare': 'bg-sky-500/15 text-sky-700 border border-sky-400/30 dark:text-sky-200 dark:border-sky-400/20',
+  'Open Yale Courses': 'bg-rose-500/15 text-rose-700 border border-rose-400/30 dark:text-rose-200 dark:border-rose-400/20',
 };
 
 const themeStyles: Record<FreeCourseResource['thumbnailTheme'], string> = {
@@ -74,10 +74,10 @@ function CourseCard({ course }: { course: FreeCourseResource }) {
             <span className={cn('rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]', providerStyles[course.provider])}>
               {course.provider}
             </span>
-            <span className="rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">
+            <span className="rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700 dark:text-slate-300">
               {course.level}
             </span>
-            <span className="rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">
+            <span className="rounded-full border border-border bg-card/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700 dark:text-slate-300">
               {course.category}
             </span>
           </div>
@@ -88,7 +88,7 @@ function CourseCard({ course }: { course: FreeCourseResource }) {
           </div>
 
           <div className="rounded-2xl border border-border/70 bg-card/45 p-4">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:text-slate-400">
               Why It’s Useful
             </div>
             <div className="flex flex-wrap gap-2">
@@ -135,21 +135,21 @@ export function LearningCourseHub() {
 
   return (
     <div className="mx-auto w-full max-w-[1560px] space-y-6">
-      <SectionCard title="Learning" subtitle="Curated free finance courses from well-known education platforms.">
+      <SectionCard title="Learning">
         <div className="ui-panel glass hero-glow overflow-hidden rounded-[32px] p-6 md:p-8">
           <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
-              <GraduationCap className="h-4 w-4 text-indigo-300" />
-              Learn Finance Free
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200/80 bg-indigo-50/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-indigo-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+              <GraduationCap className="h-4 w-4 text-indigo-500 dark:text-indigo-300" />
+              Learn Finance
             </div>
             <div className="space-y-3">
               <h1 className="max-w-3xl font-sora text-3xl font-bold tracking-tight text-slate-900 dark:text-white md:text-5xl">
                 Start with stocks, investing, and finance from trusted platforms.
               </h1>
-              <p className="max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300 md:text-base">
+              <p className="max-w-3xl text-sm leading-7 text-slate-700 dark:text-slate-300 md:text-base">
                 The Learning tab now focuses on free official courses. Every card opens the original course page on Khan Academy, MIT OpenCourseWare, or Open Yale Courses.
               </p>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                 {filteredCourses.length} courses shown • {freeCourseCatalog.length} total free courses
               </p>
             </div>
@@ -159,7 +159,7 @@ export function LearningCourseHub() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search courses by topic, provider, or keyword..."
-                className="w-full rounded-2xl border border-border bg-card/60 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-accent dark:text-white"
+                className="w-full rounded-2xl border border-border bg-card/70 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-accent dark:bg-card/60 dark:text-white"
               />
             </div>
             <div className="flex flex-wrap gap-3">
@@ -171,8 +171,8 @@ export function LearningCourseHub() {
                   className={cn(
                     'rounded-full border px-4 py-2 text-sm font-medium transition',
                     activeCategory === category.value
-                      ? 'border-indigo-400/30 bg-indigo-500/20 text-white'
-                      : 'border-border bg-card/55 text-slate-600 hover:bg-muted/55 dark:text-slate-300',
+                      ? 'border-indigo-300 bg-indigo-100 text-indigo-800 dark:border-indigo-400/30 dark:bg-indigo-500/20 dark:text-white'
+                      : 'border-border bg-card/65 text-slate-700 hover:bg-muted/55 dark:bg-card/55 dark:text-slate-300',
                   )}
                 >
                   {category.label}
