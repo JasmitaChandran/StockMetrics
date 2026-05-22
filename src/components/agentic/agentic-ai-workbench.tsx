@@ -17,6 +17,7 @@ import {
   Loader2,
   PiggyBank,
   Plus,
+  Search,
   ShieldCheck,
   Sparkles,
   Target,
@@ -46,9 +47,12 @@ import {
 import { downloadPersonalizedReportPdf } from '@/lib/agentic/report-pdf';
 import { getKv, listPortfolioTxns, setKv } from '@/lib/storage/repositories';
 import type { PortfolioTxn } from '@/lib/storage/idb';
+import type { SearchEntity } from '@/types';
 import { useUiStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils/cn';
 import { formatCurrency, formatDateTime, formatNumber, formatPercent } from '@/lib/utils/format';
+import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
+import { useSearchEntities } from '@/lib/hooks/use-stock-data';
 
 const PROFILE_STORAGE_KEY = 'agentic:financial-profile:v2';
 const REPORT_STORAGE_KEY = 'agentic:last-report:v2';
@@ -547,6 +551,12 @@ function listMissingCompulsoryFields(
   return missing;
 }
 
+function withinSelectedMarketScope(entity: SearchEntity, scope: AgentMarketScope) {
+  if (scope === 'india') return entity.market === 'india' || entity.market === 'mf';
+  if (scope === 'us') return entity.market === 'us';
+  return true;
+}
+
 function getDisplayCurrency(input: Pick<AgenticFormInput, 'countryCode' | 'country'>): 'INR' | 'USD' {
   if (input.countryCode === 'US') return 'USD';
   if (input.countryCode === 'IN') return 'INR';
@@ -847,30 +857,130 @@ function normalizeScoringWeights(weights?: Partial<ScoringWeights>): ScoringWeig
   };
 }
 
-function collectClarificationPrompts(form: AgenticFormInput) {
-  const prompts: string[] = [];
+type ClarificationSignals = {
+  aggressiveVsDebtOrEmergency: boolean;
+  shortHorizonHighTarget: boolean;
+  incomeGoalAggressive: boolean;
+  unemployedOrRetiredLowEmergency: boolean;
+  unfundedExpensesNoIncome: boolean;
+  dependentsNoInsurance: boolean;
+  seniorAggressive: boolean;
+};
+
+function evaluateClarificationSignals(form: AgenticFormInput): ClarificationSignals {
   const totalEmi = sum(form.loans.map((loan) => loan.monthlyEmi));
   const monthlyReliableIncome = form.monthlyIncome + form.debtFdInterestAnnual / 12;
   const debtBurdenPct = monthlyReliableIncome > 0 ? (totalEmi / monthlyReliableIncome) * 100 : totalEmi > 0 ? 100 : 0;
-  if (form.riskPreference === 'aggressive' && (debtBurdenPct > 35 || form.emergencyFundMonths < 3)) {
+  const isUnemployedOrRetired = form.employmentType === 'unemployed' || form.employmentType === 'retired';
+  const totalMonthlyOutflow = form.monthlyFixedExpenses + form.monthlyDiscretionaryExpenses + totalEmi;
+
+  return {
+    aggressiveVsDebtOrEmergency: form.riskPreference === 'aggressive' && (debtBurdenPct > 35 || form.emergencyFundMonths < 3),
+    shortHorizonHighTarget: form.investmentHorizon === 'short' && form.expectedReturnTarget > 14,
+    incomeGoalAggressive:
+      (form.investmentGoal === 'income' || form.investmentGoal === 'passive_income') && form.riskPreference === 'aggressive',
+    unemployedOrRetiredLowEmergency: isUnemployedOrRetired && form.emergencyFundMonths < 6,
+    unfundedExpensesNoIncome: isUnemployedOrRetired && monthlyReliableIncome <= 0 && totalMonthlyOutflow > 0,
+    dependentsNoInsurance: totalDependents(form) > 0 && form.insuranceCover <= 0,
+    seniorAggressive: form.age >= 55 && form.riskPreference === 'aggressive',
+  };
+}
+
+function collectClarificationPrompts(form: AgenticFormInput) {
+  const signals = evaluateClarificationSignals(form);
+  const prompts: string[] = [];
+  if (signals.aggressiveVsDebtOrEmergency) {
     prompts.push('Risk preference is aggressive, but debt/emergency profile suggests tighter risk capacity. Continue as aggressive?');
   }
-  if (form.investmentHorizon === 'short' && form.expectedReturnTarget > 14) {
+  if (signals.shortHorizonHighTarget) {
     prompts.push('Short horizon with high return target can cause unstable outcomes. Reduce target or extend horizon?');
   }
-  if ((form.investmentGoal === 'income' || form.investmentGoal === 'passive_income') && form.riskPreference === 'aggressive') {
+  if (signals.incomeGoalAggressive) {
     prompts.push('Income goal is selected with aggressive risk. Should we shift to moderate income-first scoring?');
   }
-  if ((form.employmentType === 'unemployed' || form.employmentType === 'retired') && form.emergencyFundMonths < 6) {
+  if (signals.unemployedOrRetiredLowEmergency) {
     prompts.push('Retired/unemployed profile with low emergency cover can be fragile. Increase liquidity buffer before higher-risk allocation?');
   }
-  if (totalDependents(form) > 0 && form.insuranceCover <= 0) {
+  if (signals.unfundedExpensesNoIncome) {
+    prompts.push('No recurring income source is entered while monthly expenses/EMIs are non-zero. Confirm this is funded from savings/assets.');
+  }
+  if (signals.dependentsNoInsurance) {
     prompts.push('Dependents are present but insurance cover is zero. Add cover details for a more realistic downside plan?');
   }
-  if (form.age >= 55 && form.riskPreference === 'aggressive') {
+  if (signals.seniorAggressive) {
     prompts.push('Age profile indicates lower drawdown tolerance. Confirm that aggressive risk is intentional.');
   }
   return prompts;
+}
+
+function applySaferDefaults(form: AgenticFormInput): { nextForm: AgenticFormInput; appliedUpdates: string[] } {
+  const signals = evaluateClarificationSignals(form);
+  const nextForm: AgenticFormInput = { ...form };
+  const appliedUpdates: string[] = [];
+  const monthlyReliableIncome = form.monthlyIncome + form.debtFdInterestAnnual / 12;
+
+  const addUpdate = (summary: string) => {
+    if (!appliedUpdates.includes(summary)) appliedUpdates.push(summary);
+  };
+
+  if (signals.aggressiveVsDebtOrEmergency && nextForm.riskPreference === 'aggressive') {
+    nextForm.riskPreference = 'moderate';
+    addUpdate('Risk Preference → Moderate');
+  }
+
+  if (signals.shortHorizonHighTarget && nextForm.expectedReturnTarget > 12) {
+    nextForm.expectedReturnTarget = 12;
+    addUpdate('Expected Return Target → 12%');
+  }
+
+  if (signals.incomeGoalAggressive && nextForm.riskPreference === 'aggressive') {
+    nextForm.riskPreference = 'moderate';
+    addUpdate('Risk Preference → Moderate');
+  }
+
+  if (signals.unemployedOrRetiredLowEmergency && nextForm.emergencyFundMonths < 6) {
+    nextForm.emergencyFundMonths = 6;
+    addUpdate('Emergency Fund Coverage → 6 months');
+  }
+
+  if (signals.unfundedExpensesNoIncome) {
+    if (nextForm.liquidityNeed !== 'high') {
+      nextForm.liquidityNeed = 'high';
+      addUpdate('Liquidity Need → High');
+    }
+    if (nextForm.riskPreference === 'aggressive') {
+      nextForm.riskPreference = 'moderate';
+      addUpdate('Risk Preference → Moderate');
+    } else if (nextForm.riskPreference === 'moderate') {
+      nextForm.riskPreference = 'conservative';
+      addUpdate('Risk Preference → Conservative');
+    }
+    if (nextForm.emergencyFundMonths < 12) {
+      nextForm.emergencyFundMonths = 12;
+      addUpdate('Emergency Fund Coverage → 12 months');
+    }
+  }
+
+  if (signals.dependentsNoInsurance) {
+    if (monthlyReliableIncome > 0 && nextForm.insuranceCover <= 0) {
+      const suggestedCover = Math.max(1, Math.round((monthlyReliableIncome * 12 * 5) / 1000)) * 1000;
+      nextForm.insuranceCover = suggestedCover;
+      addUpdate(`Insurance Cover → ${formatNumber(suggestedCover, 0)}`);
+    } else if (nextForm.riskPreference === 'aggressive') {
+      nextForm.riskPreference = 'moderate';
+      addUpdate('Risk Preference → Moderate');
+    } else if (nextForm.riskPreference === 'moderate') {
+      nextForm.riskPreference = 'conservative';
+      addUpdate('Risk Preference → Conservative');
+    }
+  }
+
+  if (signals.seniorAggressive && nextForm.riskPreference === 'aggressive') {
+    nextForm.riskPreference = 'moderate';
+    addUpdate('Risk Preference → Moderate');
+  }
+
+  return { nextForm, appliedUpdates };
 }
 
 function updateLearningMemoryFromOutcome(
@@ -1451,6 +1561,7 @@ function SelectField<T extends string | number>({
   hint,
   info,
   required,
+  invalid = false,
   hasSelection = true,
   noSelectionLabel = 'No selection',
   onSelectionChange,
@@ -1462,6 +1573,7 @@ function SelectField<T extends string | number>({
   hint?: string;
   info?: FieldInfoItem[];
   required?: boolean;
+  invalid?: boolean;
   hasSelection?: boolean;
   noSelectionLabel?: string;
   onSelectionChange?: (selected: boolean) => void;
@@ -1482,7 +1594,12 @@ function SelectField<T extends string | number>({
           onSelectionChange?.(true);
           onChange(next as T);
         }}
-        className="agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
+        className={cn(
+          'agentic-input w-full rounded-2xl border bg-white px-3 py-2.5 text-sm shadow-sm outline-none dark:bg-slate-950 dark:text-slate-100',
+          invalid
+            ? 'border-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:border-rose-800/70 dark:focus:ring-rose-950/60'
+            : 'border-slate-200 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:focus:ring-cyan-950',
+        )}
       >
         <option value="">{noSelectionLabel}</option>
         {options.map((option) => (
@@ -1675,6 +1792,7 @@ export function AgenticAiWorkbench() {
   const draftHydratedRef = useRef(false);
   const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const analysisAbortRef = useRef<AbortController | null>(null);
+  const targetTickerRootRef = useRef<HTMLDivElement | null>(null);
   const runAnalysisRef = useRef<(force?: boolean) => Promise<void>>(async () => {});
   const monitorBaselineRef = useRef<Map<string, { symbol: string; market: 'india' | 'us' | 'mf'; price: number; name: string }>>(new Map());
   const monitorCooldownUntilRef = useRef(0);
@@ -1685,7 +1803,8 @@ export function AgenticAiWorkbench() {
   const [loading, setLoading] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [profileStep, setProfileStep] = useState(1);
-  const [stockSuggestions, setStockSuggestions] = useState<string[]>([]);
+  const [isTargetTickerSuggestionsOpen, setIsTargetTickerSuggestionsOpen] = useState(false);
+  const [selectedTargetTickerSuggestion, setSelectedTargetTickerSuggestion] = useState<SearchEntity | null>(null);
   const [error, setError] = useState('');
   const [progress, setProgress] = useState<AgenticProgressTelemetry | null>(null);
   const [analysisStartedAt, setAnalysisStartedAt] = useState<number | null>(null);
@@ -1695,6 +1814,7 @@ export function AgenticAiWorkbench() {
   const [whatIfEmiDelta, setWhatIfEmiDelta] = useState(0);
   const [whatIfRiskPreference, setWhatIfRiskPreference] = useState<RiskPreference>('moderate');
   const [clarificationPrompts, setClarificationPrompts] = useState<string[]>([]);
+  const [saferDefaultsFeedback, setSaferDefaultsFeedback] = useState('');
   const [selectSelectionState, setSelectSelectionState] = useState<ProfileSelectSelectionState>(DEFAULT_SELECT_SELECTION_STATE);
   const [dependentCategoriesEnabled, setDependentCategoriesEnabled] = useState<Record<DependentCategoryKey, boolean>>({
     kids: false,
@@ -1706,6 +1826,8 @@ export function AgenticAiWorkbench() {
   const [learningMemory, setLearningMemory] = useState<LearningMemoryState>(DEFAULT_LEARNING_MEMORY);
   const [monitoringSettings, setMonitoringSettings] = useState<MonitoringSettings>(DEFAULT_MONITORING_SETTINGS);
   const [monitoringAlert, setMonitoringAlert] = useState<MonitoringAlertState | null>(null);
+  const debouncedTargetTickerQuery = useDebouncedValue(form.targetTicker ?? '', 250);
+  const { data: targetTickerSearchData, isLoading: isTargetTickerSearching } = useSearchEntities(debouncedTargetTickerQuery);
   const uiMode = useUiStore((state) => state.uiMode);
 
   useEffect(() => {
@@ -1822,6 +1944,23 @@ export function AgenticAiWorkbench() {
   }, []);
 
   useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!targetTickerRootRef.current?.contains(event.target as Node)) {
+        setIsTargetTickerSuggestionsOpen(false);
+      }
+    }
+    window.addEventListener('mousedown', handlePointerDown);
+    return () => window.removeEventListener('mousedown', handlePointerDown);
+  }, []);
+
+  useEffect(() => {
+    if (form.analysisMode !== 'specific') {
+      setIsTargetTickerSuggestionsOpen(false);
+    }
+    setSelectedTargetTickerSuggestion(null);
+  }, [form.analysisMode, form.marketScope]);
+
+  useEffect(() => {
     if (!report) return;
     const next = new Map<string, { symbol: string; market: 'india' | 'us' | 'mf'; price: number; name: string }>();
     const candidates = [report.focusStock, ...report.stockRecommendations.slice(0, 6)].filter(Boolean) as AgenticAnalysisReport['stockRecommendations'];
@@ -1838,53 +1977,6 @@ export function AgenticAiWorkbench() {
     }
     monitorBaselineRef.current = next;
   }, [report]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadTickerSuggestions() {
-      const scopedMarkets =
-        form.marketScope === 'both' ? ['india', 'us', 'mf'] : form.marketScope === 'india' ? ['india', 'mf'] : ['us'];
-
-      try {
-        const responses = await Promise.all(
-          scopedMarkets.map((market) =>
-            fetch(`/api/search/universal?market=${market}&limit=120`, { cache: 'no-store' }).then((res) =>
-              res.ok ? res.json() : [],
-            ),
-          ),
-        );
-
-        if (cancelled) return;
-        const merged = new Map<string, string>();
-        for (const row of responses) {
-          if (!Array.isArray(row)) continue;
-          for (const entity of row as Array<{ displaySymbol?: string; symbol?: string }>) {
-            const ticker = (entity.displaySymbol ?? entity.symbol ?? '').trim();
-            if (!ticker || merged.has(ticker.toUpperCase())) continue;
-            merged.set(ticker.toUpperCase(), ticker);
-          }
-        }
-        setStockSuggestions(Array.from(merged.values()).slice(0, 120));
-      } catch {
-        if (cancelled) return;
-        const fallback = demoUniverse
-          .filter((entity) => {
-            if (form.marketScope === 'india') return entity.market === 'india' || entity.market === 'mf';
-            if (form.marketScope === 'us') return entity.market === 'us';
-            return true;
-          })
-          .map((entity) => entity.displaySymbol);
-        setStockSuggestions(fallback.slice(0, 120));
-      }
-    }
-
-    loadTickerSuggestions();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [form.marketScope]);
 
   useEffect(() => {
     if (!monitoringSettings.enabled || !report) return;
@@ -1993,6 +2085,30 @@ export function AgenticAiWorkbench() {
     selectSelectionState.maritalStatus
       ? (MARITAL_OPTIONS.find((option) => option.value === form.maritalStatus)?.label ?? form.maritalStatus)
       : 'No selection';
+  const reviewEmploymentType =
+    selectSelectionState.employmentType
+      ? (EMPLOYMENT_OPTIONS.find((option) => option.value === form.employmentType)?.label ?? form.employmentType)
+      : 'No selection';
+  const reviewResidency =
+    selectSelectionState.residency
+      ? (RESIDENCY_OPTIONS.find((option) => option.value === form.countryCode)?.label ?? form.countryCode)
+      : 'No selection';
+  const reviewGoal =
+    selectSelectionState.investmentGoal
+      ? (GOAL_OPTIONS.find((option) => option.value === form.investmentGoal)?.label ?? form.investmentGoal)
+      : 'No selection';
+  const reviewHorizon =
+    selectSelectionState.investmentHorizon
+      ? (HORIZON_OPTIONS.find((option) => option.value === form.investmentHorizon)?.label ?? form.investmentHorizon)
+      : 'No selection';
+  const reviewRiskPreference =
+    selectSelectionState.riskPreference
+      ? (RISK_OPTIONS.find((option) => option.value === form.riskPreference)?.label ?? form.riskPreference)
+      : 'No selection';
+  const reviewLiquidityNeed =
+    selectSelectionState.liquidityNeed
+      ? (LIQUIDITY_OPTIONS.find((option) => option.value === form.liquidityNeed)?.label ?? form.liquidityNeed)
+      : 'No selection';
   const reviewAnalysisMode =
     selectSelectionState.analysisMode
       ? (ANALYSIS_MODE_OPTIONS.find((option) => option.value === form.analysisMode)?.label ??
@@ -2003,7 +2119,17 @@ export function AgenticAiWorkbench() {
       ? (MARKET_SCOPE_OPTIONS.find((option) => option.value === form.marketScope)?.label ?? form.marketScope.toUpperCase())
       : 'No selection';
   const reviewDependents = hasDependentSelection ? String(totalDependents(form)) : 'No selection';
-  const canRunAgent = selectSelectionState.analysisMode && selectSelectionState.marketScope;
+  const missingCompulsoryFields = listMissingCompulsoryFields(selectSelectionState, form.loans, loanTypeSelectionState);
+  const canRunAgent = missingCompulsoryFields.length === 0;
+  const targetTickerSuggestions = (targetTickerSearchData ?? [])
+    .filter((entity) => withinSelectedMarketScope(entity, form.marketScope))
+    .slice(0, 8);
+  const hasTargetTickerQuery = (form.targetTicker?.trim().length ?? 0) >= 2;
+  const showTargetTickerSuggestions =
+    form.analysisMode === 'specific' &&
+    isTargetTickerSuggestionsOpen &&
+    hasTargetTickerQuery &&
+    !selectedTargetTickerSuggestion;
   const instantSurplusPreview = Math.max(0, monthlyReliableIncomePreview - monthlyBurnPreview);
   const instantDebtRatioPreview = monthlyReliableIncomePreview > 0 ? (totalEmiPreview / monthlyReliableIncomePreview) * 100 : 0;
   const instantEmergencyTargetMonths =
@@ -2018,6 +2144,12 @@ export function AgenticAiWorkbench() {
 
   function updateField<K extends keyof AgenticFormInput>(key: K, value: AgenticFormInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function pickTargetTickerSuggestion(entity: SearchEntity) {
+    updateField('targetTicker', entity.displaySymbol);
+    setSelectedTargetTickerSuggestion(entity);
+    setIsTargetTickerSuggestionsOpen(false);
   }
 
   function setDependentCount(field: 'dependentsKids' | 'dependentsParents' | 'dependentsSpouse' | 'dependentsOthers', value: number) {
@@ -2073,10 +2205,7 @@ export function AgenticAiWorkbench() {
       setError('Enter a stock or mutual fund ticker/name when specific mode is selected.');
       return;
     }
-    const validationError = validateFormInput(form, {
-      analysisMode: selectSelectionState.analysisMode,
-      marketScope: selectSelectionState.marketScope,
-    });
+    const validationError = validateFormInput(form, selectSelectionState, loanTypeSelectionState);
     if (validationError) {
       setError(validationError);
       return;
@@ -2084,10 +2213,12 @@ export function AgenticAiWorkbench() {
     const prompts = collectClarificationPrompts(form);
     if (prompts.length && !force) {
       setClarificationPrompts(prompts);
+      setSaferDefaultsFeedback('');
       setError('');
       return;
     }
     setClarificationPrompts([]);
+    setSaferDefaultsFeedback('');
 
     setError('');
     setLoading(true);
@@ -2325,7 +2456,10 @@ export function AgenticAiWorkbench() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Personal Financial Profiling" className="agentic-section">
+      <SectionCard
+        title="Personal Financial Profiling"
+        className={cn('agentic-section', showTargetTickerSuggestions ? '!z-40' : '')}
+      >
         <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-5">
             <div className="agentic-panel p-4">
@@ -2368,6 +2502,8 @@ export function AgenticAiWorkbench() {
                     options={MARITAL_OPTIONS}
                     onChange={(value) => updateField('maritalStatus', value)}
                     info={FIELD_INFO.maritalStatus}
+                    required
+                    invalid={!selectSelectionState.maritalStatus}
                     hasSelection={selectSelectionState.maritalStatus}
                     onSelectionChange={(selected) =>
                       setSelectSelectionState((prev) => ({ ...prev, maritalStatus: selected }))
@@ -2424,6 +2560,8 @@ export function AgenticAiWorkbench() {
                     options={EMPLOYMENT_OPTIONS}
                     onChange={(value) => updateField('employmentType', value)}
                     info={FIELD_INFO.employmentType}
+                    required
+                    invalid={!selectSelectionState.employmentType}
                     hasSelection={selectSelectionState.employmentType}
                     onSelectionChange={(selected) =>
                       setSelectSelectionState((prev) => ({ ...prev, employmentType: selected }))
@@ -2435,6 +2573,8 @@ export function AgenticAiWorkbench() {
                     value={form.countryCode}
                     options={RESIDENCY_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
                     info={FIELD_INFO.residency}
+                    required
+                    invalid={!selectSelectionState.residency}
                     hasSelection={selectSelectionState.residency}
                     onSelectionChange={(selected) =>
                       setSelectSelectionState((prev) => ({ ...prev, residency: selected }))
@@ -2558,6 +2698,8 @@ export function AgenticAiWorkbench() {
                             options={LOAN_TYPE_OPTIONS}
                             onChange={(value) => updateLoan(loan.id, 'type', value)}
                             info={FIELD_INFO.loanType}
+                            required
+                            invalid={!(loanTypeSelectionState[loan.id] ?? true)}
                             hasSelection={loanTypeSelectionState[loan.id] ?? true}
                             onSelectionChange={(selected) =>
                               setLoanTypeSelectionState((prev) => ({ ...prev, [loan.id]: selected }))
@@ -2620,6 +2762,8 @@ export function AgenticAiWorkbench() {
                   options={GOAL_OPTIONS}
                   onChange={(value) => updateField('investmentGoal', value)}
                   info={FIELD_INFO.goal}
+                  required
+                  invalid={!selectSelectionState.investmentGoal}
                   hasSelection={selectSelectionState.investmentGoal}
                   onSelectionChange={(selected) =>
                     setSelectSelectionState((prev) => ({ ...prev, investmentGoal: selected }))
@@ -2631,6 +2775,8 @@ export function AgenticAiWorkbench() {
                   options={HORIZON_OPTIONS}
                   onChange={(value) => updateField('investmentHorizon', value)}
                   info={FIELD_INFO.horizon}
+                  required
+                  invalid={!selectSelectionState.investmentHorizon}
                   hasSelection={selectSelectionState.investmentHorizon}
                   onSelectionChange={(selected) =>
                     setSelectSelectionState((prev) => ({ ...prev, investmentHorizon: selected }))
@@ -2642,6 +2788,8 @@ export function AgenticAiWorkbench() {
                   options={RISK_OPTIONS}
                   onChange={(value) => updateField('riskPreference', value)}
                   info={FIELD_INFO.riskPreference}
+                  required
+                  invalid={!selectSelectionState.riskPreference}
                   hasSelection={selectSelectionState.riskPreference}
                   onSelectionChange={(selected) =>
                     setSelectSelectionState((prev) => ({ ...prev, riskPreference: selected }))
@@ -2653,6 +2801,8 @@ export function AgenticAiWorkbench() {
                   options={LIQUIDITY_OPTIONS}
                   onChange={(value) => updateField('liquidityNeed', value)}
                   info={FIELD_INFO.liquidityNeed}
+                  required
+                  invalid={!selectSelectionState.liquidityNeed}
                   hasSelection={selectSelectionState.liquidityNeed}
                   onSelectionChange={(selected) =>
                     setSelectSelectionState((prev) => ({ ...prev, liquidityNeed: selected }))
@@ -2681,6 +2831,7 @@ export function AgenticAiWorkbench() {
                   onChange={(value) => updateField('analysisMode', value)}
                   info={FIELD_INFO.analysisMode}
                   required
+                  invalid={!selectSelectionState.analysisMode}
                   hasSelection={selectSelectionState.analysisMode}
                   onSelectionChange={(selected) =>
                     setSelectSelectionState((prev) => ({ ...prev, analysisMode: selected }))
@@ -2694,6 +2845,7 @@ export function AgenticAiWorkbench() {
                   info={FIELD_INFO.marketScope}
                   hint="Explicitly choose India, US, or both for suggest mode and specific-mode alternatives."
                   required
+                  invalid={!selectSelectionState.marketScope}
                   hasSelection={selectSelectionState.marketScope}
                   onSelectionChange={(selected) =>
                     setSelectSelectionState((prev) => ({ ...prev, marketScope: selected }))
@@ -2705,18 +2857,72 @@ export function AgenticAiWorkbench() {
                   hint="Examples: INFY, HDFCBANK, AAPL, AMFI:119551, Parag Parikh Flexi Cap"
                   required={form.analysisMode === 'specific'}
                 >
-                  <input
-                    value={form.targetTicker ?? ''}
-                    onChange={(event) => updateField('targetTicker', event.target.value)}
-                    list="agentic-tickers"
-                    disabled={form.analysisMode !== 'specific'}
-                    className="agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
-                  />
-                  <datalist id="agentic-tickers">
-                    {stockSuggestions.map((stock) => (
-                      <option key={stock} value={stock} />
-                    ))}
-                  </datalist>
+                  <div ref={targetTickerRootRef} className={cn('relative', showTargetTickerSuggestions ? 'z-50' : '')}>
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={form.targetTicker ?? ''}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        updateField('targetTicker', value);
+                        setSelectedTargetTickerSuggestion(null);
+                        setIsTargetTickerSuggestionsOpen(value.trim().length > 0);
+                      }}
+                      onFocus={() => {
+                        if (form.analysisMode === 'specific' && (form.targetTicker ?? '').trim().length > 0) {
+                          setIsTargetTickerSuggestionsOpen(true);
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') {
+                          setIsTargetTickerSuggestionsOpen(false);
+                          return;
+                        }
+                        if (event.key === 'Tab' && hasTargetTickerQuery && targetTickerSuggestions.length) {
+                          event.preventDefault();
+                          pickTargetTickerSuggestion(targetTickerSuggestions[0]);
+                          return;
+                        }
+                        if (event.key === 'Enter' && showTargetTickerSuggestions && targetTickerSuggestions.length) {
+                          event.preventDefault();
+                          pickTargetTickerSuggestion(targetTickerSuggestions[0]);
+                        }
+                      }}
+                      disabled={form.analysisMode !== 'specific'}
+                      className="agentic-input w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
+                    />
+                    {showTargetTickerSuggestions ? (
+                      <div className="absolute left-0 top-full z-50 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-950">
+                        <div className="max-h-72 overflow-auto p-2">
+                          {isTargetTickerSearching ? <div className="p-3 text-sm text-slate-500">Searching...</div> : null}
+                          {!isTargetTickerSearching && targetTickerSuggestions.length === 0 ? (
+                            <div className="p-3 text-sm text-slate-500">
+                              No matches. Try ticker, AMFI code, or company/fund name.
+                            </div>
+                          ) : null}
+                          {!isTargetTickerSearching && targetTickerSuggestions.length > 0 ? (
+                            targetTickerSuggestions.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => pickTargetTickerSuggestion(item)}
+                                className="flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2 text-left text-sm transition hover:border-cyan-500/20 hover:bg-slate-100 dark:hover:bg-slate-900"
+                              >
+                                <div className="min-w-0">
+                                  <div className="truncate font-medium text-slate-900 dark:text-white">{item.name}</div>
+                                  <div className="text-xs text-slate-500">
+                                    {item.displaySymbol} • {item.market.toUpperCase()} {item.exchange ? `• ${item.exchange}` : ''}
+                                  </div>
+                                </div>
+                                <span className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                                  {item.type === 'mutual_fund' ? 'MF' : 'Stock'}
+                                </span>
+                              </button>
+                            ))
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 </FieldShell>
                 {form.analysisMode === 'specific' ? (
                   <FieldShell
@@ -2754,12 +2960,19 @@ export function AgenticAiWorkbench() {
                   <div className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Household</div>
                   <div className="mt-2 text-slate-700 dark:text-slate-200">Age: {form.age > 0 ? form.age : 'Not set'}</div>
                   <div className="mt-1 text-slate-700 dark:text-slate-200">Marital Status: {reviewMaritalStatus}</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">Employment Type: {reviewEmploymentType}</div>
                   <div className="mt-1 text-slate-700 dark:text-slate-200">Dependents: {reviewDependents}</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">Residency: {reviewResidency}</div>
                   <div className="mt-1 text-slate-700 dark:text-slate-200">Income: {formatCurrency(form.monthlyIncome, displayCurrency)} / month</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">Debt/FD Interest: {formatCurrency(form.debtFdInterestAnnual, displayCurrency)} / year</div>
                 </div>
                 <div className="rounded-2xl border border-slate-200 p-3 text-sm dark:border-slate-700">
                   <div className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Analysis</div>
-                  <div className="mt-2 text-slate-700 dark:text-slate-200">Mode: {reviewAnalysisMode}</div>
+                  <div className="mt-2 text-slate-700 dark:text-slate-200">Goal: {reviewGoal}</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">Horizon: {reviewHorizon}</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">Risk Preference: {reviewRiskPreference}</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">Liquidity Need: {reviewLiquidityNeed}</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">Mode: {reviewAnalysisMode}</div>
                   <div className="mt-1 text-slate-700 dark:text-slate-200">Scope: {reviewMarketScope}</div>
                   <div className="mt-1 text-slate-700 dark:text-slate-200">Base Currency: {displayCurrency}</div>
                 </div>
@@ -2865,7 +3078,7 @@ export function AgenticAiWorkbench() {
               </button>
               {!canRunAgent ? (
                 <div className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                  Select compulsory fields: Analysis Mode and Market Scope.
+                  Select compulsory fields: {missingCompulsoryFields.join(', ')}.
                 </div>
               ) : null}
 
@@ -2884,15 +3097,17 @@ export function AgenticAiWorkbench() {
                     <button
                       type="button"
                       onClick={() => {
-                        setForm((prev) => ({
-                          ...prev,
-                          riskPreference: prev.riskPreference === 'aggressive' ? 'moderate' : prev.riskPreference,
-                          expectedReturnTarget:
-                            prev.investmentHorizon === 'short' && prev.expectedReturnTarget > 14
-                              ? 12
-                              : prev.expectedReturnTarget,
-                        }));
-                        setClarificationPrompts([]);
+                        const { nextForm, appliedUpdates } = applySaferDefaults(form);
+                        setForm(nextForm);
+                        const remainingPrompts = collectClarificationPrompts(nextForm);
+                        setClarificationPrompts(remainingPrompts);
+                        if (appliedUpdates.length > 0) {
+                          setSaferDefaultsFeedback(`Applied safer defaults: ${appliedUpdates.join(' • ')}`);
+                        } else {
+                          setSaferDefaultsFeedback(
+                            'No automatic change was applicable. Please adjust the highlighted profile values manually.',
+                          );
+                        }
                       }}
                       className="rounded-lg border border-amber-400 px-2.5 py-1 font-semibold hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-950/30"
                     >
@@ -2901,6 +3116,7 @@ export function AgenticAiWorkbench() {
                     <button
                       type="button"
                       onClick={() => {
+                        setSaferDefaultsFeedback('');
                         void runAnalysis(true);
                       }}
                       className="rounded-lg border border-amber-400 px-2.5 py-1 font-semibold hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-950/30"
@@ -2908,6 +3124,9 @@ export function AgenticAiWorkbench() {
                       Continue anyway
                     </button>
                   </div>
+                  {saferDefaultsFeedback ? (
+                    <div className="mt-2 text-[11px] text-amber-800 dark:text-amber-300">{saferDefaultsFeedback}</div>
+                  ) : null}
                 </div>
               ) : null}
             </div>

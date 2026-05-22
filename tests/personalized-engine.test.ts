@@ -116,6 +116,18 @@ describe('personalized engine guardrails and core math', () => {
     ).not.toThrow();
   });
 
+  it('allows retired profile with no recurring income source', () => {
+    expect(() =>
+      personalizedEngineTestables.validateAgenticInput(
+        makeForm({
+          employmentType: 'retired',
+          monthlyIncome: 0,
+          debtFdInterestAnnual: 0,
+        }),
+      ),
+    ).not.toThrow();
+  });
+
   it('rejects negative cash-flow and liability values', () => {
     expect(() =>
       personalizedEngineTestables.validateAgenticInput(
@@ -137,6 +149,24 @@ describe('personalized engine guardrails and core math', () => {
               interestRate: 8.5,
             },
           ],
+        }),
+      ),
+    ).toThrow();
+  });
+
+  it('rejects invalid dependent counts and expected return targets', () => {
+    expect(() =>
+      personalizedEngineTestables.validateAgenticInput(
+        makeForm({
+          dependentsSpouse: -1,
+        }),
+      ),
+    ).toThrow();
+
+    expect(() =>
+      personalizedEngineTestables.validateAgenticInput(
+        makeForm({
+          expectedReturnTarget: 55,
         }),
       ),
     ).toThrow();
