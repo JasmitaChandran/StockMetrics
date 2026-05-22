@@ -406,33 +406,33 @@ html.dark .agentic-section {
 }
 
 .agentic-hero {
-  border-color: rgba(56, 189, 248, 0.4);
+  border-color: rgba(56, 189, 248, 0.42);
   background:
-    radial-gradient(circle at 10% 12%, rgba(14, 165, 233, 0.2), transparent 34%),
-    radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.16), transparent 38%),
-    linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(12, 20, 35, 0.92));
-  color: #e2e8f0;
+    radial-gradient(circle at 10% 12%, rgba(14, 165, 233, 0.2), transparent 36%),
+    radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.14), transparent 40%),
+    linear-gradient(135deg, rgba(248, 253, 255, 0.98), rgba(236, 246, 255, 0.95));
+  color: #0f172a;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.08) inset,
-    0 34px 60px -34px rgba(2, 6, 23, 0.84);
+    0 1px 0 rgba(255, 255, 255, 0.92) inset,
+    0 28px 50px -38px rgba(2, 132, 199, 0.42);
 }
 
 .agentic-hero::before {
   content: '';
   position: absolute;
   inset: -20% -15%;
-  background: linear-gradient(100deg, rgba(56, 189, 248, 0.04), rgba(56, 189, 248, 0.32), rgba(16, 185, 129, 0.08));
+  background: linear-gradient(100deg, rgba(56, 189, 248, 0.02), rgba(56, 189, 248, 0.12), rgba(16, 185, 129, 0.05));
   filter: blur(18px);
   animation: agenticSweep 10.5s ease-in-out infinite;
   pointer-events: none;
 }
 
 .agentic-hero h1 {
-  color: #f8fafc;
+  color: #0f172a;
 }
 
 .agentic-hero p {
-  color: rgba(226, 232, 240, 0.88);
+  color: rgba(51, 65, 85, 0.92);
 }
 
 .agentic-workflow-rail {
@@ -452,8 +452,8 @@ html.dark .agentic-section {
   align-items: center;
   gap: 0.7rem;
   border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: rgba(15, 23, 42, 0.36);
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  background: rgba(255, 255, 255, 0.68);
   padding: 0.58rem 0.72rem;
   overflow: hidden;
 }
@@ -467,9 +467,9 @@ html.dark .agentic-section {
   border-radius: 999px;
   font-size: 0.68rem;
   font-weight: 700;
-  border: 1px solid rgba(148, 163, 184, 0.45);
-  color: rgba(241, 245, 249, 0.9);
-  background: rgba(30, 41, 59, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  color: rgba(30, 41, 59, 0.96);
+  background: rgba(241, 245, 249, 0.96);
 }
 
 .agentic-stage-label {
@@ -477,44 +477,44 @@ html.dark .agentic-section {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(241, 245, 249, 0.95);
+  color: rgba(51, 65, 85, 0.96);
 }
 
 .agentic-stage-detail {
   margin-top: 1px;
   font-size: 0.74rem;
-  color: rgba(203, 213, 225, 0.9);
+  color: rgba(71, 85, 105, 0.94);
 }
 
 .agentic-stage.is-done {
-  border-color: rgba(74, 222, 128, 0.5);
-  background: linear-gradient(130deg, rgba(16, 185, 129, 0.24), rgba(15, 23, 42, 0.4));
+  border-color: rgba(74, 222, 128, 0.55);
+  background: linear-gradient(130deg, rgba(16, 185, 129, 0.16), rgba(255, 255, 255, 0.82));
 }
 
 .agentic-stage.is-done .agentic-stage-node {
-  border-color: rgba(74, 222, 128, 0.7);
-  background: rgba(5, 150, 105, 0.42);
+  border-color: rgba(16, 185, 129, 0.6);
+  background: rgba(209, 250, 229, 0.95);
 }
 
 .agentic-stage.is-active {
-  border-color: rgba(56, 189, 248, 0.56);
-  background: linear-gradient(130deg, rgba(14, 165, 233, 0.26), rgba(15, 23, 42, 0.4));
+  border-color: rgba(56, 189, 248, 0.58);
+  background: linear-gradient(130deg, rgba(14, 165, 233, 0.2), rgba(255, 255, 255, 0.84));
 }
 
 .agentic-stage.is-active .agentic-stage-node {
-  border-color: rgba(56, 189, 248, 0.8);
-  background: rgba(2, 132, 199, 0.45);
+  border-color: rgba(14, 165, 233, 0.7);
+  background: rgba(224, 242, 254, 0.96);
   animation: agenticPulseRing 2.8s ease-in-out infinite;
 }
 
 .agentic-stage.is-todo {
-  opacity: 0.82;
+  opacity: 0.96;
 }
 
 .agentic-note {
-  border-color: rgba(56, 189, 248, 0.35);
-  background: linear-gradient(120deg, rgba(15, 23, 42, 0.58), rgba(15, 23, 42, 0.36));
-  color: rgba(226, 232, 240, 0.9);
+  border-color: rgba(56, 189, 248, 0.36);
+  background: linear-gradient(120deg, rgba(248, 253, 255, 0.96), rgba(237, 248, 255, 0.9));
+  color: rgba(51, 65, 85, 0.94);
 }
 
 .agentic-progress-step {
@@ -698,6 +698,79 @@ html.dark .agentic-section {
   border-radius: 999px;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.34), transparent 70%);
   pointer-events: none;
+}
+
+html.dark .agentic-hero {
+  border-color: rgba(56, 189, 248, 0.4);
+  background:
+    radial-gradient(circle at 10% 12%, rgba(14, 165, 233, 0.2), transparent 34%),
+    radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.16), transparent 38%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(12, 20, 35, 0.92));
+  color: #e2e8f0;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 34px 60px -34px rgba(2, 6, 23, 0.84);
+}
+
+html.dark .agentic-hero::before {
+  background: linear-gradient(100deg, rgba(56, 189, 248, 0.04), rgba(56, 189, 248, 0.32), rgba(16, 185, 129, 0.08));
+}
+
+html.dark .agentic-hero h1 {
+  color: #f8fafc;
+}
+
+html.dark .agentic-hero p {
+  color: rgba(226, 232, 240, 0.88);
+}
+
+html.dark .agentic-stage {
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.36);
+}
+
+html.dark .agentic-stage-node {
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  color: rgba(241, 245, 249, 0.9);
+  background: rgba(30, 41, 59, 0.72);
+}
+
+html.dark .agentic-stage-label {
+  color: rgba(241, 245, 249, 0.95);
+}
+
+html.dark .agentic-stage-detail {
+  color: rgba(203, 213, 225, 0.9);
+}
+
+html.dark .agentic-stage.is-done {
+  border-color: rgba(74, 222, 128, 0.5);
+  background: linear-gradient(130deg, rgba(16, 185, 129, 0.24), rgba(15, 23, 42, 0.4));
+}
+
+html.dark .agentic-stage.is-done .agentic-stage-node {
+  border-color: rgba(74, 222, 128, 0.7);
+  background: rgba(5, 150, 105, 0.42);
+}
+
+html.dark .agentic-stage.is-active {
+  border-color: rgba(56, 189, 248, 0.56);
+  background: linear-gradient(130deg, rgba(14, 165, 233, 0.26), rgba(15, 23, 42, 0.4));
+}
+
+html.dark .agentic-stage.is-active .agentic-stage-node {
+  border-color: rgba(56, 189, 248, 0.8);
+  background: rgba(2, 132, 199, 0.45);
+}
+
+html.dark .agentic-stage.is-todo {
+  opacity: 0.82;
+}
+
+html.dark .agentic-note {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: linear-gradient(120deg, rgba(15, 23, 42, 0.58), rgba(15, 23, 42, 0.36));
+  color: rgba(226, 232, 240, 0.9);
 }
 
 html.dark .agentic-panel,

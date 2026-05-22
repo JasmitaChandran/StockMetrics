@@ -1636,11 +1636,11 @@ function MetricCard({
   return (
     <div className={cn('agentic-metric-card rounded-3xl border p-4', toneStyles, 'dark:border-slate-700 dark:bg-slate-900/70')}>
       <div className="flex items-center justify-between gap-2">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{label}</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 dark:text-slate-400">{label}</div>
         <span className={cn('h-2.5 w-2.5 rounded-full shadow-[0_0_0_4px_rgba(15,23,42,0.1)] dark:shadow-[0_0_0_4px_rgba(6,182,212,0.14)]', toneDot)} />
       </div>
       <div className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{value}</div>
-      <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">{note}</div>
+      <div className="mt-2 text-sm text-slate-700 dark:text-slate-300">{note}</div>
     </div>
   );
 }
