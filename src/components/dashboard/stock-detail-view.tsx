@@ -383,9 +383,9 @@ function StatementTableView({ table }: { table: FinancialStatementTable }) {
   const parsedSummaryBullets = useMemo(() => summary?.bullets.map((line) => splitSummaryLine(line)) ?? [], [summary]);
 
   const confidenceStyle = useMemo(() => {
-    if (summary?.confidence === 'high') return 'border-emerald-500/35 bg-emerald-500/12 text-emerald-300';
-    if (summary?.confidence === 'medium') return 'border-sky-500/35 bg-sky-500/12 text-sky-300';
-    return 'border-amber-500/35 bg-amber-500/12 text-amber-300';
+    if (summary?.confidence === 'high') return 'border-emerald-500/35 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300';
+    if (summary?.confidence === 'medium') return 'border-sky-500/35 bg-sky-500/12 text-sky-700 dark:text-sky-300';
+    return 'border-amber-500/35 bg-amber-500/12 text-amber-700 dark:text-amber-300';
   }, [summary?.confidence]);
 
   const confidenceTooltip = useMemo(() => {
@@ -484,13 +484,13 @@ function StatementTableView({ table }: { table: FinancialStatementTable }) {
                   'border-slate-500/20 bg-slate-500/5': line.tone === 'neutral',
                 })}
               >
-                <p className="text-sm leading-relaxed text-slate-100">{line.main}</p>
+                <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-100">{line.main}</p>
                 {line.simple ? (
                   <div
                     className={cn('mt-2 rounded-lg border px-3 py-2 text-xs leading-relaxed', {
-                      'border-emerald-400/30 bg-emerald-400/10 text-emerald-100': line.tone === 'positive',
-                      'border-amber-400/30 bg-amber-400/10 text-amber-100': line.tone === 'caution',
-                      'border-sky-400/30 bg-sky-400/10 text-sky-100': line.tone === 'neutral',
+                      'border-emerald-400/30 bg-emerald-400/10 text-emerald-700 dark:text-emerald-100': line.tone === 'positive',
+                      'border-amber-400/30 bg-amber-400/10 text-amber-700 dark:text-amber-100': line.tone === 'caution',
+                      'border-sky-400/30 bg-sky-400/10 text-sky-700 dark:text-sky-100': line.tone === 'neutral',
                     })}
                   >
                     {line.simple.replace(/^Simple view:\s*/i, '')}
@@ -583,15 +583,15 @@ function BeginnerPanel({ assessment }: { assessment: BeginnerAssessment | null }
             Should I consider buying? {assessment.recommendation} • Buy score {assessment.buyScore}/5
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
-            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">
               <div className="font-semibold uppercase tracking-wide">Healthy signals</div>
               <div className="mt-1 text-sm font-semibold">{statusTotals.good}</div>
             </div>
-            <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
               <div className="font-semibold uppercase tracking-wide">Watch items</div>
               <div className="mt-1 text-sm font-semibold">{statusTotals.watch}</div>
             </div>
-            <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
+            <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">
               <div className="font-semibold uppercase tracking-wide">Risk items</div>
               <div className="mt-1 text-sm font-semibold">{statusTotals.bad}</div>
             </div>
@@ -602,25 +602,25 @@ function BeginnerPanel({ assessment }: { assessment: BeginnerAssessment | null }
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium">{check.label}</span>
                   <span className={cn('rounded-full px-2 py-0.5 text-xs', {
-                    'bg-emerald-500/15 text-emerald-500': check.status === 'good',
-                    'bg-amber-500/15 text-amber-500': check.status === 'watch',
-                    'bg-rose-500/15 text-rose-500': check.status === 'bad',
+                    'border border-emerald-500/45 bg-emerald-500/20 text-emerald-800 dark:border-emerald-400/40 dark:bg-emerald-500/18 dark:text-emerald-200': check.status === 'good',
+                    'border border-amber-500/45 bg-amber-500/20 text-amber-800 dark:border-amber-400/40 dark:bg-amber-500/18 dark:text-amber-200': check.status === 'watch',
+                    'border border-rose-500/45 bg-rose-500/20 text-rose-800 dark:border-rose-400/40 dark:bg-rose-500/18 dark:text-rose-200': check.status === 'bad',
                   })}>{check.status}</span>
                 </div>
                 <p className="mt-1 text-slate-600 dark:text-slate-300">{check.explanation}</p>
                 <div className="mt-2 space-y-1 rounded-lg border border-border/70 bg-muted/20 px-2.5 py-2 text-xs text-slate-500 dark:text-slate-300">
                   <p>
-                    <span className="font-semibold text-slate-400">Why this matters:</span> {beginnerCheckMeta(check.label).why}
+                    <span className="font-semibold text-slate-600 dark:text-slate-400">Why this matters:</span> {beginnerCheckMeta(check.label).why}
                   </p>
                   <p>
-                    <span className="font-semibold text-slate-400">What to do next:</span> {beginnerCheckMeta(check.label).action}
+                    <span className="font-semibold text-slate-600 dark:text-slate-400">What to do next:</span> {beginnerCheckMeta(check.label).action}
                   </p>
                 </div>
               </li>
             ))}
           </ul>
           <div className="rounded-xl border border-border/70 bg-card/40 p-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Beginner Action Plan</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Beginner Action Plan</div>
             <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
               {(priorityChecks.length ? priorityChecks : assessment.simpleChecks).slice(0, 3).map((check) => (
                 <li key={`plan-${check.label}`}>{beginnerCheckMeta(check.label).action}</li>
@@ -643,28 +643,28 @@ function AiInsightsPanel({ insights, currency }: { insights: AiInsights | null; 
     );
   }
   const confidenceStyle = {
-    high: 'border-emerald-500/35 bg-emerald-500/12 text-emerald-300',
-    medium: 'border-sky-500/35 bg-sky-500/12 text-sky-300',
-    low: 'border-amber-500/35 bg-amber-500/12 text-amber-300',
+    high: 'border-emerald-500/35 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300',
+    medium: 'border-sky-500/35 bg-sky-500/12 text-sky-700 dark:text-sky-300',
+    low: 'border-amber-500/35 bg-amber-500/12 text-amber-700 dark:text-amber-300',
   } as const;
 
   const recommendationStyle = {
-    Buy: 'border-emerald-500/30 bg-emerald-500/12 text-emerald-300',
-    Hold: 'border-amber-500/30 bg-amber-500/12 text-amber-300',
-    Reduce: 'border-rose-500/30 bg-rose-500/12 text-rose-300',
+    Buy: 'border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300',
+    Hold: 'border-amber-500/30 bg-amber-500/12 text-amber-700 dark:text-amber-300',
+    Reduce: 'border-rose-500/30 bg-rose-500/12 text-rose-700 dark:text-rose-300',
   } as const;
 
   const netImpactStyle = {
-    Positive: 'border-emerald-500/30 bg-emerald-500/12 text-emerald-300',
-    'Slightly Positive': 'border-cyan-500/30 bg-cyan-500/12 text-cyan-300',
-    Neutral: 'border-slate-500/30 bg-slate-500/12 text-slate-300',
-    Negative: 'border-rose-500/30 bg-rose-500/12 text-rose-300',
+    Positive: 'border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300',
+    'Slightly Positive': 'border-cyan-500/30 bg-cyan-500/12 text-cyan-700 dark:text-cyan-300',
+    Neutral: 'border-slate-500/30 bg-slate-500/12 text-slate-700 dark:text-slate-300',
+    Negative: 'border-rose-500/30 bg-rose-500/12 text-rose-700 dark:text-rose-300',
   } as const;
 
   const stanceStyle = {
-    Positive: 'border-emerald-500/30 bg-emerald-500/12 text-emerald-300',
-    Neutral: 'border-slate-500/30 bg-slate-500/12 text-slate-300',
-    Cautious: 'border-amber-500/30 bg-amber-500/12 text-amber-300',
+    Positive: 'border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300',
+    Neutral: 'border-slate-500/30 bg-slate-500/12 text-slate-700 dark:text-slate-300',
+    Cautious: 'border-amber-500/30 bg-amber-500/12 text-amber-700 dark:text-amber-300',
   } as const;
 
   const formatLevel = (value?: number) => {
@@ -820,9 +820,9 @@ function AiInsightsPanel({ insights, currency }: { insights: AiInsights | null; 
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                <div className="rounded-lg bg-emerald-500/10 p-2">BUY {insights.sentiment.buyProbability}%</div>
-                <div className="rounded-lg bg-amber-500/10 p-2">HOLD {insights.sentiment.holdProbability}%</div>
-                <div className="rounded-lg bg-rose-500/10 p-2">SELL {insights.sentiment.sellProbability}%</div>
+                <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-700 dark:text-emerald-200">BUY {insights.sentiment.buyProbability}%</div>
+                <div className="rounded-lg bg-amber-500/10 p-2 text-amber-700 dark:text-amber-200">HOLD {insights.sentiment.holdProbability}%</div>
+                <div className="rounded-lg bg-rose-500/10 p-2 text-rose-700 dark:text-rose-200">SELL {insights.sentiment.sellProbability}%</div>
               </div>
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{insights.sentiment.suggestedAction}</p>
               <div className="mt-2 space-y-1 text-sm">
@@ -1332,8 +1332,8 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
                 transition={{ duration: 0.24, ease: 'easeOut' }}
                 className={cn(
                   'text-3xl font-semibold tracking-tight tabular-nums sm:text-[2.2rem]',
-                  priceTickDirection === 'up' && 'text-emerald-300',
-                  priceTickDirection === 'down' && 'text-rose-300',
+                  priceTickDirection === 'up' && 'text-emerald-600 dark:text-emerald-300',
+                  priceTickDirection === 'down' && 'text-rose-600 dark:text-rose-300',
                 )}
               >
                 {formatCurrency(quote.price, quote.currency)}
@@ -1357,7 +1357,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
               </motion.div>
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
-              <span className={cn('rounded-full px-2 py-1 font-medium', status.isOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400')}>
+              <span className={cn('rounded-full px-2 py-1 font-medium', status.isOpen ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-amber-500/10 text-amber-700 dark:text-amber-300')}>
                 {status.isOpen ? 'Market Open' : 'Market Closed'}
               </span>
               <motion.span
@@ -1365,7 +1365,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
                 initial={{ opacity: 0.55, y: 3 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.16, ease: 'easeOut' }}
-                className="rounded-full border border-border/70 bg-card/45 px-2 py-1 font-mono tabular-nums text-slate-400"
+                className="rounded-full border border-border/70 bg-card/45 px-2 py-1 font-mono tabular-nums text-slate-600 dark:text-slate-400"
               >
                 IST now: {status.localTime}
               </motion.span>
@@ -1374,12 +1374,12 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
                 initial={{ opacity: 0.6, y: 2 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="rounded-full border border-border/70 bg-card/45 px-2 py-1 font-mono tabular-nums text-slate-400"
+                className="rounded-full border border-border/70 bg-card/45 px-2 py-1 font-mono tabular-nums text-slate-600 dark:text-slate-400"
               >
                 Last updated: {formatDateTimeWithSeconds(quote.timestamp)}
               </motion.span>
               {!status.isOpen ? (
-                <span className="rounded-full border border-border/70 bg-card/45 px-2 py-1 font-mono tabular-nums text-slate-400">
+                <span className="rounded-full border border-border/70 bg-card/45 px-2 py-1 font-mono tabular-nums text-slate-600 dark:text-slate-400">
                   Next open (IST): {status.nextOpenIst}
                 </span>
               ) : null}
@@ -1404,7 +1404,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
               <FileSpreadsheet className="h-4 w-4" /> Export to Excel
             </button>
             {bundle.entity.market === 'us' && preferredCurrencyForUs === 'INR' ? (
-              <div className="text-[11px] text-slate-500">
+              <div className="text-[11px] text-slate-600 dark:text-slate-400">
                 USD→INR rate: {fx?.rate ? formatNumber(fx.rate, 2) : 'Loading...'} {fx?.stale ? '(stale cache)' : ''}
               </div>
             ) : null}
@@ -1470,26 +1470,26 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
                         <div className="flex items-start justify-between gap-2">
                           <div className="text-xs text-slate-500">{metric.label}</div>
                           <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', {
-                            'bg-emerald-500/15 text-emerald-400': explanation.tone === 'good',
-                            'bg-amber-500/15 text-amber-400': explanation.tone === 'watch',
-                            'bg-rose-500/15 text-rose-400': explanation.tone === 'bad',
+                            'border border-emerald-500/45 bg-emerald-500/20 text-emerald-800 dark:border-emerald-400/40 dark:bg-emerald-500/18 dark:text-emerald-200': explanation.tone === 'good',
+                            'border border-amber-500/45 bg-amber-500/20 text-amber-800 dark:border-amber-400/40 dark:bg-amber-500/18 dark:text-amber-200': explanation.tone === 'watch',
+                            'border border-rose-500/45 bg-rose-500/20 text-rose-800 dark:border-rose-400/40 dark:bg-rose-500/18 dark:text-rose-200': explanation.tone === 'bad',
                           })}>
                             {explanation.tone}
                           </span>
                         </div>
                         <div className="mt-1 text-lg font-semibold">{metricValueToDisplay(metric, displayCurrency, fx?.rate)}</div>
                         <p className="mt-2 text-xs text-slate-500">{explanation.meaning}</p>
-                        <p className="mt-1 text-xs text-slate-300">{explanation.guidance}</p>
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{explanation.guidance}</p>
                       </div>
                     );
                   })}
                 </div>
                 <div className="rounded-xl border border-sky-400/30 bg-sky-500/10 p-3">
                   <div className="flex items-start gap-2">
-                    <Info className="mt-0.5 h-4 w-4 text-sky-300" />
+                    <Info className="mt-0.5 h-4 w-4 text-sky-700 dark:text-sky-300" />
                     <div>
-                      <p className="text-sm text-sky-100">Beginner mode hides many technical metrics.</p>
-                      <p className="mt-1 text-xs text-sky-100/85">Switch to PRO mode for full ratios and complete statement details.</p>
+                      <p className="text-sm text-sky-800 dark:text-sky-100">Beginner mode hides many technical metrics.</p>
+                      <p className="mt-1 text-xs text-sky-700 dark:text-sky-100/85">Switch to PRO mode for full ratios and complete statement details.</p>
                     </div>
                   </div>
                 </div>
