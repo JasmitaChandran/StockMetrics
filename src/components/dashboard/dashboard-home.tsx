@@ -73,7 +73,7 @@ function HeroMarketIllustration() {
                 <span className="h-2.5 w-2.5 rounded-full bg-amber-300/80" />
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/80" />
               </div>
-              <div className="mx-auto hidden w-44 rounded-full border border-indigo-200/10 bg-indigo-500/5 px-3 py-1 text-center text-[10px] text-indigo-100/70 sm:block">
+              <div className="mx-auto hidden w-200 rounded-full border border-indigo-200/10 bg-indigo-500/5 px-3 py-1 text-center text-[20px] text-indigo-100/70 sm:block">
                 https://stock-metrics.vercel.app
               </div>
             </div>
