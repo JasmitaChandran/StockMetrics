@@ -61,39 +61,39 @@ function HeroMarketIllustration() {
       transition={{ delay: 0.08, duration: 0.28 }}
       className="relative mx-auto w-full max-w-5xl overflow-hidden rounded-[28px]"
     >
-      <div className="relative rounded-[28px] bg-gradient-to-br from-indigo-400/30 via-violet-500/12 to-blue-500/24 p-[1px] shadow-violet">
-        <div className="ui-panel glass relative overflow-hidden rounded-[28px] p-1 md:p-1">
-          <div className="pointer-events-none absolute left-1/2 top-1 h-1 w-0.25 -translate-x-1/2 rounded-full bg-indigo-500/14 blur-2xl" />
-          <div className="pointer-events-none absolute bottom-1 left-1/2 h-12 w-1/2 -translate-x-1/2 rounded-full bg-violet-500/14 blur-2xl" />
+      <div className="relative rounded-[28px] bg-gradient-to-br from-slate-200/90 via-indigo-100/75 to-cyan-100/75 p-[1px] shadow-[0_24px_60px_-34px_rgba(15,23,42,0.45)] dark:from-indigo-400/30 dark:via-violet-500/12 dark:to-blue-500/24 dark:shadow-violet">
+        <div className="ui-panel glass relative overflow-hidden rounded-[28px] bg-white/55 p-1 dark:bg-transparent md:p-1">
+          <div className="pointer-events-none absolute left-1/2 top-1 hidden h-1 w-0.25 -translate-x-1/2 rounded-full bg-indigo-500/14 blur-2xl dark:block" />
+          <div className="pointer-events-none absolute bottom-1 left-1/2 hidden h-12 w-1/2 -translate-x-1/2 rounded-full bg-violet-500/14 blur-2xl dark:block" />
 
-          <div className="relative -mt-1 rounded-[20px] border border-indigo-300/15 bg-[#050916]/90 p-2 shadow-panel md:-mt-1.5 md:p-2.5">
-            <div className="mb-2 flex items-center gap-2 rounded-xl border border-indigo-300/10 bg-white/[0.02] px-3 py-2">
+          <div className="relative -mt-1 rounded-[20px] border border-slate-300/60 bg-slate-50/90 p-2 shadow-[0_18px_38px_-26px_rgba(30,41,59,0.55)] dark:border-indigo-300/15 dark:bg-[#050916]/90 dark:shadow-panel md:-mt-1.5 md:p-2.5">
+            <div className="mb-2 flex items-center gap-2 rounded-xl border border-slate-300/70 bg-white/75 px-3 py-2 dark:border-indigo-300/10 dark:bg-white/[0.02]">
               <div className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-rose-400/80" />
                 <span className="h-2.5 w-2.5 rounded-full bg-amber-300/80" />
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/80" />
               </div>
-              <div className="mx-auto hidden w-200 rounded-full border border-indigo-200/10 bg-indigo-500/5 px-3 py-1 text-center text-[20px] text-indigo-100/70 sm:block">
+              <div className="mx-auto hidden w-200 rounded-full border border-slate-300/70 bg-white/80 px-3 py-1 text-center text-[20px] text-slate-500 dark:border-indigo-200/10 dark:bg-indigo-500/5 dark:text-indigo-100/70 sm:block">
                 https://stock-metrics.vercel.app
               </div>
             </div>
 
             <div className="grid gap-3 lg:grid-cols-[1.45fr_1fr]">
-              <div className="flex h-full flex-col rounded-2xl border border-indigo-300/12 bg-white/[0.02] p-3">
+              <div className="flex h-full flex-col rounded-2xl border border-slate-300/70 bg-white/75 p-3 dark:border-indigo-300/12 dark:bg-white/[0.02]">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <div className="text-sm font-semibold text-white">Full Product Workspace</div>
-                    <div className="text-xs text-indigo-100/60">AI summary, peer comparison, screener, and guided modes in one dashboard</div>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">Full Product Workspace</div>
+                    <div className="text-xs text-slate-600 dark:text-indigo-100/60">AI summary, peer comparison, screener, and guided modes in one dashboard</div>
                   </div>
-                  <div className="inline-flex items-center rounded-full border border-indigo-300/15 bg-indigo-500/10 px-1 py-1 text-[10px] uppercase tracking-[0.12em] text-indigo-100/75">
-                    <span className="rounded-full bg-indigo-400/25 px-2 py-0.5 text-white">Beginner</span>
-                    <span className="px-2 py-0.5">Pro</span>
+                  <div className="inline-flex items-center rounded-full border border-slate-300/70 bg-white/80 px-1 py-1 text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:border-indigo-300/15 dark:bg-indigo-500/10 dark:text-indigo-100/75">
+                    <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-indigo-700 dark:bg-indigo-400/25 dark:text-white">Beginner</span>
+                    <span className="px-2 py-0.5 dark:text-indigo-100/75">Pro</span>
                   </div>
                 </div>
 
-                <div className="relative h-44 overflow-hidden rounded-xl border border-indigo-300/10 bg-[#070c1f] p-3 sm:h-48">
-                  <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(129,140,248,0.13)_1px,transparent_1px),linear-gradient(90deg,rgba(129,140,248,0.13)_1px,transparent_1px)] [background-size:26px_26px]" />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-indigo-500/18 to-transparent" />
+                <div className="relative h-44 overflow-hidden rounded-xl border border-slate-300/60 bg-slate-100 p-3 dark:border-indigo-300/10 dark:bg-[#070c1f] sm:h-48">
+                  <div className="pointer-events-none absolute inset-0 opacity-45 [background-image:linear-gradient(rgba(100,116,139,0.15)_1px,transparent_1px),linear-gradient(90deg,rgba(100,116,139,0.15)_1px,transparent_1px)] [background-size:26px_26px] dark:opacity-35 dark:[background-image:linear-gradient(rgba(129,140,248,0.13)_1px,transparent_1px),linear-gradient(90deg,rgba(129,140,248,0.13)_1px,transparent_1px)]" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-indigo-200/75 to-transparent dark:from-indigo-500/20" />
 
                   <div className="relative flex h-full flex-col justify-between">
                     <div className="grid grid-cols-3 gap-2">
@@ -102,9 +102,9 @@ function HeroMarketIllustration() {
                         { label: 'S&P 500', change: '+0.94%', up: true },
                         { label: 'NASDAQ', change: '-0.21%', up: false },
                       ].map(({ label, change, up }) => (
-                        <div key={label} className="rounded-lg border border-indigo-300/10 bg-white/[0.02] px-2 py-1.5">
-                          <div className="text-[10px] uppercase tracking-[0.14em] text-indigo-100/55">{label}</div>
-                          <div className={`mt-1 text-xs font-semibold ${up ? 'text-emerald-300' : 'text-rose-300'}`}>{change}</div>
+                        <div key={label} className="rounded-lg border border-slate-300/60 bg-white/70 px-2 py-1.5 dark:border-indigo-300/10 dark:bg-white/[0.02]">
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-indigo-100/55">{label}</div>
+                          <div className={`mt-1 text-xs font-semibold ${up ? 'text-emerald-600 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300'}`}>{change}</div>
                         </div>
                       ))}
                     </div>
@@ -134,11 +134,11 @@ function HeroMarketIllustration() {
                           style={{ left: `${c.x}%`, width: '10px', transform: 'translateX(-50%)' }}
                         >
                           <div
-                            className={`absolute left-1/2 w-px -translate-x-1/2 ${c.up ? 'bg-cyan-300/85' : 'bg-rose-300/85'}`}
+                            className={`absolute left-1/2 w-px -translate-x-1/2 ${c.up ? 'bg-cyan-300/80' : 'bg-rose-300/80'}`}
                             style={{ top: `${c.high}%`, bottom: `${100 - c.low}%` }}
                           />
                           <div
-                            className={`absolute left-1/2 w-[7px] -translate-x-1/2 rounded-sm ${c.up ? 'bg-cyan-300/85' : 'bg-rose-300/85'}`}
+                            className={`absolute left-1/2 w-[7px] -translate-x-1/2 rounded-sm ${c.up ? 'bg-cyan-300/80' : 'bg-rose-300/80'}`}
                             style={{
                               top: `${Math.min(c.open, c.close)}%`,
                               height: `${Math.max(Math.abs(c.close - c.open), 5)}%`,
@@ -149,7 +149,7 @@ function HeroMarketIllustration() {
                       ))}
                     </div>
 
-                    <div className="mt-1 flex items-center justify-between text-xs text-indigo-100/55">
+                    <div className="mt-1 flex items-center justify-between text-xs text-slate-500 dark:text-indigo-100/55">
                       <span>1D</span>
                       <span>1W</span>
                       <span>1M</span>
@@ -160,47 +160,47 @@ function HeroMarketIllustration() {
                 </div>
 
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <div className="rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2.5">
+                  <div className="rounded-xl border border-slate-300/60 bg-white/70 p-2.5 dark:border-indigo-300/10 dark:bg-white/[0.02]">
                     <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-700 dark:text-indigo-200">
                       <BarChart3 className="h-3.5 w-3.5" />
                       Peer Comparison
                     </div>
                     <div className="space-y-1.5">
                       {peerRows.map((row) => (
-                        <div key={row.company} className="grid grid-cols-[1.5fr_0.6fr_0.7fr] rounded-md border border-indigo-300/10 bg-white/[0.02] px-2 py-1.5 text-xs text-indigo-100/80">
-                          <span className="font-medium text-white/90">{row.company}</span>
+                        <div key={row.company} className="grid grid-cols-[1.5fr_0.6fr_0.7fr] rounded-md border border-slate-300/60 bg-white/80 px-2 py-1.5 text-xs text-slate-600 dark:border-indigo-300/10 dark:bg-white/[0.02] dark:text-indigo-100/80">
+                          <span className="font-medium text-slate-900 dark:text-white/90">{row.company}</span>
                           <span className="text-right">PE {row.pe}</span>
-                          <span className="text-right text-emerald-300">{row.roe}</span>
+                          <span className="text-right text-emerald-600 dark:text-emerald-300">{row.roe}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2.5">
+                  <div className="rounded-xl border border-slate-300/60 bg-white/70 p-2.5 dark:border-indigo-300/10 dark:bg-white/[0.02]">
                     <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-700 dark:text-indigo-200">
                       <Filter className="h-3.5 w-3.5" />
                       Screener
                     </div>
-                    <div className="text-xs text-indigo-100/70">Quality + Growth preset</div>
+                    <div className="text-xs text-slate-600 dark:text-indigo-100/70">Quality + Growth preset</div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {['Low Debt', 'ROE > 15%', 'Sales Growth', 'Positive FCF'].map((rule) => (
-                        <span key={rule} className="rounded-full border border-indigo-300/12 bg-indigo-500/8 px-2 py-0.5 text-[10px] text-indigo-100/80">
+                        <span key={rule} className="rounded-full border border-slate-300/70 bg-white/90 px-2 py-0.5 text-[10px] text-slate-600 dark:border-indigo-300/12 dark:bg-indigo-500/15 dark:text-indigo-100/95">
                           {rule}
                         </span>
                       ))}
                     </div>
-                    <div className="mt-2 text-xs font-medium text-emerald-300">18 stocks matched</div>
+                    <div className="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-300">18 stocks matched</div>
                   </div>
                 </div>
 
-                <div className="mt-2 flex-1 rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2.5">
+                <div className="mt-2 flex-1 rounded-xl border border-slate-300/60 bg-white/70 p-2.5 dark:border-indigo-300/10 dark:bg-white/[0.02]">
                   <div className="grid h-full gap-2 sm:grid-cols-2">
-                    <div className="rounded-lg border border-indigo-300/10 bg-white/[0.02] p-2">
+                    <div className="rounded-lg border border-slate-300/60 bg-white/80 p-2 dark:border-indigo-300/10 dark:bg-white/[0.02]">
                       <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-700 dark:text-indigo-200">
                         <PieChart className="h-3.5 w-3.5" />
                         Portfolio Rebalance
                       </div>
-                      <div className="space-y-2 text-xs text-indigo-100/75">
+                      <div className="space-y-2 text-xs text-slate-600 dark:text-indigo-100/75">
                         {[
                           ['Large Cap Quality', 46],
                           ['Banking Leaders', 28],
@@ -209,9 +209,9 @@ function HeroMarketIllustration() {
                           <div key={label}>
                             <div className="mb-1 flex items-center justify-between">
                               <span>{label}</span>
-                              <span className="text-indigo-100/55">{width}%</span>
+                              <span className="text-slate-500 dark:text-indigo-100/55">{width}%</span>
                             </div>
-                            <div className="h-1.5 rounded-full bg-white/5">
+                            <div className="h-1.5 rounded-full bg-slate-200/70 dark:bg-white/5">
                               <div className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-cyan-400" style={{ width: `${width}%` }} />
                             </div>
                           </div>
@@ -219,17 +219,17 @@ function HeroMarketIllustration() {
                       </div>
                     </div>
 
-                    <div className="flex flex-col rounded-lg border border-indigo-300/10 bg-white/[0.02] p-2">
+                    <div className="flex flex-col rounded-lg border border-slate-300/60 bg-white/80 p-2 dark:border-indigo-300/10 dark:bg-white/[0.02]">
                       <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-700 dark:text-indigo-200">
                         <Bell className="h-3.5 w-3.5" />
                         Smart Alerts
                       </div>
-                      <div className="space-y-1.5 text-xs text-indigo-100/75">
-                        <div className="rounded-md border border-indigo-300/10 bg-white/[0.02] px-2 py-1">HDFCBANK: breakout above 1,720</div>
-                        <div className="rounded-md border border-indigo-300/10 bg-white/[0.02] px-2 py-1">INFY: RSI cooling to neutral zone</div>
-                        <div className="rounded-md border border-indigo-300/10 bg-white/[0.02] px-2 py-1">TCS: earnings call at 3:30 PM</div>
+                      <div className="space-y-1.5 text-xs text-slate-600 dark:text-indigo-100/75">
+                        <div className="rounded-md border border-slate-300/60 bg-white/90 px-2 py-1 dark:border-indigo-300/10 dark:bg-white/[0.02]">HDFCBANK: breakout above 1,720</div>
+                        <div className="rounded-md border border-slate-300/60 bg-white/90 px-2 py-1 dark:border-indigo-300/10 dark:bg-white/[0.02]">INFY: RSI cooling to neutral zone</div>
+                        <div className="rounded-md border border-slate-300/60 bg-white/90 px-2 py-1 dark:border-indigo-300/10 dark:bg-white/[0.02]">TCS: earnings call at 3:30 PM</div>
                       </div>
-                      <div className="mt-2 rounded-md border border-cyan-300/20 bg-cyan-400/8 px-2 py-1.5 text-[11px] text-cyan-100/80">
+                      <div className="mt-2 rounded-md border border-cyan-200/70 bg-cyan-100/70 px-2 py-1.5 text-[11px] text-slate-700 dark:border-cyan-300/20 dark:bg-cyan-400/10 dark:text-cyan-100/90">
                         <span className="inline-flex items-center gap-1">
                           <BookOpen className="h-3.5 w-3.5" />
                           Learning Tip: Compare P/E with growth before adding peers.
@@ -241,7 +241,7 @@ function HeroMarketIllustration() {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <div className="rounded-2xl border border-indigo-300/12 bg-white/[0.02] p-3">
+                <div className="rounded-2xl border border-slate-300/70 bg-white/75 p-3 dark:border-indigo-300/12 dark:bg-white/[0.02]">
                   <div className="mb-2 flex items-center justify-between">
                     <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-200">
                       <Activity className="h-3.5 w-3.5" />
@@ -249,93 +249,93 @@ function HeroMarketIllustration() {
                     </div>
                     <ArrowUpRight className="h-4 w-4 text-cyan-600 dark:text-cyan-200" />
                   </div>
-                  <div className="text-2xl font-semibold text-white">82</div>
-                  <div className="text-xs text-indigo-100/60">active signals across watchlist, portfolio, and screeners</div>
-                  <div className="mt-3 h-1.5 rounded-full bg-white/5">
+                  <div className="text-2xl font-semibold text-slate-900 dark:text-white">82</div>
+                  <div className="text-xs text-slate-600 dark:text-indigo-100/60">active signals across watchlist, portfolio, and screeners</div>
+                  <div className="mt-3 h-1.5 rounded-full bg-slate-200/70 dark:bg-white/5">
                     <div className="h-full w-[78%] rounded-full bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400" />
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-indigo-300/12 bg-white/[0.02] p-3">
+                <div className="rounded-2xl border border-slate-300/70 bg-white/75 p-3 dark:border-indigo-300/12 dark:bg-white/[0.02]">
                   <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-200">
                     <Sparkles className="h-3.5 w-3.5" />
                     AI Summary
                   </div>
-                  <ul className="space-y-2 text-xs text-indigo-100/75">
-                    <li className="flex items-center gap-2 rounded-lg border border-indigo-300/10 bg-white/[0.02] px-2 py-1.5">
+                  <ul className="space-y-2 text-xs text-slate-600 dark:text-indigo-100/75">
+                    <li className="flex items-center gap-2 rounded-lg border border-slate-300/60 bg-white/90 px-2 py-1.5 dark:border-indigo-300/10 dark:bg-white/[0.02]">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
                       Peer spread widening in private banks
                     </li>
-                    <li className="flex items-center gap-2 rounded-lg border border-indigo-300/10 bg-white/[0.02] px-2 py-1.5">
+                    <li className="flex items-center gap-2 rounded-lg border border-slate-300/60 bg-white/90 px-2 py-1.5 dark:border-indigo-300/10 dark:bg-white/[0.02]">
                       <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
                       Beginner mode: valuation explained in plain language
                     </li>
-                    <li className="flex items-center gap-2 rounded-lg border border-indigo-300/10 bg-white/[0.02] px-2 py-1.5">
+                    <li className="flex items-center gap-2 rounded-lg border border-slate-300/60 bg-white/90 px-2 py-1.5 dark:border-indigo-300/10 dark:bg-white/[0.02]">
                       <span className="h-1.5 w-1.5 rounded-full bg-violet-300" />
                       Pro mode: earnings revisions signal positive momentum
                     </li>
                   </ul>
                 </div>
 
-                <div className="rounded-2xl border border-indigo-300/12 bg-white/[0.02] p-3">
+                <div className="rounded-2xl border border-slate-300/70 bg-white/75 p-3 dark:border-indigo-300/12 dark:bg-white/[0.02]">
                   <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-200">
                     <Bot className="h-3.5 w-3.5" />
                     Personalized Agent Chat
                   </div>
                   <div className="space-y-2 text-xs">
-                    <div className="rounded-lg border border-indigo-300/10 bg-white/[0.02] px-2 py-1.5 text-indigo-100/70">
+                    <div className="rounded-lg border border-slate-300/60 bg-white/90 px-2 py-1.5 text-slate-700 dark:border-indigo-300/10 dark:bg-white/[0.02] dark:text-indigo-100/70">
                       You: Rebalance my portfolio for moderate risk.
                     </div>
-                    <div className="rounded-lg border border-cyan-300/20 bg-cyan-400/8 px-2 py-1.5 text-cyan-100/80">
+                    <div className="rounded-lg border border-cyan-200/70 bg-cyan-100/70 px-2 py-1.5 text-slate-700 dark:border-cyan-300/20 dark:bg-cyan-400/10 dark:text-cyan-100/90">
                       Agent: Shift 8% from high-beta small caps to quality large caps and set downside alerts.
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-indigo-300/12 bg-white/[0.02] p-3 sm:col-span-2 lg:col-span-1">
+                <div className="rounded-2xl border border-slate-300/70 bg-white/75 p-3 dark:border-indigo-300/12 dark:bg-white/[0.02] sm:col-span-2 lg:col-span-1">
                   <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-200">
                     <PieChart className="h-3.5 w-3.5" />
                     Watchlist, Portfolio, Alerts, Learnings
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2">
-                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-indigo-100/60">
+                    <div className="rounded-xl border border-slate-300/60 bg-white/90 p-2 dark:border-indigo-300/10 dark:bg-white/[0.02]">
+                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-indigo-100/60">
                         <Bookmark className="h-3 w-3" />
                         Watchlist
                       </div>
-                      <div className="mt-1 text-sm font-semibold text-white">24 symbols</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">24 symbols</div>
                     </div>
-                    <div className="rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2">
-                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-indigo-100/60">
+                    <div className="rounded-xl border border-slate-300/60 bg-white/90 p-2 dark:border-indigo-300/10 dark:bg-white/[0.02]">
+                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-indigo-100/60">
                         <PieChart className="h-3 w-3" />
                         Portfolio
                       </div>
-                      <div className="mt-1 text-sm font-semibold text-white">9 holdings</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">9 holdings</div>
                     </div>
-                    <div className="rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2">
-                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-indigo-100/60">
+                    <div className="rounded-xl border border-slate-300/60 bg-white/90 p-2 dark:border-indigo-300/10 dark:bg-white/[0.02]">
+                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-indigo-100/60">
                         <Bell className="h-3 w-3" />
                         Alerts
                       </div>
-                      <div className="mt-1 text-sm font-semibold text-white">6 active</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">6 active</div>
                     </div>
-                    <div className="rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2">
-                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-indigo-100/60">
+                    <div className="rounded-xl border border-slate-300/60 bg-white/90 p-2 dark:border-indigo-300/10 dark:bg-white/[0.02]">
+                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-indigo-100/60">
                         <BookOpen className="h-3 w-3" />
                         Learnings
                       </div>
-                      <div className="mt-1 text-sm font-semibold text-white">12 lessons</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">12 lessons</div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-3 rounded-2xl border border-indigo-300/12 bg-white/[0.02] p-3">
+            <div className="mt-3 rounded-2xl border border-slate-300/70 bg-white/80 p-3 dark:border-indigo-300/12 dark:bg-white/[0.02]">
               <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-200">Feature Coverage</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {featurePills.map((feature) => (
-                  <span key={feature} className="rounded-full border border-indigo-300/12 bg-indigo-500/8 px-2.5 py-1 text-[10px] text-indigo-100/80">
+                  <span key={feature} className="rounded-full border border-slate-300/70 bg-white/90 px-2.5 py-1 text-[10px] text-slate-600 dark:border-indigo-300/12 dark:bg-indigo-500/15 dark:text-indigo-100/95">
                     {feature}
                   </span>
                 ))}
