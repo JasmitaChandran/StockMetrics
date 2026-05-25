@@ -5,6 +5,12 @@ import {
   Activity,
   ArrowUpRight,
   BarChart3,
+  Bell,
+  BookOpen,
+  Bot,
+  Bookmark,
+  Filter,
+  PieChart,
   ShieldCheck,
   Sparkles,
   TrendingUp,
@@ -29,6 +35,23 @@ function HeroMarketIllustration() {
     { x: 64, low: 50, high: 12, open: 18, close: 30, up: false },
     { x: 70, low: 46, high: 10, open: 28, close: 14, up: true },
     { x: 76, low: 44, high: 8, open: 24, close: 12, up: true },
+  ];
+  const peerRows = [
+    { company: 'HDFCBANK', pe: '19.4', roe: '15.4%' },
+    { company: 'ICICIBANK', pe: '18.8', roe: '16.0%' },
+    { company: 'AXISBANK', pe: '22.0', roe: '17.0%' },
+  ];
+  const featurePills = [
+    'AI Summary',
+    'Peer Comparison',
+    'Beginner Mode',
+    'Pro Mode',
+    'Screener',
+    'Watchlist',
+    'Portfolio',
+    'Smart Alerts',
+    'Personalized Agent Chat',
+    'Learnings Hub',
   ];
 
   return (
@@ -59,17 +82,18 @@ function HeroMarketIllustration() {
               <div className="rounded-2xl border border-indigo-300/12 bg-white/[0.02] p-3">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <div className="text-sm font-semibold text-white">Market Overview</div>
-                    <div className="text-xs text-indigo-100/60">Signals, momentum, and comparative moves</div>
+                    <div className="text-sm font-semibold text-white">Full Product Workspace</div>
+                    <div className="text-xs text-indigo-100/60">AI summary, peer comparison, screener, and guided modes in one dashboard</div>
                   </div>
-                  <div className="rounded-full border border-indigo-300/15 bg-indigo-500/10 px-2.5 py-1 text-[11px] text-indigo-700 dark:text-indigo-200">
-                    Live Workspace
+                  <div className="inline-flex items-center rounded-full border border-indigo-300/15 bg-indigo-500/10 px-1 py-1 text-[10px] uppercase tracking-[0.12em] text-indigo-100/75">
+                    <span className="rounded-full bg-indigo-400/25 px-2 py-0.5 text-white">Beginner</span>
+                    <span className="px-2 py-0.5">Pro</span>
                   </div>
                 </div>
 
-                <div className="relative h-48 overflow-hidden rounded-xl border border-indigo-300/10 bg-[#070c1f] p-3 sm:h-56">
+                <div className="relative h-44 overflow-hidden rounded-xl border border-indigo-300/10 bg-[#070c1f] p-3 sm:h-48">
                   <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(129,140,248,0.13)_1px,transparent_1px),linear-gradient(90deg,rgba(129,140,248,0.13)_1px,transparent_1px)] [background-size:26px_26px]" />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-violet-500/14 to-transparent" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-indigo-500/18 to-transparent" />
 
                   <div className="relative flex h-full flex-col justify-between">
                     <div className="grid grid-cols-3 gap-2">
@@ -85,7 +109,7 @@ function HeroMarketIllustration() {
                       ))}
                     </div>
 
-                    <div className="relative h-32">
+                    <div className="relative h-24">
                       <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full">
                         <path
                           d="M0 78 C 9 70, 14 68, 20 74 C 28 82, 35 56, 42 62 C 50 70, 56 46, 64 52 C 71 56, 76 42, 82 48 C 90 54, 94 30, 100 24"
@@ -125,13 +149,47 @@ function HeroMarketIllustration() {
                       ))}
                     </div>
 
-                    <div className="mt-2 flex items-center justify-between text-xs text-indigo-100/55">
+                    <div className="mt-1 flex items-center justify-between text-xs text-indigo-100/55">
                       <span>1D</span>
                       <span>1W</span>
                       <span>1M</span>
                       <span>3M</span>
                       <span>YTD</span>
                     </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2.5">
+                    <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-700 dark:text-indigo-200">
+                      <BarChart3 className="h-3.5 w-3.5" />
+                      Peer Comparison
+                    </div>
+                    <div className="space-y-1.5">
+                      {peerRows.map((row) => (
+                        <div key={row.company} className="grid grid-cols-[1.5fr_0.6fr_0.7fr] rounded-md border border-indigo-300/10 bg-white/[0.02] px-2 py-1.5 text-xs text-indigo-100/80">
+                          <span className="font-medium text-white/90">{row.company}</span>
+                          <span className="text-right">PE {row.pe}</span>
+                          <span className="text-right text-emerald-300">{row.roe}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2.5">
+                    <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-700 dark:text-indigo-200">
+                      <Filter className="h-3.5 w-3.5" />
+                      Screener
+                    </div>
+                    <div className="text-xs text-indigo-100/70">Quality + Growth preset</div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {['Low Debt', 'ROE > 15%', 'Sales Growth', 'Positive FCF'].map((rule) => (
+                        <span key={rule} className="rounded-full border border-indigo-300/12 bg-indigo-500/8 px-2 py-0.5 text-[10px] text-indigo-100/80">
+                          {rule}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-2 text-xs font-medium text-emerald-300">18 stocks matched</div>
                   </div>
                 </div>
               </div>
@@ -146,7 +204,7 @@ function HeroMarketIllustration() {
                     <ArrowUpRight className="h-4 w-4 text-cyan-600 dark:text-cyan-200" />
                   </div>
                   <div className="text-2xl font-semibold text-white">82</div>
-                  <div className="text-xs text-indigo-100/60">active signals across tracked lists</div>
+                  <div className="text-xs text-indigo-100/60">active signals across watchlist, portfolio, and screeners</div>
                   <div className="mt-3 h-1.5 rounded-full bg-white/5">
                     <div className="h-full w-[78%] rounded-full bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400" />
                   </div>
@@ -160,37 +218,81 @@ function HeroMarketIllustration() {
                   <ul className="space-y-2 text-xs text-indigo-100/75">
                     <li className="flex items-center gap-2 rounded-lg border border-indigo-300/10 bg-white/[0.02] px-2 py-1.5">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                      Momentum improving in large caps
+                      Peer spread widening in private banks
                     </li>
                     <li className="flex items-center gap-2 rounded-lg border border-indigo-300/10 bg-white/[0.02] px-2 py-1.5">
                       <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
-                      Watch earnings-heavy sessions
+                      Beginner mode: valuation explained in plain language
                     </li>
                     <li className="flex items-center gap-2 rounded-lg border border-indigo-300/10 bg-white/[0.02] px-2 py-1.5">
                       <span className="h-1.5 w-1.5 rounded-full bg-violet-300" />
-                      Peer spreads widened in banking
+                      Pro mode: earnings revisions signal positive momentum
                     </li>
                   </ul>
                 </div>
 
-                <div className="rounded-2xl border border-indigo-300/12 bg-white/[0.02] p-3 sm:col-span-2 lg:col-span-1">
+                <div className="rounded-2xl border border-indigo-300/12 bg-white/[0.02] p-3">
                   <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-200">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    Coverage
+                    <Bot className="h-3.5 w-3.5" />
+                    Personalized Agent Chat
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      ['US', 'Stocks', 'from-cyan-400/20 to-sky-400/10'],
-                      ['IND', 'Stocks', 'from-violet-400/20 to-indigo-400/10'],
-                      ['MF', 'Funds', 'from-blue-400/20 to-cyan-400/10'],
-                    ].map(([code, label, bg]) => (
-                      <div key={code} className={`rounded-xl border border-indigo-300/10 bg-gradient-to-br ${bg} px-2 py-2 text-center`}>
-                        <div className="text-sm font-semibold text-white">{code}</div>
-                        <div className="text-[10px] uppercase tracking-[0.14em] text-indigo-100/60">{label}</div>
-                      </div>
-                    ))}
+                  <div className="space-y-2 text-xs">
+                    <div className="rounded-lg border border-indigo-300/10 bg-white/[0.02] px-2 py-1.5 text-indigo-100/70">
+                      You: Rebalance my portfolio for moderate risk.
+                    </div>
+                    <div className="rounded-lg border border-cyan-300/20 bg-cyan-400/8 px-2 py-1.5 text-cyan-100/80">
+                      Agent: Shift 8% from high-beta small caps to quality large caps and set downside alerts.
+                    </div>
                   </div>
                 </div>
+
+                <div className="rounded-2xl border border-indigo-300/12 bg-white/[0.02] p-3 sm:col-span-2 lg:col-span-1">
+                  <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-200">
+                    <PieChart className="h-3.5 w-3.5" />
+                    Watchlist, Portfolio, Alerts, Learnings
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2">
+                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-indigo-100/60">
+                        <Bookmark className="h-3 w-3" />
+                        Watchlist
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-white">24 symbols</div>
+                    </div>
+                    <div className="rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2">
+                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-indigo-100/60">
+                        <PieChart className="h-3 w-3" />
+                        Portfolio
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-white">9 holdings</div>
+                    </div>
+                    <div className="rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2">
+                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-indigo-100/60">
+                        <Bell className="h-3 w-3" />
+                        Alerts
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-white">6 active</div>
+                    </div>
+                    <div className="rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2">
+                      <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-indigo-100/60">
+                        <BookOpen className="h-3 w-3" />
+                        Learnings
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-white">12 lessons</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-indigo-300/12 bg-white/[0.02] p-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-200">Feature Coverage</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {featurePills.map((feature) => (
+                  <span key={feature} className="rounded-full border border-indigo-300/12 bg-indigo-500/8 px-2.5 py-1 text-[10px] text-indigo-100/80">
+                    {feature}
+                  </span>
+                ))}
               </div>
             </div>
           </div>
