@@ -78,11 +78,11 @@ export function PortfolioManager() {
   const authLoading = useAuthStore((state) => state.loading);
   const { data: fx } = useFxUsdInr();
   const [txns, setTxns] = useState<PortfolioTxn[]>([]);
-  const [symbol, setSymbol] = useState('AAPL');
+  const [symbol, setSymbol] = useState('');
   const [selectedSymbolSuggestion, setSelectedSymbolSuggestion] = useState<SearchEntity | null>(null);
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
-  const [quantity, setQuantity] = useState(10);
-  const [price, setPrice] = useState(100);
+  const [quantityInput, setQuantityInput] = useState('');
+  const [priceInput, setPriceInput] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const dateInputRef = useRef<HTMLInputElement>(null);
   const debouncedSymbolQuery = useDebouncedValue(symbol, 250);
@@ -96,21 +96,14 @@ export function PortfolioManager() {
     if (authLoading) return;
     let disposed = false;
     setTxns([]);
+    setSymbol('');
+    setSelectedSymbolSuggestion(null);
+    setQuantityInput('');
+    setPriceInput('');
 
     async function loadPortfolio() {
       const records = await listPortfolioTxns({ userId });
       if (disposed) return;
-      if (!records.length) {
-        const seed: PortfolioTxn[] = [
-          { id: crypto.randomUUID(), symbol: 'AAPL', market: 'us', side: 'buy', quantity: 5, price: 175, date: '2025-11-02' },
-          { id: crypto.randomUUID(), symbol: 'HDFCBANK.NS', market: 'india', side: 'buy', quantity: 12, price: 1510, date: '2025-11-18' },
-          { id: crypto.randomUUID(), symbol: 'TCS.NS', market: 'india', side: 'buy', quantity: 4, price: 3820, date: '2025-12-01' },
-        ];
-        await Promise.all(seed.map((txn) => upsertPortfolioTxn(txn, { userId })));
-        if (disposed) return;
-        setTxns(seed);
-        return;
-      }
       setTxns(records);
     }
 
@@ -135,6 +128,9 @@ export function PortfolioManager() {
   async function addTxn(preferredMatch?: SearchEntity) {
     const normalizedSymbol = symbol.trim().toUpperCase();
     if (!normalizedSymbol) return;
+    const quantity = Number(quantityInput);
+    const price = Number(priceInput);
+    if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(price) || price <= 0) return;
     const exactSuggestion = symbolSuggestions.find(
       (entity) => entity.symbol.toUpperCase() === normalizedSymbol || entity.displaySymbol.toUpperCase() === normalizedSymbol,
     );
@@ -156,6 +152,9 @@ export function PortfolioManager() {
     };
     await upsertPortfolioTxn(txn, { userId });
     setTxns((prev) => [...prev, txn]);
+    setSymbol('');
+    setQuantityInput('');
+    setPriceInput('');
     setSelectedSymbolSuggestion(null);
   }
 
@@ -205,8 +204,8 @@ export function PortfolioManager() {
             <option value="buy">Buy</option>
             <option value="sell">Sell</option>
           </select>
-          <input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} placeholder="Qty" className="rounded-xl border border-border bg-card px-3 py-2 text-sm" />
-          <input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} placeholder="Price" className="rounded-xl border border-border bg-card px-3 py-2 text-sm" />
+          <input type="number" value={quantityInput} onChange={(e) => setQuantityInput(e.target.value)} placeholder="Qty" className="rounded-xl border border-border bg-card px-3 py-2 text-sm" />
+          <input type="number" value={priceInput} onChange={(e) => setPriceInput(e.target.value)} placeholder="Price" className="rounded-xl border border-border bg-card px-3 py-2 text-sm" />
           <div className="portfolio-date-field flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
             <input
               ref={dateInputRef}
