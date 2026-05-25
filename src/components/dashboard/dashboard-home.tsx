@@ -51,7 +51,7 @@ function HeroMarketIllustration() {
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/80" />
               </div>
               <div className="mx-auto hidden w-44 rounded-full border border-indigo-200/10 bg-indigo-500/5 px-3 py-1 text-center text-[10px] text-indigo-100/70 sm:block">
-                stockmetrics.app / dashboard
+                https://stock-metrics.vercel.app
               </div>
             </div>
 

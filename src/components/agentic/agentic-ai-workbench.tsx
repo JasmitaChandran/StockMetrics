@@ -34,6 +34,7 @@ import {
   type AssetBreakdownInput,
   type CountryCode,
   type EmploymentType,
+  type InsurancePolicyInput,
   type InvestmentGoal,
   type InvestmentHorizon,
   type LiquidityNeed,
@@ -142,6 +143,23 @@ const LOAN_TYPE_OPTIONS: Array<{ value: LoanInput['type']; label: string }> = [
   { value: 'other', label: 'Other' },
 ];
 
+const INSURANCE_TYPE_OPTIONS: Array<{ value: InsurancePolicyInput['type']; label: string }> = [
+  { value: 'life', label: 'Life' },
+  { value: 'health', label: 'Health' },
+  { value: 'vehicle', label: 'Vehicle' },
+  { value: 'home', label: 'Home' },
+  { value: 'travel', label: 'Travel' },
+  { value: 'other', label: 'Other' },
+];
+
+const INSURANCE_BENEFIT_SOURCE_OPTIONS: Array<{ value: InsurancePolicyInput['benefitSource']; label: string }> = [
+  { value: 'self', label: 'Self paid' },
+  { value: 'office', label: 'Office benefit' },
+  { value: 'family', label: 'Family support' },
+  { value: 'government', label: 'Govt scheme' },
+  { value: 'other', label: 'Other source' },
+];
+
 const PROFILE_STEPS = [
   { id: 1, title: 'Basics' },
   { id: 2, title: 'Assets & Loans' },
@@ -216,7 +234,11 @@ const FIELD_INFO = {
   gold: [{ label: 'Use', detail: 'Gold holdings that act as a defensive diversification bucket.' }],
   realEstate: [{ label: 'Use', detail: 'Property value you want included in household net worth.' }],
   cashSavings: [{ label: 'Use', detail: 'Bank balance and liquid savings available right now.' }],
-  insuranceCover: [{ label: 'Use', detail: 'Total active life/health insurance cover for household protection.' }],
+  insuranceCover: [{ label: 'Use', detail: 'Total active insurance cover across all policies for household protection.' }],
+  insurancePolicies: [
+    { label: 'Use', detail: 'Add each insurance type separately and enter its monthly premium.' },
+    { label: 'Source', detail: 'Mark if coverage comes from office benefit or any other source.' },
+  ],
   debtFdInterestAnnual: [{ label: 'Use', detail: 'Annual interest received from debt funds, FDs, or bonds.' }],
   alternatives: [{ label: 'Use', detail: 'Other assets like REITs, crypto, startup equity, or similar holdings.' }],
   epf: [{ label: 'Use', detail: 'Employee Provident Fund retirement corpus.' }],
@@ -280,6 +302,15 @@ function createBlankLoan(): LoanInput {
   };
 }
 
+function createBlankInsurancePolicy(): InsurancePolicyInput {
+  return {
+    id: crypto.randomUUID(),
+    type: 'health',
+    monthlyPremium: 0,
+    benefitSource: 'self',
+  };
+}
+
 function createDefaultForm(): AgenticFormInput {
   return {
     analysisMode: 'suggest',
@@ -296,6 +327,7 @@ function createDefaultForm(): AgenticFormInput {
     monthlyDiscretionaryExpenses: 0,
     effectiveTaxRate: 0,
     insuranceCover: 0,
+    insurancePolicies: [],
     debtFdInterestAnnual: 0,
     assets: {
       equity: 0,
@@ -457,6 +489,12 @@ function parseSavedDraft(value: unknown): SavedProfileDraft | undefined {
 function hydrateForm(value: Partial<AgenticFormInput> | undefined): AgenticFormInput {
   const defaults = createDefaultForm();
   if (!value) return defaults;
+  const insurancePolicies = Array.isArray(value.insurancePolicies)
+    ? value.insurancePolicies.map((policy) => ({
+        ...createBlankInsurancePolicy(),
+        ...policy,
+      }))
+    : defaults.insurancePolicies;
   return {
     ...defaults,
     ...value,
@@ -474,6 +512,7 @@ function hydrateForm(value: Partial<AgenticFormInput> | undefined): AgenticFormI
           ...loan,
         }))
       : defaults.loans,
+    insurancePolicies,
   };
 }
 
@@ -536,6 +575,14 @@ function sum(values: number[]) {
 
 function totalDependents(form: Pick<AgenticFormInput, 'dependentsKids' | 'dependentsParents' | 'dependentsSpouse' | 'dependentsOthers'>) {
   return form.dependentsKids + form.dependentsParents + form.dependentsSpouse + form.dependentsOthers;
+}
+
+function householdInsurancePremiumMonthly(form: Pick<AgenticFormInput, 'insurancePolicies'>) {
+  return sum(form.insurancePolicies.filter((policy) => policy.benefitSource !== 'office').map((policy) => policy.monthlyPremium));
+}
+
+function officeInsuranceBenefitMonthly(form: Pick<AgenticFormInput, 'insurancePolicies'>) {
+  return sum(form.insurancePolicies.filter((policy) => policy.benefitSource === 'office').map((policy) => policy.monthlyPremium));
 }
 
 function listMissingCompulsoryFields(
@@ -604,10 +651,11 @@ function validateFormInput(
     form.debtFdInterestAnnual,
     ...Object.values(form.assets),
     ...Object.values(form.retirement),
+    ...form.insurancePolicies.map((policy) => policy.monthlyPremium),
     ...form.loans.flatMap((loan) => [loan.outstandingAmount, loan.monthlyEmi, loan.interestRate]),
   ];
   if (nonNegativePool.some((value) => value < 0)) {
-    return 'Assets, retirement, and loan values must be non-negative.';
+    return 'Assets, retirement, insurance premium, and loan values must be non-negative.';
   }
   if (form.effectiveTaxRate < 0 || form.effectiveTaxRate > 60) return 'Effective tax rate must be between 0% and 60%.';
   if (form.expectedReturnTarget < 0 || form.expectedReturnTarget > 40) return 'Expected return target must be between 0% and 40%.';
@@ -905,7 +953,7 @@ function collectClarificationPrompts(form: AgenticFormInput) {
     prompts.push('No recurring income source is entered while monthly expenses/EMIs are non-zero. Confirm this is funded from savings/assets.');
   }
   if (signals.dependentsNoInsurance) {
-    prompts.push('Dependents are present but insurance cover is zero. Add cover details for a more realistic downside plan?');
+    prompts.push('Dependents are present but total insurance cover is zero. Add cover details for a more realistic downside plan?');
   }
   if (signals.seniorAggressive) {
     prompts.push('Age profile indicates lower drawdown tolerance. Confirm that aggressive risk is intentional.');
@@ -2071,7 +2119,9 @@ export function AgenticAiWorkbench() {
   const totalAssetsPreview = sum(Object.values(form.assets)) + sum(Object.values(form.retirement));
   const totalLiabilitiesPreview = sum(form.loans.map((loan) => loan.outstandingAmount));
   const totalEmiPreview = sum(form.loans.map((loan) => loan.monthlyEmi));
-  const monthlyBurnPreview = form.monthlyFixedExpenses + form.monthlyDiscretionaryExpenses + totalEmiPreview;
+  const householdInsurancePremiumPreview = householdInsurancePremiumMonthly(form);
+  const officeInsuranceBenefitPreview = officeInsuranceBenefitMonthly(form);
+  const monthlyBurnPreview = form.monthlyFixedExpenses + form.monthlyDiscretionaryExpenses + householdInsurancePremiumPreview + totalEmiPreview;
   const monthlyReliableIncomePreview = form.monthlyIncome + form.debtFdInterestAnnual / 12;
   const requiresIncomeSource = form.employmentType !== 'unemployed' && form.employmentType !== 'retired';
   const monthlyIncomeHint = requiresIncomeSource
@@ -2171,6 +2221,22 @@ export function AgenticAiWorkbench() {
 
   function updateRetirement<K extends keyof RetirementBreakdownInput>(key: K, value: RetirementBreakdownInput[K]) {
     setForm((prev) => ({ ...prev, retirement: { ...prev.retirement, [key]: value } }));
+  }
+
+  function updateInsurancePolicy<K extends keyof InsurancePolicyInput>(id: string, key: K, value: InsurancePolicyInput[K]) {
+    setForm((prev) => ({
+      ...prev,
+      insurancePolicies: prev.insurancePolicies.map((policy) => (policy.id === id ? { ...policy, [key]: value } : policy)),
+    }));
+  }
+
+  function addInsurancePolicy() {
+    const nextPolicy = createBlankInsurancePolicy();
+    setForm((prev) => ({ ...prev, insurancePolicies: [...prev.insurancePolicies, nextPolicy] }));
+  }
+
+  function removeInsurancePolicy(id: string) {
+    setForm((prev) => ({ ...prev, insurancePolicies: prev.insurancePolicies.filter((policy) => policy.id !== id) }));
   }
 
   function updateLoan<K extends keyof LoanInput>(id: string, key: K, value: LoanInput[K]) {
@@ -2357,7 +2423,10 @@ export function AgenticAiWorkbench() {
           publishedAt: undefined,
         }))
     : [];
-  const hasCoreProfile = form.age > 0 && form.monthlyIncome > 0 && (form.monthlyFixedExpenses > 0 || form.monthlyDiscretionaryExpenses > 0);
+  const hasCoreProfile =
+    form.age > 0 &&
+    form.monthlyIncome > 0 &&
+    (form.monthlyFixedExpenses > 0 || form.monthlyDiscretionaryExpenses > 0 || householdInsurancePremiumPreview > 0);
   const workflowStages: Array<{ id: string; label: string; detail: string; state: 'todo' | 'active' | 'done' }> = [
     {
       id: 'intake',
@@ -2654,8 +2723,95 @@ export function AgenticAiWorkbench() {
                   value={form.insuranceCover}
                   onChange={(value) => updateField('insuranceCover', value)}
                   info={FIELD_INFO.insuranceCover}
+                  hint="Enter total combined cover across all active insurance plans."
                 />
                 <NumberField label="Alternatives" value={form.assets.alternatives} onChange={(value) => updateAssets('alternatives', value)} info={FIELD_INFO.alternatives} />
+              </div>
+
+              <div className="mt-5 rounded-3xl border border-dashed border-slate-200 p-4 dark:border-slate-700">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <FieldShell
+                    label="Insurance Policies"
+                    hint="Add one row per insurance type and monthly premium. Mark if it is office-provided or from another source."
+                    info={FIELD_INFO.insurancePolicies}
+                    className="w-full"
+                  >
+                    <div className="grid gap-2 text-xs text-slate-600 dark:text-slate-300 md:grid-cols-2">
+                      <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/50">
+                        Monthly premium (self/family/other): {formatCurrency(householdInsurancePremiumPreview, displayCurrency)}
+                      </div>
+                      <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/50">
+                        Office-provided benefit: {formatCurrency(officeInsuranceBenefitPreview, displayCurrency)}
+                      </div>
+                    </div>
+                  </FieldShell>
+                  <button
+                    type="button"
+                    onClick={addInsurancePolicy}
+                    className="inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add policy
+                  </button>
+                </div>
+
+                {form.insurancePolicies.length ? (
+                  <div className="space-y-3">
+                    {form.insurancePolicies.map((policy) => (
+                      <div key={policy.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-900/60">
+                        <div className="grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto]">
+                          <FieldShell label="Type" className="w-full">
+                            <select
+                              value={policy.type}
+                              onChange={(event) => updateInsurancePolicy(policy.id, 'type', event.target.value as InsurancePolicyInput['type'])}
+                              className="agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
+                            >
+                              {INSURANCE_TYPE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </FieldShell>
+                          <NumberField
+                            label="Premium / Month"
+                            value={policy.monthlyPremium}
+                            onChange={(value) => updateInsurancePolicy(policy.id, 'monthlyPremium', value)}
+                          />
+                          <FieldShell label="Benefit Source" className="w-full">
+                            <select
+                              value={policy.benefitSource}
+                              onChange={(event) =>
+                                updateInsurancePolicy(policy.id, 'benefitSource', event.target.value as InsurancePolicyInput['benefitSource'])
+                              }
+                              className="agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950"
+                            >
+                              {INSURANCE_BENEFIT_SOURCE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </FieldShell>
+                          <div className="flex items-end">
+                            <button
+                              type="button"
+                              onClick={() => removeInsurancePolicy(policy.id)}
+                              className="inline-flex items-center gap-1 rounded-full border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-800/70 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    No insurance policies added yet.
+                  </div>
+                )}
               </div>
 
               <div className="mt-5 rounded-3xl border border-dashed border-slate-200 p-4 dark:border-slate-700">
@@ -2965,6 +3121,13 @@ export function AgenticAiWorkbench() {
                   <div className="mt-1 text-slate-700 dark:text-slate-200">Residency: {reviewResidency}</div>
                   <div className="mt-1 text-slate-700 dark:text-slate-200">Income: {formatCurrency(form.monthlyIncome, displayCurrency)} / month</div>
                   <div className="mt-1 text-slate-700 dark:text-slate-200">Debt/FD Interest: {formatCurrency(form.debtFdInterestAnnual, displayCurrency)} / year</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">Insurance Cover: {formatCurrency(form.insuranceCover, displayCurrency)}</div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">
+                    Insurance Premium (self/family): {formatCurrency(householdInsurancePremiumPreview, displayCurrency)} / month
+                  </div>
+                  <div className="mt-1 text-slate-700 dark:text-slate-200">
+                    Office Insurance Benefit: {formatCurrency(officeInsuranceBenefitPreview, displayCurrency)} / month
+                  </div>
                 </div>
                 <div className="rounded-2xl border border-slate-200 p-3 text-sm dark:border-slate-700">
                   <div className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Analysis</div>
@@ -3024,6 +3187,14 @@ export function AgenticAiWorkbench() {
                 <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-3 py-2 dark:border-slate-700">
                   <span className="text-slate-500 dark:text-slate-400">Monthly burn</span>
                   <span className="font-semibold text-slate-900 dark:text-white">{formatCurrency(monthlyBurnPreview, displayCurrency)}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-3 py-2 dark:border-slate-700">
+                  <span className="text-slate-500 dark:text-slate-400">Insurance premium (self/family)</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{formatCurrency(householdInsurancePremiumPreview, displayCurrency)}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-3 py-2 dark:border-slate-700">
+                  <span className="text-slate-500 dark:text-slate-400">Office insurance benefit</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{formatCurrency(officeInsuranceBenefitPreview, displayCurrency)}</span>
                 </div>
                 <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-3 py-2 dark:border-slate-700">
                   <span className="text-slate-500 dark:text-slate-400">Known assets</span>

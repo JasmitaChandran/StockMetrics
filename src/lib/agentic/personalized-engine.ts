@@ -82,6 +82,13 @@ export interface LoanInput {
   interestRate: number;
 }
 
+export interface InsurancePolicyInput {
+  id: string;
+  type: 'life' | 'health' | 'vehicle' | 'home' | 'travel' | 'other';
+  monthlyPremium: number;
+  benefitSource: 'self' | 'office' | 'family' | 'government' | 'other';
+}
+
 export interface AssetBreakdownInput {
   equity: number;
   debt: number;
@@ -113,6 +120,7 @@ export interface AgenticFormInput {
   monthlyDiscretionaryExpenses: number;
   effectiveTaxRate: number;
   insuranceCover: number;
+  insurancePolicies: InsurancePolicyInput[];
   debtFdInterestAnnual: number;
   assets: AssetBreakdownInput;
   retirement: RetirementBreakdownInput;
@@ -520,6 +528,8 @@ const VALID_INVESTMENT_GOALS = new Set<InvestmentGoal>([
   'tax_saving',
   'business_expansion',
 ]);
+const VALID_INSURANCE_TYPES = new Set<InsurancePolicyInput['type']>(['life', 'health', 'vehicle', 'home', 'travel', 'other']);
+const VALID_INSURANCE_BENEFIT_SOURCES = new Set<InsurancePolicyInput['benefitSource']>(['self', 'office', 'family', 'government', 'other']);
 
 function isIncomeFocusedGoal(goal: InvestmentGoal) {
   return INCOME_FOCUSED_GOALS.has(goal);
@@ -540,6 +550,32 @@ function normalizeInvestmentGoal(value: InvestmentGoal): InvestmentGoal {
 function normalizeDependentCount(value: number | undefined) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.floor(value as number));
+}
+
+function normalizeInsuranceType(value: InsurancePolicyInput['type']) {
+  return VALID_INSURANCE_TYPES.has(value) ? value : 'other';
+}
+
+function normalizeInsuranceBenefitSource(value: InsurancePolicyInput['benefitSource']) {
+  return VALID_INSURANCE_BENEFIT_SOURCES.has(value) ? value : 'other';
+}
+
+function normalizeInsurancePolicies(policies: InsurancePolicyInput[] | undefined): InsurancePolicyInput[] {
+  if (!Array.isArray(policies)) return [];
+  return policies.map((policy, index) => ({
+    id: policy?.id?.trim() || `policy-${index + 1}`,
+    type: normalizeInsuranceType(policy?.type ?? 'other'),
+    monthlyPremium: Number.isFinite(policy?.monthlyPremium) ? Math.max(0, policy.monthlyPremium) : 0,
+    benefitSource: normalizeInsuranceBenefitSource(policy?.benefitSource ?? 'other'),
+  }));
+}
+
+function householdInsurancePremiumMonthly(input: Pick<AgenticFormInput, 'insurancePolicies'>) {
+  return sum(input.insurancePolicies.filter((policy) => policy.benefitSource !== 'office').map((policy) => policy.monthlyPremium));
+}
+
+function officeInsuranceBenefitMonthly(input: Pick<AgenticFormInput, 'insurancePolicies'>) {
+  return sum(input.insurancePolicies.filter((policy) => policy.benefitSource === 'office').map((policy) => policy.monthlyPremium));
 }
 
 function totalDependentsCount(
@@ -642,6 +678,7 @@ function normalizeInput(input: AgenticFormInput): AgenticFormInput {
   const countryCode = input.countryCode ?? inferCountryCode(input.country);
   const marketScope = resolveMarketScope({ marketScope: input.marketScope, countryCode, country: input.country });
   const country = input.country?.trim() || (countryCode === 'US' ? 'NRI' : 'Indian');
+  const insurancePolicies = normalizeInsurancePolicies(input.insurancePolicies);
   return {
     ...input,
     employmentType: normalizeEmploymentType(input.employmentType),
@@ -651,6 +688,7 @@ function normalizeInput(input: AgenticFormInput): AgenticFormInput {
     dependentsSpouse: normalizeDependentCount(input.dependentsSpouse),
     dependentsOthers: normalizeDependentCount(input.dependentsOthers),
     insuranceCover: Number.isFinite(input.insuranceCover) ? Math.max(0, input.insuranceCover) : 0,
+    insurancePolicies,
     debtFdInterestAnnual: Number.isFinite(input.debtFdInterestAnnual) ? Math.max(0, input.debtFdInterestAnnual) : 0,
     country,
     countryCode,
@@ -735,6 +773,11 @@ function validateAgenticInput(input: AgenticFormInput) {
   for (const loan of input.loans) {
     if (loan.outstandingAmount < 0 || loan.monthlyEmi < 0 || loan.interestRate < 0) {
       throw new Error('Loan values (outstanding, EMI, interest rate) must be non-negative.');
+    }
+  }
+  for (const policy of input.insurancePolicies) {
+    if (!Number.isFinite(policy.monthlyPremium) || policy.monthlyPremium < 0) {
+      throw new Error('Insurance monthly premium must be a non-negative number.');
     }
   }
 
@@ -1598,7 +1641,9 @@ function clampAllocationWeights(weights: AllocationWeights): AllocationWeights {
 function buildFinancialProfile(input: AgenticFormInput, holdings: HoldingSnapshot[]): FinancialProfileAnalysis {
   const totalDependents = totalDependentsCount(input);
   const totalEmisMonthly = sum(input.loans.map((loan) => loan.monthlyEmi));
-  const totalExpensesMonthly = input.monthlyFixedExpenses + input.monthlyDiscretionaryExpenses;
+  const monthlyInsurancePremium = householdInsurancePremiumMonthly(input);
+  const monthlyOfficeInsuranceBenefit = officeInsuranceBenefitMonthly(input);
+  const totalExpensesMonthly = input.monthlyFixedExpenses + input.monthlyDiscretionaryExpenses + monthlyInsurancePremium;
   const monthlyCoreSpend = totalExpensesMonthly + totalEmisMonthly;
   const monthlyInterestIncome = input.debtFdInterestAnnual / 12;
   const monthlyReliableIncome = input.monthlyIncome + monthlyInterestIncome;
@@ -1815,6 +1860,12 @@ function buildFinancialProfile(input: AgenticFormInput, holdings: HoldingSnapsho
       : input.insuranceCover > 0
         ? 'Insurance cover is present and adds downside protection.'
         : 'No insurance cover entered.',
+    monthlyInsurancePremium > 0
+      ? `Insurance premium outflow is about ${formatCurrency(monthlyInsurancePremium, getDisplayCurrency(input), false)}/month from household cash flow.`
+      : 'No self-paid monthly insurance premium entered.',
+    monthlyOfficeInsuranceBenefit > 0
+      ? `Employer-provided insurance benefit is about ${formatCurrency(monthlyOfficeInsuranceBenefit, getDisplayCurrency(input), false)}/month.`
+      : 'No office-provided insurance benefit amount entered.',
     monthlyInterestIncome > 0
       ? `Debt/FD interest contributes about ${formatCurrency(monthlyInterestIncome, getDisplayCurrency(input), false)}/month of cash flow.`
       : input.assets.debt > 0
@@ -2410,7 +2461,7 @@ function buildUserProfileSummary(input: AgenticFormInput, baseCurrency: 'INR' | 
     baseCurrency,
     marketScope: resolveMarketScope(input),
     monthlyIncome: input.monthlyIncome,
-    monthlyCoreSpend: input.monthlyFixedExpenses + input.monthlyDiscretionaryExpenses,
+    monthlyCoreSpend: input.monthlyFixedExpenses + input.monthlyDiscretionaryExpenses + householdInsurancePremiumMonthly(input),
     effectiveTaxRate: input.effectiveTaxRate,
     investmentGoal: input.investmentGoal,
     investmentHorizon: input.investmentHorizon,
@@ -2501,6 +2552,8 @@ function buildExportJson(
 ) {
   const displayCurrency = baseCurrency;
   const lifeStage = `${input.maritalStatus}, ${totalDependentsCount(input)} dependents, ${HORIZON_LABELS[input.investmentHorizon]}`;
+  const insurancePremiumMonthly = householdInsurancePremiumMonthly(input);
+  const insuranceOfficeBenefitMonthly = officeInsuranceBenefitMonthly(input);
 
   return {
     user_profile_summary: {
@@ -2511,6 +2564,9 @@ function buildExportJson(
       life_stage: lifeStage,
       debt_fd_interest_annual: formatCurrency(input.debtFdInterestAnnual, displayCurrency, false),
       insurance_cover: formatCurrency(input.insuranceCover, displayCurrency, false),
+      insurance_premium_monthly: formatCurrency(insurancePremiumMonthly, displayCurrency, false),
+      insurance_office_benefit_monthly: formatCurrency(insuranceOfficeBenefitMonthly, displayCurrency, false),
+      insurance_policy_count: input.insurancePolicies.length,
     },
     stock_analysis: primary
       ? {

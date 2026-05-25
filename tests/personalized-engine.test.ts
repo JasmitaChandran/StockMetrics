@@ -18,6 +18,7 @@ function makeForm(overrides: Partial<AgenticFormInput> = {}): AgenticFormInput {
     monthlyDiscretionaryExpenses: 10000,
     effectiveTaxRate: 20,
     insuranceCover: 1000000,
+    insurancePolicies: [],
     debtFdInterestAnnual: 24000,
     assets: {
       equity: 1000000,
@@ -152,6 +153,21 @@ describe('personalized engine guardrails and core math', () => {
         }),
       ),
     ).toThrow();
+
+    expect(() =>
+      personalizedEngineTestables.validateAgenticInput(
+        makeForm({
+          insurancePolicies: [
+            {
+              id: 'policy-1',
+              type: 'health',
+              monthlyPremium: -500,
+              benefitSource: 'self',
+            },
+          ],
+        }),
+      ),
+    ).toThrow();
   });
 
   it('rejects invalid dependent counts and expected return targets', () => {
@@ -281,6 +297,30 @@ describe('personalized engine guardrails and core math', () => {
 
     expect(profile.debtBurdenFlag).toBe('High');
     expect(profile.riskProfileLabel).toBe('Conservative');
+  });
+
+  it('counts only self-paid insurance premiums in monthly expenses', () => {
+    const profile = personalizedEngineTestables.buildFinancialProfile(
+      makeForm({
+        insurancePolicies: [
+          {
+            id: 'policy-1',
+            type: 'health',
+            monthlyPremium: 3000,
+            benefitSource: 'self',
+          },
+          {
+            id: 'policy-2',
+            type: 'life',
+            monthlyPremium: 2000,
+            benefitSource: 'office',
+          },
+        ],
+      }),
+      [],
+    );
+
+    expect(profile.totalExpensesMonthly).toBe(53000);
   });
 
   it('uses stricter recommendation bands for buy hold and avoid', () => {
