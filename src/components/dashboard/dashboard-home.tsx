@@ -333,9 +333,9 @@ function HeroMarketIllustration() {
 
             <div className="mt-3 rounded-2xl border border-slate-300/70 bg-white/80 p-3 dark:border-indigo-300/12 dark:bg-white/[0.02]">
               <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-200">Feature Coverage</div>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                 {featurePills.map((feature) => (
-                  <span key={feature} className="rounded-full border border-slate-300/70 bg-white/90 px-2.5 py-1 text-[10px] text-slate-600 dark:border-indigo-300/12 dark:bg-indigo-500/15 dark:text-indigo-100/95">
+                  <span key={feature} className="inline-flex w-full items-center justify-center rounded-full border border-slate-300/70 bg-white/90 px-2.5 py-1 text-[10px] text-slate-600 dark:border-indigo-300/12 dark:bg-indigo-500/15 dark:text-indigo-100/95">
                     {feature}
                   </span>
                 ))}
