@@ -79,7 +79,7 @@ function HeroMarketIllustration() {
             </div>
 
             <div className="grid gap-3 lg:grid-cols-[1.45fr_1fr]">
-              <div className="rounded-2xl border border-indigo-300/12 bg-white/[0.02] p-3">
+              <div className="flex h-full flex-col rounded-2xl border border-indigo-300/12 bg-white/[0.02] p-3">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <div className="text-sm font-semibold text-white">Full Product Workspace</div>
@@ -190,6 +190,52 @@ function HeroMarketIllustration() {
                       ))}
                     </div>
                     <div className="mt-2 text-xs font-medium text-emerald-300">18 stocks matched</div>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex-1 rounded-xl border border-indigo-300/10 bg-white/[0.02] p-2.5">
+                  <div className="grid h-full gap-2 sm:grid-cols-2">
+                    <div className="rounded-lg border border-indigo-300/10 bg-white/[0.02] p-2">
+                      <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-700 dark:text-indigo-200">
+                        <PieChart className="h-3.5 w-3.5" />
+                        Portfolio Rebalance
+                      </div>
+                      <div className="space-y-2 text-xs text-indigo-100/75">
+                        {[
+                          ['Large Cap Quality', 46],
+                          ['Banking Leaders', 28],
+                          ['IT Compounders', 18],
+                        ].map(([label, width]) => (
+                          <div key={label}>
+                            <div className="mb-1 flex items-center justify-between">
+                              <span>{label}</span>
+                              <span className="text-indigo-100/55">{width}%</span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-white/5">
+                              <div className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-cyan-400" style={{ width: `${width}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col rounded-lg border border-indigo-300/10 bg-white/[0.02] p-2">
+                      <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-700 dark:text-indigo-200">
+                        <Bell className="h-3.5 w-3.5" />
+                        Smart Alerts
+                      </div>
+                      <div className="space-y-1.5 text-xs text-indigo-100/75">
+                        <div className="rounded-md border border-indigo-300/10 bg-white/[0.02] px-2 py-1">HDFCBANK: breakout above 1,720</div>
+                        <div className="rounded-md border border-indigo-300/10 bg-white/[0.02] px-2 py-1">INFY: RSI cooling to neutral zone</div>
+                        <div className="rounded-md border border-indigo-300/10 bg-white/[0.02] px-2 py-1">TCS: earnings call at 3:30 PM</div>
+                      </div>
+                      <div className="mt-2 rounded-md border border-cyan-300/20 bg-cyan-400/8 px-2 py-1.5 text-[11px] text-cyan-100/80">
+                        <span className="inline-flex items-center gap-1">
+                          <BookOpen className="h-3.5 w-3.5" />
+                          Learning Tip: Compare P/E with growth before adding peers.
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
