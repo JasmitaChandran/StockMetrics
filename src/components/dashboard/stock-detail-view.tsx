@@ -3,13 +3,14 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { AlertTriangle, ExternalLink, FileSpreadsheet, Globe2, Info, TrendingDown, TrendingUp } from 'lucide-react';
+import { AlertTriangle, ExternalLink, FileSpreadsheet, Globe2, Info, Search, TrendingDown, TrendingUp } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AiInsights, BeginnerAssessment, FinancialStatementTable, Quote, StockDetailBundle } from '@/types';
+import type { AiInsights, BeginnerAssessment, FinancialStatementTable, Quote, SearchEntity, StockDetailBundle } from '@/types';
 import { SectionCard } from '@/components/common/section-card';
 import { PillToggle } from '@/components/common/pill-toggle';
 import { useUiStore } from '@/stores/ui-store';
-import { useFxUsdInr, useLiveQuote } from '@/lib/hooks/use-stock-data';
+import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
+import { useFxUsdInr, useLiveQuote, useSearchEntities } from '@/lib/hooks/use-stock-data';
 import { exportStatementsToXlsx } from '@/lib/utils/excel';
 import { formatCurrency, formatDateTime, formatDateTimeWithSeconds, formatNumber, formatPercent } from '@/lib/utils/format';
 import { getMarketStatus } from '@/lib/utils/market-hours';
@@ -574,7 +575,7 @@ function BeginnerPanel({ assessment }: { assessment: BeginnerAssessment | null }
       })
     : [];
   return (
-    <SectionCard title="Beginner Assistant" subtitle="Educational only. Avoids jargon and explains what to check.">
+    <SectionCard title="Beginner Assistant">
       {!assessment ? (
         <p className="text-sm text-slate-500">Preparing beginner-friendly checks...</p>
       ) : (
@@ -1024,21 +1025,82 @@ function AiInsightsPanel({ insights, currency }: { insights: AiInsights | null; 
 function PeerComparisonPanel({ bundle }: { bundle: StockDetailBundle }) {
   const [manual, setManual] = useState('');
   const [manualPeers, setManualPeers] = useState<string[]>([]);
+  const [manualError, setManualError] = useState('');
+  const [isManualSuggestionsOpen, setIsManualSuggestionsOpen] = useState(false);
+  const [selectedManualSuggestion, setSelectedManualSuggestion] = useState<SearchEntity | null>(null);
+  const manualInputRootRef = useRef<HTMLDivElement>(null);
+  const debouncedManual = useDebouncedValue(manual, 250);
+  const { data: manualSearchData, isLoading: isManualSearching } = useSearchEntities(debouncedManual, bundle.entity.market);
+  const manualSuggestions = useMemo(
+    () => (manualSearchData ?? []).filter((item) => item.symbol?.trim() && item.displaySymbol?.trim()),
+    [manualSearchData],
+  );
+  const visibleManualSuggestions = useMemo(() => {
+    function addCandidate(merged: Map<string, SearchEntity>, item: SearchEntity) {
+      const symbol = item.symbol?.trim();
+      const displaySymbol = item.displaySymbol?.trim();
+      if (!symbol || !displaySymbol) return;
+      const key = symbol.toUpperCase();
+      if (merged.has(key)) return;
+      merged.set(key, { ...item, symbol, displaySymbol });
+    }
+
+    const merged = new Map<string, SearchEntity>();
+    for (const item of manualSuggestions) {
+      addCandidate(merged, item);
+    }
+    for (const item of demoUniverse.filter((entity) => entity.market === bundle.entity.market)) {
+      addCandidate(merged, item);
+    }
+    return Array.from(merged.values()).slice(0, 12);
+  }, [bundle.entity.market, manualSuggestions]);
+  const hasManualQuery = manual.trim().length > 0;
+  const showManualSuggestions = isManualSuggestionsOpen && (hasManualQuery || visibleManualSuggestions.length > 0);
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent | TouchEvent) {
+      const target = event.target as Node | null;
+      if (!manualInputRootRef.current || !target) return;
+      if (!manualInputRootRef.current.contains(target)) {
+        setIsManualSuggestionsOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setIsManualSuggestionsOpen(false);
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown, { passive: true });
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   const peerSymbols = useMemo(() => {
-    const base = bundle.fundamentals.peerSymbols ?? [];
-    return Array.from(new Set([...base, ...manualPeers])).slice(0, 8);
+    const base = (bundle.fundamentals.peerSymbols ?? []).map((symbol) => symbol.trim()).filter(Boolean);
+    const manualClean = manualPeers.map((symbol) => symbol.trim()).filter(Boolean);
+    return Array.from(new Set([...base, ...manualClean])).slice(0, 8);
   }, [bundle.fundamentals.peerSymbols, manualPeers]);
 
   const rows = useMemo(() => {
-    const symbols = [bundle.entity.symbol, ...peerSymbols];
+    const symbols = Array.from(new Set([bundle.entity.symbol, ...peerSymbols].map((symbol) => symbol.trim()).filter(Boolean)));
     return symbols
       .map((symbol) => {
-        const f = symbol === bundle.entity.symbol ? bundle.fundamentals : demoFundamentalsBySymbol[symbol];
+        const matchedEntity =
+          demoUniverse.find((entity) => entity.symbol === symbol || entity.displaySymbol === symbol) ??
+          (bundle.entity.market === 'india' && !symbol.includes('.')
+            ? demoUniverse.find((entity) => entity.symbol === `${symbol}.NS`)
+            : undefined);
+        const canonicalSymbol = matchedEntity?.symbol ?? symbol;
+        const f = canonicalSymbol === bundle.entity.symbol ? bundle.fundamentals : demoFundamentalsBySymbol[canonicalSymbol];
         const metric = (key: string) => f?.keyMetrics.find((m) => m.key === key)?.value;
         return {
-          symbol,
-          name: demoUniverse.find((e) => e.symbol === symbol)?.displaySymbol ?? symbol,
+          symbol: canonicalSymbol,
+          name: matchedEntity?.displaySymbol ?? canonicalSymbol,
           pe: metric('pe'),
           roe: metric('roe'),
           salesGrowth: metric('salesGrowth'),
@@ -1046,21 +1108,132 @@ function PeerComparisonPanel({ bundle }: { bundle: StockDetailBundle }) {
           debtToEquity: metric('debtToEquity'),
         };
       })
-      .filter(Boolean);
+      .filter((row) => Boolean(row.symbol));
   }, [bundle, peerSymbols]);
 
-  function addManualPeer() {
-    const q = manual.trim().toUpperCase();
-    if (!q) return;
-    const match = demoUniverse.find(
-      (e) => e.symbol.toUpperCase() === q || e.displaySymbol.toUpperCase() === q || e.name.toUpperCase().includes(q),
+  function pickManualSuggestion(entity: SearchEntity) {
+    setManual(entity.displaySymbol);
+    setSelectedManualSuggestion(entity);
+    setManualError('');
+    setIsManualSuggestionsOpen(false);
+  }
+
+  function canonicalizePeerSymbol(entity: SearchEntity | null | undefined): string | null {
+    if (!entity) return null;
+    const symbol = entity.symbol?.trim();
+    const displaySymbol = entity.displaySymbol?.trim();
+    const candidateValues = [symbol, displaySymbol].filter(Boolean).map((value) => value!.toUpperCase());
+
+    const localMatch = demoUniverse.find(
+      (item) =>
+        item.market === bundle.entity.market &&
+        (candidateValues.includes(item.symbol.toUpperCase()) || candidateValues.includes(item.displaySymbol.toUpperCase())),
     );
-    if (match) setManualPeers((prev) => Array.from(new Set([...prev, match.symbol])));
+    if (localMatch?.symbol?.trim()) return localMatch.symbol.trim();
+
+    if (symbol) {
+      if (bundle.entity.market === 'india' && !symbol.includes('.')) return `${symbol.toUpperCase()}.NS`;
+      return symbol;
+    }
+    return null;
+  }
+
+  function isSearchEntity(value: unknown): value is SearchEntity {
+    if (!value || typeof value !== 'object') return false;
+    const candidate = value as Partial<SearchEntity>;
+    return typeof candidate.symbol === 'string' && typeof candidate.displaySymbol === 'string';
+  }
+
+  function resolvePeerFromQuery(query: string): SearchEntity | null {
+    const normalizedQuery = query.trim().toUpperCase();
+    if (!normalizedQuery) return null;
+
+    const marketEntities = demoUniverse.filter((entity) => entity.market === bundle.entity.market);
+    const bySuggestion = visibleManualSuggestions.find(
+      (entity) =>
+        entity.symbol.trim().toUpperCase() === normalizedQuery ||
+        entity.displaySymbol.trim().toUpperCase() === normalizedQuery ||
+        entity.name.trim().toUpperCase() === normalizedQuery ||
+        entity.name.toUpperCase().includes(normalizedQuery),
+    );
+    if (bySuggestion) return bySuggestion;
+
+    const byLocal = marketEntities.find(
+      (entity) =>
+        entity.symbol.toUpperCase() === normalizedQuery ||
+        entity.displaySymbol.toUpperCase() === normalizedQuery ||
+        entity.name.toUpperCase() === normalizedQuery ||
+        entity.name.toUpperCase().includes(normalizedQuery) ||
+        (bundle.entity.market === 'india' && entity.symbol.toUpperCase() === `${normalizedQuery}.NS`),
+    );
+    if (byLocal) return byLocal;
+
+    if (bundle.entity.market === 'india') {
+      const nseSymbol = normalizedQuery.endsWith('.NS') ? normalizedQuery : `${normalizedQuery}.NS`;
+      if (demoFundamentalsBySymbol[nseSymbol]) {
+        const base = nseSymbol.replace(/\.NS$/, '');
+        return (
+          marketEntities.find((entity) => entity.symbol.toUpperCase() === nseSymbol) ?? {
+            id: `india:${base}`,
+            symbol: nseSymbol,
+            displaySymbol: base,
+            name: base,
+            market: 'india',
+            exchange: 'NSE',
+            country: 'India',
+            currency: 'INR',
+            type: 'stock',
+          }
+        );
+      }
+    }
+
+    return null;
+  }
+
+  function addManualPeer(preferredMatch?: SearchEntity) {
+    const query = manual.trim();
+    if (!query) return;
+    const safePreferredMatch = isSearchEntity(preferredMatch) ? preferredMatch : undefined;
+    const normalizedQuery = query.toUpperCase();
+    const exactSuggestion = visibleManualSuggestions.find(
+      (entity) => entity.symbol.trim().toUpperCase() === normalizedQuery || entity.displaySymbol.trim().toUpperCase() === normalizedQuery,
+    );
+    const match =
+      safePreferredMatch ??
+      selectedManualSuggestion ??
+      exactSuggestion ??
+      resolvePeerFromQuery(query) ??
+      demoUniverse.find(
+        (entity) =>
+          entity.symbol.toUpperCase() === normalizedQuery ||
+          entity.displaySymbol.toUpperCase() === normalizedQuery ||
+          entity.name.toUpperCase().includes(normalizedQuery),
+      );
+    const cleanSymbol = canonicalizePeerSymbol(match);
+    if (!cleanSymbol) {
+      setManualError('Select a valid peer from suggestions.');
+      return;
+    }
+    const hasPeerDetails = cleanSymbol === bundle.entity.symbol || Boolean(demoFundamentalsBySymbol[cleanSymbol]);
+    if (!hasPeerDetails) {
+      setManualError('Peer details are not available for this symbol yet.');
+      return;
+    }
+    setManualPeers((prev) => Array.from(new Set([...prev, cleanSymbol])));
     setManual('');
+    setManualError('');
+    setSelectedManualSuggestion(null);
+    setIsManualSuggestionsOpen(false);
   }
 
   return (
-    <SectionCard title="Peer Comparison" subtitle="Auto-suggested + add your own company for detailed comparison.">
+    <SectionCard
+      title="Peer Comparison"
+      subtitle="Auto-suggested + add your own company for detailed comparison."
+      disablePerfContainment
+      className="overflow-visible"
+    >
       <div className="overflow-auto rounded-xl border border-border">
         <table className="min-w-full text-sm">
           <thead className="bg-muted/30 text-xs uppercase tracking-wide text-slate-500">
@@ -1090,16 +1263,68 @@ function PeerComparisonPanel({ bundle }: { bundle: StockDetailBundle }) {
       <div className="mt-3">
         <label className="mb-1 block text-sm font-medium">Detailed Comparison with</label>
         <div className="flex gap-2">
-          <input
-            value={manual}
-            onChange={(e) => setManual(e.target.value)}
-            placeholder="Add company / symbol (e.g., ICICIBANK, MSFT)"
-            className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-sm"
-          />
-          <button onClick={addManualPeer} className="rounded-xl border border-border px-3 py-2 text-sm hover:bg-muted">
+          <div ref={manualInputRootRef} className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={manual}
+              onChange={(event) => {
+                const value = event.target.value;
+                setManual(value);
+                setManualError('');
+                setSelectedManualSuggestion(null);
+                setIsManualSuggestionsOpen(value.trim().length > 0);
+              }}
+              onFocus={() => setIsManualSuggestionsOpen(true)}
+              onKeyDown={(event) => {
+                if (event.key === 'Tab' && hasManualQuery && visibleManualSuggestions.length) {
+                  event.preventDefault();
+                  pickManualSuggestion(visibleManualSuggestions[0]);
+                  return;
+                }
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void addManualPeer(showManualSuggestions ? visibleManualSuggestions[0] : undefined);
+                }
+              }}
+              placeholder="Add company / symbol (e.g., ICICIBANK, MSFT)"
+              className="w-full rounded-xl border border-border bg-card py-2 pl-10 pr-3 text-sm"
+            />
+            {showManualSuggestions ? (
+              <div className="absolute left-0 top-full z-50 mt-2 w-full overflow-hidden rounded-2xl border border-border/80 bg-card shadow-panel">
+                <div className="p-2">
+                  {isManualSearching ? <div className="p-3 text-sm text-slate-500">Searching...</div> : null}
+                  {!isManualSearching && visibleManualSuggestions.length === 0 ? (
+                    <div className="p-3 text-sm text-slate-500">No matches. Try ticker (e.g., AAPL, HDFCBANK) or company name.</div>
+                  ) : null}
+                  {visibleManualSuggestions.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => pickManualSuggestion(item)}
+                      className={cn(
+                        'flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2 text-left text-sm transition hover:border-indigo-400/20 hover:bg-muted/50',
+                      )}
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate font-medium text-slate-900 dark:text-white">{item.name}</div>
+                        <div className="text-xs text-slate-500">
+                          {item.displaySymbol} • {item.market.toUpperCase()} {item.exchange ? `• ${item.exchange}` : ''}
+                        </div>
+                      </div>
+                      <span className="rounded-lg border border-border/70 bg-muted/50 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500">
+                        {item.type === 'mutual_fund' ? 'MF' : 'Stock'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <button onClick={() => void addManualPeer()} className="rounded-xl border border-border px-3 py-2 text-sm hover:bg-muted">
             Add
           </button>
         </div>
+        {manualError ? <p className="mt-2 text-xs text-rose-400">{manualError}</p> : null}
       </div>
     </SectionCard>
   );

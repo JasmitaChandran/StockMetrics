@@ -43,11 +43,8 @@ body {
 }
 
 html.dark body {
-  background-image:
-    radial-gradient(circle at 14% 0%, rgba(79, 70, 229, 0.2), transparent 34%),
-    radial-gradient(circle at 88% 12%, rgba(59, 130, 246, 0.14), transparent 30%),
-    radial-gradient(circle at 50% 42%, rgba(168, 85, 247, 0.1), transparent 45%),
-    linear-gradient(180deg, rgba(2, 6, 23, 0.96), rgba(4, 8, 27, 0.98));
+  background-color: #050916;
+  background-image: linear-gradient(180deg, #050916, #050916);
   background-attachment: scroll;
 }
 
