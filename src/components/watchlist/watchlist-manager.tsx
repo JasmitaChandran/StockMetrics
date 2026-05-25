@@ -7,7 +7,7 @@ import { SectionCard } from '@/components/common/section-card';
 import { demoFundamentalsBySymbol, demoUniverse, generateDemoHistory } from '@/lib/data/mock/demo-data';
 import { useSearchEntities } from '@/lib/hooks/use-stock-data';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
-import { deleteWatchlist, getKv, listWatchlists, setKv, upsertWatchlist } from '@/lib/storage/repositories';
+import { deleteWatchlist, listWatchlists, upsertWatchlist } from '@/lib/storage/repositories';
 import type {
   WatchlistRecord,
   WatchlistRiskLabel,
@@ -19,8 +19,6 @@ import type { SearchEntity } from '@/types';
 import { cn } from '@/lib/utils/cn';
 import { formatPercent } from '@/lib/utils/format';
 import { useAuthStore } from '@/stores/auth-store';
-
-const WATCHLIST_INITIALIZED_KEY = 'watchlist:initialized:v1';
 
 function reasonFor(symbol: string, record: WatchlistRecord): string {
   return record.symbolProfiles?.[symbol]?.reasonForAdding?.trim() ?? '';
@@ -303,35 +301,10 @@ export function WatchlistManager() {
         const normalized = rows.map(normalizeWatchlist);
         setWatchlists(normalized);
         setSelectedId(normalized[0].id);
-        // Mark legacy users as initialized so deleting all watchlists stays respected.
-        void setKv<boolean>(WATCHLIST_INITIALIZED_KEY, true, { scope: 'user', userId });
         return;
       }
-
-      const initialized = await getKv<boolean>(WATCHLIST_INITIALIZED_KEY, { scope: 'user', userId });
-      if (disposed) return;
-      if (initialized) {
-        setWatchlists([]);
-        setSelectedId('');
-        return;
-      }
-
-      // First run for this user only: seed a starter watchlist.
-      if (!rows.length) {
-        const seed: WatchlistRecord = {
-          id: crypto.randomUUID(),
-          name: 'My Watchlist',
-          symbols: ['HDFCBANK.NS', 'AAPL', 'TCS.NS'],
-          symbolProfiles: {},
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        await upsertWatchlist(seed, { userId });
-        await setKv<boolean>(WATCHLIST_INITIALIZED_KEY, true, { scope: 'user', userId });
-        if (disposed) return;
-        setWatchlists([normalizeWatchlist(seed)]);
-        setSelectedId(seed.id);
-      }
+      setWatchlists([]);
+      setSelectedId('');
     }
 
     void loadWatchlists();
@@ -387,7 +360,6 @@ export function WatchlistManager() {
       updatedAt: new Date().toISOString(),
     };
     await upsertWatchlist(record, { userId });
-    void setKv<boolean>(WATCHLIST_INITIALIZED_KEY, true, { scope: 'user', userId });
     setWatchlists((prev) => [...prev, record]);
     setSelectedId(record.id);
   }
