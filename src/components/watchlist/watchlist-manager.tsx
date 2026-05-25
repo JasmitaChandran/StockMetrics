@@ -267,6 +267,8 @@ export function WatchlistManager() {
   const [watchlists, setWatchlists] = useState<WatchlistRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
   const [newName, setNewName] = useState('My Watchlist');
+  const [renameName, setRenameName] = useState('');
+  const [renameError, setRenameError] = useState('');
   const [addSymbol, setAddSymbol] = useState('HDFCBANK');
   const [addReason, setAddReason] = useState('');
   const [addSymbolError, setAddSymbolError] = useState('');
@@ -328,6 +330,11 @@ export function WatchlistManager() {
 
   const current = watchlists.find((w) => w.id === selectedId) ?? watchlists[0];
 
+  useEffect(() => {
+    setRenameName(current?.name ?? '');
+    setRenameError('');
+  }, [current?.id, current?.name]);
+
   function pickAddSymbolSuggestion(entity: SearchEntity) {
     setAddSymbol(entity.displaySymbol);
     setSelectedSuggestion(entity);
@@ -359,6 +366,28 @@ export function WatchlistManager() {
       });
       return next;
     });
+  }
+
+  async function renameCurrentWatchlist() {
+    if (!current) return;
+    const nextName = renameName.trim();
+    if (!nextName) {
+      setRenameError('Watchlist name cannot be empty.');
+      return;
+    }
+    if (nextName === current.name) {
+      setRenameError('');
+      return;
+    }
+
+    const updated: WatchlistRecord = {
+      ...current,
+      name: nextName,
+      updatedAt: new Date().toISOString(),
+    };
+    await upsertWatchlist(updated);
+    setWatchlists((prev) => prev.map((watchlist) => (watchlist.id === updated.id ? updated : watchlist)));
+    setRenameError('');
   }
 
   async function addToCurrent(preferredMatch?: SearchEntity) {
@@ -508,6 +537,34 @@ export function WatchlistManager() {
       <SectionCard title={current ? current.name : 'Watchlist'}>
         {current ? (
           <div className="space-y-3">
+            <div className="space-y-2 rounded-xl border border-border p-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Rename watchlist</div>
+              <div className="flex gap-2">
+                <input
+                  value={renameName}
+                  onChange={(event) => {
+                    setRenameName(event.target.value);
+                    if (renameError) setRenameError('');
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void renameCurrentWatchlist();
+                    }
+                  }}
+                  placeholder="Rename watchlist"
+                  className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-sm"
+                />
+                <button
+                  onClick={() => void renameCurrentWatchlist()}
+                  className="rounded-xl border border-border px-3 py-2 text-sm hover:bg-muted"
+                >
+                  Save Name
+                </button>
+              </div>
+              {renameError ? <p className="text-xs text-rose-500">{renameError}</p> : null}
+            </div>
+
             <div className="space-y-2 rounded-xl border border-border p-3">
               <div className="flex gap-2">
                 <div ref={addSymbolRootRef} className="relative flex-1">
