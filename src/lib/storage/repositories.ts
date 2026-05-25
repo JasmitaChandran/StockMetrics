@@ -7,61 +7,111 @@ import {
   type PriceAlertRecord,
   type WatchlistRecord,
 } from './idb';
+import { useAuthStore } from '@/stores/auth-store';
 
-export async function listWatchlists(): Promise<WatchlistRecord[]> {
-  const db = await getDb();
-  return db.getAll('watchlists');
+const ANONYMOUS_SCOPE_USER_ID = '__anonymous__';
+
+type UserScopedOptions = {
+  userId?: string | null;
+};
+
+type KvOptions = UserScopedOptions & {
+  scope?: 'user' | 'global';
+};
+
+function resolveScopedUserId(options?: UserScopedOptions): string {
+  return options?.userId ?? useAuthStore.getState().user?.id ?? ANONYMOUS_SCOPE_USER_ID;
 }
 
-export async function upsertWatchlist(record: WatchlistRecord) {
-  const db = await getDb();
-  await db.put('watchlists', record);
+function withScopedUserId<T extends { userId?: string }>(
+  record: T,
+  options?: UserScopedOptions,
+): T & { userId: string } {
+  return { ...record, userId: resolveScopedUserId(options) };
 }
 
-export async function deleteWatchlist(id: string) {
+function isOwnedByUser(record: { userId?: string }, userId: string) {
+  return record.userId === userId;
+}
+
+function getScopedKvStorageKey(key: string, options?: KvOptions) {
+  if (options?.scope === 'global') return key;
+  return `${resolveScopedUserId(options)}::${key}`;
+}
+
+export async function listWatchlists(options?: UserScopedOptions): Promise<WatchlistRecord[]> {
   const db = await getDb();
+  const userId = resolveScopedUserId(options);
+  const rows = (await db.getAll('watchlists')) as WatchlistRecord[];
+  return rows.filter((row) => isOwnedByUser(row, userId));
+}
+
+export async function upsertWatchlist(record: WatchlistRecord, options?: UserScopedOptions) {
+  const db = await getDb();
+  await db.put('watchlists', withScopedUserId(record, options));
+}
+
+export async function deleteWatchlist(id: string, options?: UserScopedOptions) {
+  const db = await getDb();
+  const userId = resolveScopedUserId(options);
+  const existing = (await db.get('watchlists', id)) as WatchlistRecord | undefined;
+  if (!existing || !isOwnedByUser(existing, userId)) return;
   await db.delete('watchlists', id);
 }
 
-export async function listPortfolioTxns(): Promise<PortfolioTxn[]> {
+export async function listPortfolioTxns(options?: UserScopedOptions): Promise<PortfolioTxn[]> {
   const db = await getDb();
-  return db.getAll('portfolioTxns');
+  const userId = resolveScopedUserId(options);
+  const rows = (await db.getAll('portfolioTxns')) as PortfolioTxn[];
+  return rows.filter((row) => isOwnedByUser(row, userId));
 }
 
-export async function upsertPortfolioTxn(record: PortfolioTxn) {
+export async function upsertPortfolioTxn(record: PortfolioTxn, options?: UserScopedOptions) {
   const db = await getDb();
-  await db.put('portfolioTxns', record);
+  await db.put('portfolioTxns', withScopedUserId(record, options));
 }
 
-export async function getNote(stockId: string): Promise<NoteRecord | undefined> {
+export async function getNote(stockId: string, options?: UserScopedOptions): Promise<NoteRecord | undefined> {
   const db = await getDb();
+  const userId = resolveScopedUserId(options);
   const notes = (await db.getAll('notes')) as NoteRecord[];
-  return notes.find((n) => n.stockId === stockId);
+  return notes
+    .filter((note) => isOwnedByUser(note, userId) && note.stockId === stockId)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
 }
 
-export async function upsertNote(record: NoteRecord) {
+export async function upsertNote(record: NoteRecord, options?: UserScopedOptions) {
   const db = await getDb();
-  await db.put('notes', record);
+  const userId = resolveScopedUserId(options);
+  await db.put('notes', {
+    ...record,
+    id: `note:${userId}:${record.stockId}`,
+    userId,
+  } satisfies NoteRecord);
 }
 
-export async function listCustomScreens(): Promise<CustomScreenRecord[]> {
+export async function listCustomScreens(options?: UserScopedOptions): Promise<CustomScreenRecord[]> {
   const db = await getDb();
-  return db.getAll('customScreens');
+  const userId = resolveScopedUserId(options);
+  const rows = (await db.getAll('customScreens')) as CustomScreenRecord[];
+  return rows.filter((row) => isOwnedByUser(row, userId));
 }
 
-export async function upsertCustomScreen(record: CustomScreenRecord) {
+export async function upsertCustomScreen(record: CustomScreenRecord, options?: UserScopedOptions) {
   const db = await getDb();
-  await db.put('customScreens', record);
+  await db.put('customScreens', withScopedUserId(record, options));
 }
 
-export async function getKv<T>(key: string): Promise<T | undefined> {
+export async function getKv<T>(key: string, options?: KvOptions): Promise<T | undefined> {
   const db = await getDb();
-  return (await db.get('kv', key))?.value as T | undefined;
+  const storageKey = getScopedKvStorageKey(key, options);
+  return (await db.get('kv', storageKey))?.value as T | undefined;
 }
 
-export async function setKv<T>(key: string, value: T) {
+export async function setKv<T>(key: string, value: T, options?: KvOptions) {
   const db = await getDb();
-  await db.put('kv', { key, value, updatedAt: new Date().toISOString() });
+  const storageKey = getScopedKvStorageKey(key, options);
+  await db.put('kv', { key: storageKey, value, updatedAt: new Date().toISOString() });
 }
 
 export async function listPriceAlerts(userId?: string): Promise<PriceAlertRecord[]> {

@@ -9,10 +9,10 @@ export const fxAdapter: FxAdapter = {
       const response = await fetch('/api/fx/usd-inr', { cache: 'no-store' });
       if (!response.ok) throw new Error('fx failed');
       const data = await response.json();
-      await setKv(FX_KV_KEY, data);
+      await setKv(FX_KV_KEY, data, { scope: 'global' });
       return data;
     } catch {
-      const cached = await getKv<{ rate: number; source: string; timestamp: string }>(FX_KV_KEY);
+      const cached = await getKv<{ rate: number; source: string; timestamp: string }>(FX_KV_KEY, { scope: 'global' });
       if (cached) return { ...cached, stale: true };
       return {
         rate: Number.NaN,

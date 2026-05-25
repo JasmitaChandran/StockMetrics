@@ -12,6 +12,7 @@ import { formatCurrency, formatNumber, formatPercent } from '@/lib/utils/format'
 import { cn } from '@/lib/utils/cn';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
 import { useFxUsdInr, useSearchEntities } from '@/lib/hooks/use-stock-data';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface HoldingRow {
   symbol: string;
@@ -73,6 +74,8 @@ function deriveHoldings(txns: PortfolioTxn[]): HoldingRow[] {
 }
 
 export function PortfolioManager() {
+  const userId = useAuthStore((state) => state.user?.id);
+  const authLoading = useAuthStore((state) => state.loading);
   const { data: fx } = useFxUsdInr();
   const [txns, setTxns] = useState<PortfolioTxn[]>([]);
   const [symbol, setSymbol] = useState('AAPL');
@@ -90,19 +93,32 @@ export function PortfolioManager() {
   const showSymbolSuggestions = hasSymbolQuery && !selectedSymbolSuggestion;
 
   useEffect(() => {
-    listPortfolioTxns().then((records) => {
+    if (authLoading) return;
+    let disposed = false;
+    setTxns([]);
+
+    async function loadPortfolio() {
+      const records = await listPortfolioTxns({ userId });
+      if (disposed) return;
       if (!records.length) {
         const seed: PortfolioTxn[] = [
           { id: crypto.randomUUID(), symbol: 'AAPL', market: 'us', side: 'buy', quantity: 5, price: 175, date: '2025-11-02' },
           { id: crypto.randomUUID(), symbol: 'HDFCBANK.NS', market: 'india', side: 'buy', quantity: 12, price: 1510, date: '2025-11-18' },
           { id: crypto.randomUUID(), symbol: 'TCS.NS', market: 'india', side: 'buy', quantity: 4, price: 3820, date: '2025-12-01' },
         ];
-        Promise.all(seed.map((t) => upsertPortfolioTxn(t))).then(() => setTxns(seed));
-      } else {
-        setTxns(records);
+        await Promise.all(seed.map((txn) => upsertPortfolioTxn(txn, { userId })));
+        if (disposed) return;
+        setTxns(seed);
+        return;
       }
-    });
-  }, []);
+      setTxns(records);
+    }
+
+    void loadPortfolio();
+    return () => {
+      disposed = true;
+    };
+  }, [authLoading, userId]);
 
   function pickSymbolSuggestion(entity: SearchEntity) {
     setSymbol(entity.displaySymbol);
@@ -138,7 +154,7 @@ export function PortfolioManager() {
       price,
       date,
     };
-    await upsertPortfolioTxn(txn);
+    await upsertPortfolioTxn(txn, { userId });
     setTxns((prev) => [...prev, txn]);
     setSelectedSymbolSuggestion(null);
   }

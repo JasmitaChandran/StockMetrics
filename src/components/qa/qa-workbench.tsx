@@ -6,6 +6,7 @@ import { SectionCard } from '@/components/common/section-card';
 import { parseChatContent, type ChatInlineSegment } from '@/lib/qa/chat-format';
 import { getKv, setKv } from '@/lib/storage/repositories';
 import { cn } from '@/lib/utils/cn';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface ChatMessage {
   id: string;
@@ -149,6 +150,8 @@ function FormattedAssistantMessage({ content }: { content: string }) {
 }
 
 export function QaWorkbench() {
+  const userId = useAuthStore((state) => state.user?.id);
+  const authLoading = useAuthStore((state) => state.loading);
   const [status, setStatus] = useState<QaStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [question, setQuestion] = useState('');
@@ -185,11 +188,14 @@ export function QaWorkbench() {
   }, []);
 
   useEffect(() => {
+    if (authLoading) return;
     let cancelled = false;
+    setHistoryReady(false);
+    setMessages([]);
 
     async function loadChatHistory() {
       try {
-        const stored = await getKv<StoredQaChat>(QA_CHAT_STORAGE_KEY);
+        const stored = await getKv<StoredQaChat>(QA_CHAT_STORAGE_KEY, { scope: 'user', userId });
         if (cancelled || !stored) return;
         const nextMessages = Array.isArray(stored.messages) ? stored.messages.filter(isChatMessage) : [];
         setMessages(nextMessages);
@@ -204,22 +210,22 @@ export function QaWorkbench() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authLoading, userId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, submitting]);
 
   useEffect(() => {
-    if (!historyReady) return;
+    if (!historyReady || authLoading) return;
     const timer = setTimeout(() => {
       void setKv<StoredQaChat>(QA_CHAT_STORAGE_KEY, {
         messages,
         updatedAt: new Date().toISOString(),
-      });
+      }, { scope: 'user', userId });
     }, QA_CHAT_AUTOSAVE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [historyReady, messages]);
+  }, [authLoading, historyReady, messages, userId]);
 
   async function submitQuestion(nextQuestion?: string) {
     const prompt = (nextQuestion ?? question).trim();

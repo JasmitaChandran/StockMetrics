@@ -18,6 +18,7 @@ import { getAiProvider } from '@/lib/ai';
 import { getNote, upsertNote } from '@/lib/storage/repositories';
 import { demoFundamentalsBySymbol, demoUniverse } from '@/lib/data/mock/demo-data';
 import { cn } from '@/lib/utils/cn';
+import { useAuthStore } from '@/stores/auth-store';
 
 const DynamicChartPanel = dynamic(
   () => import('@/components/dashboard/stock-chart-panel').then((m) => m.StockChartPanel),
@@ -509,13 +510,18 @@ function StatementTableView({ table }: { table: FinancialStatementTable }) {
 }
 
 function NotesSection({ stockId }: { stockId: string }) {
+  const userId = useAuthStore((state) => state.user?.id);
+  const authLoading = useAuthStore((state) => state.loading);
   const [value, setValue] = useState('');
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
     let active = true;
-    getNote(stockId).then((note) => {
+    setValue('');
+    setSavedAt(null);
+    getNote(stockId, { userId }).then((note) => {
       if (!active) return;
       setValue(note?.content ?? '');
       setSavedAt(note?.updatedAt ?? null);
@@ -523,12 +529,12 @@ function NotesSection({ stockId }: { stockId: string }) {
     return () => {
       active = false;
     };
-  }, [stockId]);
+  }, [authLoading, stockId, userId]);
 
   async function save() {
     setSaving(true);
     const updatedAt = new Date().toISOString();
-    await upsertNote({ id: `note:${stockId}`, stockId, content: value, updatedAt });
+    await upsertNote({ id: `note:${stockId}`, stockId, content: value, updatedAt }, { userId });
     setSavedAt(updatedAt);
     setSaving(false);
   }

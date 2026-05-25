@@ -54,6 +54,7 @@ import { cn } from '@/lib/utils/cn';
 import { formatCurrency, formatDateTime, formatNumber, formatPercent } from '@/lib/utils/format';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
 import { useSearchEntities } from '@/lib/hooks/use-stock-data';
+import { useAuthStore } from '@/stores/auth-store';
 
 const PROFILE_STORAGE_KEY = 'agentic:financial-profile:v2';
 const REPORT_STORAGE_KEY = 'agentic:last-report:v2';
@@ -1877,18 +1878,33 @@ export function AgenticAiWorkbench() {
   const debouncedTargetTickerQuery = useDebouncedValue(form.targetTicker ?? '', 250);
   const { data: targetTickerSearchData, isLoading: isTargetTickerSearching } = useSearchEntities(debouncedTargetTickerQuery);
   const uiMode = useUiStore((state) => state.uiMode);
+  const userId = useAuthStore((state) => state.user?.id);
+  const authLoading = useAuthStore((state) => state.loading);
 
   useEffect(() => {
+    if (authLoading) return;
     let disposed = false;
+    draftHydratedRef.current = false;
+    setPortfolioTxns([]);
+    setForm(createDefaultForm());
+    setReport(null);
+    setChangeAudit(null);
+    setProfileStep(1);
+    setSelectedTargetTickerSuggestion(null);
+    setMonitoringAlert(null);
+    setClarificationPrompts([]);
+    setSaferDefaultsFeedback('');
+    setError('');
+    setLastDraftSavedAt(null);
 
     async function load() {
       try {
         const [txns, rawDraft, savedReport, savedLearningMemory, savedMonitoring] = await Promise.all([
-          listPortfolioTxns(),
-          getKv<SavedProfileDraft | Partial<AgenticFormInput>>(PROFILE_STORAGE_KEY),
-          getKv<AgenticAnalysisReport>(REPORT_STORAGE_KEY),
-          getKv<LearningMemoryState>(LEARNING_MEMORY_KEY),
-          getKv<MonitoringSettings>(MONITORING_SETTINGS_KEY),
+          listPortfolioTxns({ userId }),
+          getKv<SavedProfileDraft | Partial<AgenticFormInput>>(PROFILE_STORAGE_KEY, { scope: 'user', userId }),
+          getKv<AgenticAnalysisReport>(REPORT_STORAGE_KEY, { scope: 'user', userId }),
+          getKv<LearningMemoryState>(LEARNING_MEMORY_KEY, { scope: 'user', userId }),
+          getKv<MonitoringSettings>(MONITORING_SETTINGS_KEY, { scope: 'user', userId }),
         ]);
         const savedDraft = parseSavedDraft(rawDraft);
         const hydrated = hydrateForm(savedDraft?.form);
@@ -1906,11 +1922,9 @@ export function AgenticAiWorkbench() {
         setLoanTypeSelectionState(deriveLoanTypeSelectionState(hydrated.loans, savedDraft?.loanTypeSelectionState));
         setProfileStep(clamp(savedDraft?.profileStep ?? 1, 1, PROFILE_STEPS.length));
         setLastDraftSavedAt(savedDraft?.updatedAt ?? null);
-        if (savedReport) {
-          const normalized = normalizeSavedReport(savedReport) ?? null;
-          setReport(normalized);
-          setWhatIfRiskPreference(hydrated.riskPreference);
-        }
+        const normalized = savedReport ? (normalizeSavedReport(savedReport) ?? null) : null;
+        setReport(normalized);
+        setWhatIfRiskPreference(hydrated.riskPreference);
         setLearningMemory({
           ...DEFAULT_LEARNING_MEMORY,
           ...(savedLearningMemory ?? {}),
@@ -1933,6 +1947,9 @@ export function AgenticAiWorkbench() {
           });
           setLoanTypeSelectionState({});
           setProfileStep(1);
+          setLearningMemory(DEFAULT_LEARNING_MEMORY);
+          setMonitoringSettings(DEFAULT_MONITORING_SETTINGS);
+          setLastDraftSavedAt(null);
         }
       } finally {
         if (!disposed) draftHydratedRef.current = true;
@@ -1944,10 +1961,10 @@ export function AgenticAiWorkbench() {
     return () => {
       disposed = true;
     };
-  }, []);
+  }, [authLoading, userId]);
 
   useEffect(() => {
-    if (!draftHydratedRef.current) return;
+    if (!draftHydratedRef.current || authLoading) return;
     if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
     autosaveTimeoutRef.current = setTimeout(() => {
       const updatedAt = new Date().toISOString();
@@ -1957,7 +1974,7 @@ export function AgenticAiWorkbench() {
         selectSelectionState,
         loanTypeSelectionState,
         updatedAt,
-      } satisfies SavedProfileDraft)
+      } satisfies SavedProfileDraft, { scope: 'user', userId })
         .then(() => setLastDraftSavedAt(updatedAt))
         .catch(() => {
           // Best-effort autosave.
@@ -1967,14 +1984,14 @@ export function AgenticAiWorkbench() {
     return () => {
       if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
     };
-  }, [form, profileStep, selectSelectionState, loanTypeSelectionState]);
+  }, [authLoading, form, loanTypeSelectionState, profileStep, selectSelectionState, userId]);
 
   useEffect(() => {
-    if (!draftHydratedRef.current) return;
-    void setKv(MONITORING_SETTINGS_KEY, monitoringSettings).catch(() => {
+    if (!draftHydratedRef.current || authLoading) return;
+    void setKv(MONITORING_SETTINGS_KEY, monitoringSettings, { scope: 'user', userId }).catch(() => {
       // Best-effort preference save.
     });
-  }, [monitoringSettings]);
+  }, [authLoading, monitoringSettings, userId]);
 
   useEffect(() => {
     if (!loading || !analysisStartedAt) return;
@@ -2330,9 +2347,10 @@ export function AgenticAiWorkbench() {
             loanTypeSelectionState,
             updatedAt,
           } satisfies SavedProfileDraft,
+          { scope: 'user', userId },
         ),
-        setKv(REPORT_STORAGE_KEY, nextReport),
-        setKv(LEARNING_MEMORY_KEY, updatedMemory),
+        setKv(REPORT_STORAGE_KEY, nextReport, { scope: 'user', userId }),
+        setKv(LEARNING_MEMORY_KEY, updatedMemory, { scope: 'user', userId }),
       ]);
       setLastDraftSavedAt(updatedAt);
     } catch (err) {

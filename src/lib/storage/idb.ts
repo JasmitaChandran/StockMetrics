@@ -29,6 +29,7 @@ export interface WatchlistSymbolProfile {
 
 export interface WatchlistRecord {
   id: string;
+  userId?: string;
   name: string;
   symbols: string[];
   symbolProfiles?: Record<string, WatchlistSymbolProfile>;
@@ -38,6 +39,7 @@ export interface WatchlistRecord {
 
 export interface PortfolioTxn {
   id: string;
+  userId?: string;
   symbol: string;
   market: 'us' | 'india' | 'mf';
   side: 'buy' | 'sell';
@@ -48,6 +50,7 @@ export interface PortfolioTxn {
 
 export interface NoteRecord {
   id: string;
+  userId?: string;
   stockId: string;
   content: string;
   updatedAt: string;
@@ -55,6 +58,7 @@ export interface NoteRecord {
 
 export interface CustomScreenRecord {
   id: string;
+  userId?: string;
   name: string;
   query: string;
   createdAt: string;

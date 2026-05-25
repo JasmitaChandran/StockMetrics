@@ -7,7 +7,7 @@ import { SectionCard } from '@/components/common/section-card';
 import { demoFundamentalsBySymbol, demoUniverse, generateDemoHistory } from '@/lib/data/mock/demo-data';
 import { useSearchEntities } from '@/lib/hooks/use-stock-data';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
-import { deleteWatchlist, listWatchlists, upsertWatchlist } from '@/lib/storage/repositories';
+import { deleteWatchlist, getKv, listWatchlists, setKv, upsertWatchlist } from '@/lib/storage/repositories';
 import type {
   WatchlistRecord,
   WatchlistRiskLabel,
@@ -18,6 +18,9 @@ import type {
 import type { SearchEntity } from '@/types';
 import { cn } from '@/lib/utils/cn';
 import { formatPercent } from '@/lib/utils/format';
+import { useAuthStore } from '@/stores/auth-store';
+
+const WATCHLIST_INITIALIZED_KEY = 'watchlist:initialized:v1';
 
 function reasonFor(symbol: string, record: WatchlistRecord): string {
   return record.symbolProfiles?.[symbol]?.reasonForAdding?.trim() ?? '';
@@ -264,6 +267,8 @@ function PeriodChanges({ symbol }: { symbol: string }) {
 }
 
 export function WatchlistManager() {
+  const userId = useAuthStore((state) => state.user?.id);
+  const authLoading = useAuthStore((state) => state.loading);
   const [watchlists, setWatchlists] = useState<WatchlistRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
   const [newName, setNewName] = useState('My Watchlist');
@@ -283,7 +288,35 @@ export function WatchlistManager() {
   const showAddSymbolSuggestions = isAddSymbolSuggestionsOpen && hasAddSymbolQuery;
 
   useEffect(() => {
-    listWatchlists().then((rows) => {
+    if (authLoading) return;
+    let disposed = false;
+    setWatchlists([]);
+    setSelectedId('');
+    setNoteDrafts({});
+    setRenameError('');
+    setAddSymbolError('');
+
+    async function loadWatchlists() {
+      const rows = await listWatchlists({ userId });
+      if (disposed) return;
+      if (rows.length) {
+        const normalized = rows.map(normalizeWatchlist);
+        setWatchlists(normalized);
+        setSelectedId(normalized[0].id);
+        // Mark legacy users as initialized so deleting all watchlists stays respected.
+        void setKv<boolean>(WATCHLIST_INITIALIZED_KEY, true, { scope: 'user', userId });
+        return;
+      }
+
+      const initialized = await getKv<boolean>(WATCHLIST_INITIALIZED_KEY, { scope: 'user', userId });
+      if (disposed) return;
+      if (initialized) {
+        setWatchlists([]);
+        setSelectedId('');
+        return;
+      }
+
+      // First run for this user only: seed a starter watchlist.
       if (!rows.length) {
         const seed: WatchlistRecord = {
           id: crypto.randomUUID(),
@@ -293,17 +326,19 @@ export function WatchlistManager() {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
-        upsertWatchlist(seed).then(() => {
-          setWatchlists([seed]);
-          setSelectedId(seed.id);
-        });
-      } else {
-        const normalized = rows.map(normalizeWatchlist);
-        setWatchlists(normalized);
-        setSelectedId(normalized[0].id);
+        await upsertWatchlist(seed, { userId });
+        await setKv<boolean>(WATCHLIST_INITIALIZED_KEY, true, { scope: 'user', userId });
+        if (disposed) return;
+        setWatchlists([normalizeWatchlist(seed)]);
+        setSelectedId(seed.id);
       }
-    });
-  }, []);
+    }
+
+    void loadWatchlists();
+    return () => {
+      disposed = true;
+    };
+  }, [authLoading, userId]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent | TouchEvent) {
@@ -351,13 +386,14 @@ export function WatchlistManager() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    await upsertWatchlist(record);
+    await upsertWatchlist(record, { userId });
+    void setKv<boolean>(WATCHLIST_INITIALIZED_KEY, true, { scope: 'user', userId });
     setWatchlists((prev) => [...prev, record]);
     setSelectedId(record.id);
   }
 
   async function removeWatchlist(id: string) {
-    await deleteWatchlist(id);
+    await deleteWatchlist(id, { userId });
     setWatchlists((prev) => {
       const next = prev.filter((watchlist) => watchlist.id !== id);
       setSelectedId((currentId) => {
@@ -385,7 +421,7 @@ export function WatchlistManager() {
       name: nextName,
       updatedAt: new Date().toISOString(),
     };
-    await upsertWatchlist(updated);
+    await upsertWatchlist(updated, { userId });
     setWatchlists((prev) => prev.map((watchlist) => (watchlist.id === updated.id ? updated : watchlist)));
     setRenameError('');
   }
@@ -431,7 +467,7 @@ export function WatchlistManager() {
       },
       updatedAt: new Date().toISOString(),
     };
-    await upsertWatchlist(updated);
+    await upsertWatchlist(updated, { userId });
     setWatchlists((prev) => prev.map((w) => (w.id === updated.id ? normalizeWatchlist(updated) : w)));
     setAddSymbol('');
     setAddReason('');
@@ -450,7 +486,7 @@ export function WatchlistManager() {
       symbolProfiles,
       updatedAt: new Date().toISOString(),
     };
-    await upsertWatchlist(updated);
+    await upsertWatchlist(updated, { userId });
     setWatchlists((prev) => prev.map((w) => (w.id === updated.id ? normalizeWatchlist(updated) : w)));
     setNoteDrafts((previous) => {
       const next = { ...previous };
@@ -470,7 +506,7 @@ export function WatchlistManager() {
       },
       updatedAt: new Date().toISOString(),
     };
-    await upsertWatchlist(updated);
+    await upsertWatchlist(updated, { userId });
     setWatchlists((prev) => prev.map((w) => (w.id === updated.id ? normalizeWatchlist(updated) : w)));
   }
 
