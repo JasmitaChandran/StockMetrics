@@ -2851,7 +2851,7 @@ export function AgenticAiWorkbench() {
                   value={form.debtFdInterestAnnual}
                   onChange={(value) => updateField('debtFdInterestAnnual', value)}
                   info={FIELD_INFO.debtFdInterestAnnual}
-                  required={requiresIncomeSource}
+                  required={form.assets.debt > 0}
                   hint={debtFdInterestHint}
                 />
                 <NumberField label="Gold" value={form.assets.gold} onChange={(value) => updateAssets('gold', value)} info={FIELD_INFO.gold} />
