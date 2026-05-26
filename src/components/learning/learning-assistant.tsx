@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Bot, Send } from 'lucide-react';
 import { SectionCard } from '@/components/common/section-card';
 import { getAiProvider } from '@/lib/ai';
+import { cn } from '@/lib/utils/cn';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -13,6 +14,8 @@ interface Message {
 
 export function LearningAssistant({ docs }: { docs: Array<{ title: string; body: string }> }) {
   const [question, setQuestion] = useState('What is P/E ratio and how should a beginner use it?');
+  const [questionError, setQuestionError] = useState('');
+  const [asking, setAsking] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -22,12 +25,25 @@ export function LearningAssistant({ docs }: { docs: Array<{ title: string; body:
   const ai = useMemo(() => getAiProvider(), []);
 
   async function ask() {
-    if (!question.trim()) return;
+    if (asking) return;
+    if (!question.trim()) {
+      setQuestionError('Question is required.');
+      return;
+    }
+    setQuestionError('');
     const q = question.trim();
     setMessages((prev) => [...prev, { role: 'user', text: q }]);
     setQuestion('');
-    const res = await ai.answerLearningQuestion({ question: q, docs: docs.map((d) => `${d.title}\n${d.body}`) });
-    setMessages((prev) => [...prev, { role: 'assistant', text: res.answer, sources: res.sources }]);
+    setAsking(true);
+    try {
+      const res = await ai.answerLearningQuestion({ question: q, docs: docs.map((d) => `${d.title}\n${d.body}`) });
+      setMessages((prev) => [...prev, { role: 'assistant', text: res.answer, sources: res.sources }]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to answer right now.';
+      setMessages((prev) => [...prev, { role: 'assistant', text: message }]);
+    } finally {
+      setAsking(false);
+    }
   }
 
   return (
@@ -47,11 +63,29 @@ export function LearningAssistant({ docs }: { docs: Array<{ title: string; body:
             ))}
           </div>
           <div className="flex gap-2">
-            <textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} className="flex-1 rounded-xl border border-border bg-card p-3 text-sm" placeholder="Ask about ratios, statements, risk, diversification, valuation..." />
-            <button onClick={ask} className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white self-end">
+            <textarea
+              value={question}
+              onChange={(event) => {
+                const value = event.target.value;
+                setQuestion(value);
+                if (questionError && value.trim()) setQuestionError('');
+              }}
+              rows={3}
+              className={cn(
+                'flex-1 rounded-xl border bg-card p-3 text-sm',
+                questionError ? 'border-rose-400 focus:border-rose-500' : 'border-border',
+              )}
+              placeholder="Ask about ratios, statements, risk, diversification, valuation..."
+            />
+            <button
+              onClick={ask}
+              disabled={asking}
+              className="inline-flex self-end items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
               <Send className="h-4 w-4" /> Ask
             </button>
           </div>
+          {questionError ? <p className="text-xs text-rose-500">{questionError}</p> : null}
         </div>
       </SectionCard>
 

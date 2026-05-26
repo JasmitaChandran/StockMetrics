@@ -270,6 +270,7 @@ export function WatchlistManager() {
   const [watchlists, setWatchlists] = useState<WatchlistRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
   const [newName, setNewName] = useState('My Watchlist');
+  const [newNameError, setNewNameError] = useState('');
   const [renameName, setRenameName] = useState('');
   const [renameError, setRenameError] = useState('');
   const [addSymbol, setAddSymbol] = useState('HDFCBANK');
@@ -291,6 +292,7 @@ export function WatchlistManager() {
     setWatchlists([]);
     setSelectedId('');
     setNoteDrafts({});
+    setNewNameError('');
     setRenameError('');
     setAddSymbolError('');
 
@@ -351,9 +353,15 @@ export function WatchlistManager() {
   }
 
   async function createWatchlist() {
+    const cleanName = newName.trim();
+    if (!cleanName) {
+      setNewNameError('Watchlist name cannot be empty.');
+      return;
+    }
+    setNewNameError('');
     const record: WatchlistRecord = {
       id: crypto.randomUUID(),
-      name: newName.trim() || `Watchlist ${watchlists.length + 1}`,
+      name: cleanName,
       symbols: [],
       symbolProfiles: {},
       createdAt: new Date().toISOString(),
@@ -401,7 +409,10 @@ export function WatchlistManager() {
   async function addToCurrent(preferredMatch?: SearchEntity) {
     if (!current) return;
     const query = addSymbol.trim();
-    if (!query) return;
+    if (!query) {
+      setAddSymbolError('Symbol is required. Enter a stock or mutual fund symbol.');
+      return;
+    }
 
     const normalizedQuery = query.toUpperCase();
     const exactSuggestion = addSymbolSuggestions.find(
@@ -498,7 +509,10 @@ export function WatchlistManager() {
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
             <input
               value={newName}
-              onChange={(e) => setNewName(e.target.value)}
+              onChange={(event) => {
+                setNewName(event.target.value);
+                if (newNameError) setNewNameError('');
+              }}
               className="min-w-0 rounded-xl border border-border bg-card px-3 py-2 text-sm"
               placeholder="Watchlist name"
             />
@@ -506,6 +520,7 @@ export function WatchlistManager() {
               <Plus className="h-4 w-4" /> New
             </button>
           </div>
+          {newNameError ? <p className="text-xs text-rose-500">{newNameError}</p> : null}
           {watchlists.length ? (
             <div className="space-y-2">
               {watchlists.map((w) => {

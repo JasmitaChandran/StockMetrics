@@ -1199,7 +1199,10 @@ function PeerComparisonPanel({ bundle }: { bundle: StockDetailBundle }) {
 
   function addManualPeer(preferredMatch?: SearchEntity) {
     const query = manual.trim();
-    if (!query) return;
+    if (!query) {
+      setManualError('Peer symbol is required.');
+      return;
+    }
     const safePreferredMatch = isSearchEntity(preferredMatch) ? preferredMatch : undefined;
     const normalizedQuery = query.toUpperCase();
     const exactSuggestion = visibleManualSuggestions.find(

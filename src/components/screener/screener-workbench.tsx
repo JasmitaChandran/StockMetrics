@@ -956,6 +956,31 @@ export function ScreenerWorkbench() {
   }, [hydratedBaseRows]);
 
   const activeById = useMemo(() => new Map(activeFilters.map((active) => [active.filterId, active])), [activeFilters]);
+  const numericFilterErrors = useMemo(() => {
+    const errors: Record<string, string> = {};
+    for (const active of activeFilters) {
+      if (active.kind !== 'numeric') continue;
+      const definition = FILTER_DEFINITION_BY_ID[active.filterId];
+      if (!definition || definition.kind !== 'numeric') continue;
+      const minRaw = active.min.trim();
+      const maxRaw = active.max.trim();
+      const minValue = minRaw ? Number(minRaw) : undefined;
+      const maxValue = maxRaw ? Number(maxRaw) : undefined;
+
+      if (minRaw && !Number.isFinite(minValue)) {
+        errors[active.filterId] = `${definition.label}: enter a valid minimum number.`;
+        continue;
+      }
+      if (maxRaw && !Number.isFinite(maxValue)) {
+        errors[active.filterId] = `${definition.label}: enter a valid maximum number.`;
+        continue;
+      }
+      if (typeof minValue === 'number' && typeof maxValue === 'number' && minValue > maxValue) {
+        errors[active.filterId] = `${definition.label}: minimum cannot be greater than maximum.`;
+      }
+    }
+    return errors;
+  }, [activeFilters]);
   const filteredRows = useMemo(() => applyAdvancedFilters(hydratedBaseRows, activeFilters), [hydratedBaseRows, activeFilters]);
 
   const rows = useMemo(() => sortRows(filteredRows, sortConfig.field, sortConfig.direction), [filteredRows, sortConfig]);
@@ -1182,6 +1207,11 @@ export function ScreenerWorkbench() {
   const return1mEntry = activeById.get('return-1m');
   const return1mMin = return1mEntry?.kind === 'numeric' ? return1mEntry.min : '';
   const return1mMax = return1mEntry?.kind === 'numeric' ? return1mEntry.max : '';
+  const numericInputClass = (filterId: string) =>
+    cn(
+      'w-full rounded-md border bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card',
+      numericFilterErrors[filterId] ? 'border-rose-400 focus:border-rose-500' : 'border-slate-300',
+    );
 
   const showingFrom = rows.length ? 1 : 0;
   const showingTo = rows.length;
@@ -1236,7 +1266,7 @@ export function ScreenerWorkbench() {
                 onChange={(event) => setNumericBounds('pe', peMin, event.target.value)}
                 inputMode="decimal"
                 placeholder="e.g. 20"
-                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+                className={numericInputClass('pe')}
               />
             </label>
 
@@ -1247,7 +1277,7 @@ export function ScreenerWorkbench() {
                 onChange={(event) => setNumericBounds('pb', pbMin, event.target.value)}
                 inputMode="decimal"
                 placeholder="e.g. 4"
-                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+                className={numericInputClass('pb')}
               />
             </label>
 
@@ -1258,7 +1288,7 @@ export function ScreenerWorkbench() {
                 onChange={(event) => setNumericBounds('ev-ebitda', evEbitdaMin, event.target.value)}
                 inputMode="decimal"
                 placeholder="e.g. 15"
-                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+                className={numericInputClass('ev-ebitda')}
               />
             </label>
 
@@ -1269,7 +1299,7 @@ export function ScreenerWorkbench() {
                 onChange={(event) => setNumericBounds('price-to-sales', priceToSalesMin, event.target.value)}
                 inputMode="decimal"
                 placeholder="e.g. 5"
-                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+                className={numericInputClass('price-to-sales')}
               />
             </label>
 
@@ -1280,7 +1310,7 @@ export function ScreenerWorkbench() {
                 onChange={(event) => setNumericBounds('peg-ratio', pegRatioMin, event.target.value)}
                 inputMode="decimal"
                 placeholder="e.g. 1.5"
-                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+                className={numericInputClass('peg-ratio')}
               />
             </label>
 
@@ -1291,7 +1321,7 @@ export function ScreenerWorkbench() {
                 onChange={(event) => setNumericBounds('dividend-yield', event.target.value, dividendYieldMax)}
                 inputMode="decimal"
                 placeholder="e.g. 1"
-                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+                className={numericInputClass('dividend-yield')}
               />
             </label>
 
@@ -1302,7 +1332,7 @@ export function ScreenerWorkbench() {
                 onChange={(event) => setNumericBounds('roe', event.target.value, roeMax)}
                 inputMode="decimal"
                 placeholder="e.g. 15"
-                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+                className={numericInputClass('roe')}
               />
             </label>
 
@@ -1313,7 +1343,7 @@ export function ScreenerWorkbench() {
                 onChange={(event) => setNumericBounds('debt-to-equity', debtToEquityMin, event.target.value)}
                 inputMode="decimal"
                 placeholder="e.g. 1"
-                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+                className={numericInputClass('debt-to-equity')}
               />
             </label>
 
@@ -1324,7 +1354,7 @@ export function ScreenerWorkbench() {
                 onChange={(event) => setNumericBounds('return-1m', event.target.value, return1mMax)}
                 inputMode="decimal"
                 placeholder="e.g. 3"
-                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+                className={numericInputClass('return-1m')}
               />
             </label>
 
@@ -1335,10 +1365,17 @@ export function ScreenerWorkbench() {
                 onChange={(event) => setNumericBounds('roce', event.target.value, roceMax)}
                 inputMode="decimal"
                 placeholder="e.g. 15"
-                className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm dark:border-border dark:bg-card"
+                className={numericInputClass('roce')}
               />
             </label>
           </div>
+          {Object.values(numericFilterErrors).length ? (
+            <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">
+              {Object.entries(numericFilterErrors).map(([filterId, message]) => (
+                <p key={filterId}>{message}</p>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-3 text-sm dark:border-border">

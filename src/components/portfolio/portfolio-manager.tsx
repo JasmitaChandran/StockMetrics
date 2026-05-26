@@ -83,6 +83,9 @@ export function PortfolioManager() {
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [quantityInput, setQuantityInput] = useState('');
   const [priceInput, setPriceInput] = useState('');
+  const [symbolError, setSymbolError] = useState('');
+  const [quantityError, setQuantityError] = useState('');
+  const [priceError, setPriceError] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const dateInputRef = useRef<HTMLInputElement>(null);
   const debouncedSymbolQuery = useDebouncedValue(symbol, 250);
@@ -100,6 +103,9 @@ export function PortfolioManager() {
     setSelectedSymbolSuggestion(null);
     setQuantityInput('');
     setPriceInput('');
+    setSymbolError('');
+    setQuantityError('');
+    setPriceError('');
 
     async function loadPortfolio() {
       const records = await listPortfolioTxns({ userId });
@@ -116,6 +122,7 @@ export function PortfolioManager() {
   function pickSymbolSuggestion(entity: SearchEntity) {
     setSymbol(entity.displaySymbol);
     setSelectedSymbolSuggestion(entity);
+    setSymbolError('');
   }
 
   function openDatePicker() {
@@ -127,10 +134,33 @@ export function PortfolioManager() {
 
   async function addTxn(preferredMatch?: SearchEntity) {
     const normalizedSymbol = symbol.trim().toUpperCase();
-    if (!normalizedSymbol) return;
     const quantity = Number(quantityInput);
     const price = Number(priceInput);
-    if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(price) || price <= 0) return;
+    let hasInvalidInput = false;
+
+    if (!normalizedSymbol) {
+      setSymbolError('Symbol is required.');
+      hasInvalidInput = true;
+    } else {
+      setSymbolError('');
+    }
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setQuantityError('Quantity must be greater than 0.');
+      hasInvalidInput = true;
+    } else {
+      setQuantityError('');
+    }
+
+    if (!Number.isFinite(price) || price <= 0) {
+      setPriceError('Price must be greater than 0.');
+      hasInvalidInput = true;
+    } else {
+      setPriceError('');
+    }
+
+    if (hasInvalidInput) return;
+
     const exactSuggestion = symbolSuggestions.find(
       (entity) => entity.symbol.toUpperCase() === normalizedSymbol || entity.displaySymbol.toUpperCase() === normalizedSymbol,
     );
@@ -139,6 +169,11 @@ export function PortfolioManager() {
       selectedSymbolSuggestion ??
       exactSuggestion ??
       demoUniverse.find((entity) => entity.symbol.toUpperCase() === normalizedSymbol || entity.displaySymbol.toUpperCase() === normalizedSymbol);
+
+    if (!match) {
+      setSymbolError('Select a valid symbol from suggestions.');
+      return;
+    }
 
     const finalSymbol = match?.symbol ?? normalizedSymbol;
     const txn: PortfolioTxn = {
@@ -156,6 +191,9 @@ export function PortfolioManager() {
     setQuantityInput('');
     setPriceInput('');
     setSelectedSymbolSuggestion(null);
+    setSymbolError('');
+    setQuantityError('');
+    setPriceError('');
   }
 
   const holdings = useMemo(() => deriveHoldings(txns), [txns]);
@@ -172,40 +210,77 @@ export function PortfolioManager() {
     <div className="space-y-6">
       <SectionCard title="Portfolio" subtitle="Add buy/sell transactions">
         <div className="grid gap-3 md:grid-cols-[minmax(220px,1.6fr)_120px_120px_140px_180px_auto]">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              value={symbol}
-              onChange={(event) => {
-                const value = event.target.value;
-                setSymbol(value);
-                setSelectedSymbolSuggestion(null);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Tab' && hasSymbolQuery && visibleSymbolSuggestions.length) {
-                  event.preventDefault();
-                  pickSymbolSuggestion(visibleSymbolSuggestions[0]);
-                  return;
-                }
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  if (showSymbolSuggestions && visibleSymbolSuggestions.length) {
-                    void addTxn(visibleSymbolSuggestions[0]);
+          <div className="space-y-1">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={symbol}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setSymbol(value);
+                  setSelectedSymbolSuggestion(null);
+                  if (symbolError) setSymbolError('');
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Tab' && hasSymbolQuery && visibleSymbolSuggestions.length) {
+                    event.preventDefault();
+                    pickSymbolSuggestion(visibleSymbolSuggestions[0]);
                     return;
                   }
-                  void addTxn();
-                }
-              }}
-              placeholder="Search stock (e.g., AAPL, HDFCBANK)"
-              className="w-full rounded-xl border border-border bg-card py-2 pl-10 pr-3 text-sm"
-            />
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (showSymbolSuggestions && visibleSymbolSuggestions.length) {
+                      void addTxn(visibleSymbolSuggestions[0]);
+                      return;
+                    }
+                    void addTxn();
+                  }
+                }}
+                placeholder="Search stock (e.g., AAPL, HDFCBANK)"
+                className={cn(
+                  'w-full rounded-xl border bg-card py-2 pl-10 pr-3 text-sm',
+                  symbolError ? 'border-rose-400 focus:border-rose-500' : 'border-border',
+                )}
+              />
+            </div>
+            {symbolError ? <p className="text-xs text-rose-500">{symbolError}</p> : null}
           </div>
           <select value={side} onChange={(e) => setSide(e.target.value as 'buy' | 'sell')} className="rounded-xl border border-border bg-card px-3 py-2 text-sm">
             <option value="buy">Buy</option>
             <option value="sell">Sell</option>
           </select>
-          <input type="number" value={quantityInput} onChange={(e) => setQuantityInput(e.target.value)} placeholder="Qty" className="rounded-xl border border-border bg-card px-3 py-2 text-sm" />
-          <input type="number" value={priceInput} onChange={(e) => setPriceInput(e.target.value)} placeholder="Price" className="rounded-xl border border-border bg-card px-3 py-2 text-sm" />
+          <div className="space-y-1">
+            <input
+              type="number"
+              value={quantityInput}
+              onChange={(event) => {
+                setQuantityInput(event.target.value);
+                if (quantityError) setQuantityError('');
+              }}
+              placeholder="Qty"
+              className={cn(
+                'w-full rounded-xl border bg-card px-3 py-2 text-sm',
+                quantityError ? 'border-rose-400 focus:border-rose-500' : 'border-border',
+              )}
+            />
+            {quantityError ? <p className="text-xs text-rose-500">{quantityError}</p> : null}
+          </div>
+          <div className="space-y-1">
+            <input
+              type="number"
+              value={priceInput}
+              onChange={(event) => {
+                setPriceInput(event.target.value);
+                if (priceError) setPriceError('');
+              }}
+              placeholder="Price"
+              className={cn(
+                'w-full rounded-xl border bg-card px-3 py-2 text-sm',
+                priceError ? 'border-rose-400 focus:border-rose-500' : 'border-border',
+              )}
+            />
+            {priceError ? <p className="text-xs text-rose-500">{priceError}</p> : null}
+          </div>
           <div className="portfolio-date-field flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
             <input
               ref={dateInputRef}

@@ -155,6 +155,7 @@ export function QaWorkbench() {
   const [status, setStatus] = useState<QaStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [question, setQuestion] = useState('');
+  const [questionError, setQuestionError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [historyReady, setHistoryReady] = useState(false);
@@ -229,7 +230,12 @@ export function QaWorkbench() {
 
   async function submitQuestion(nextQuestion?: string) {
     const prompt = (nextQuestion ?? question).trim();
-    if (!prompt || submitting) return;
+    if (submitting) return;
+    if (!prompt) {
+      setQuestionError('Question is required.');
+      return;
+    }
+    setQuestionError('');
 
     const nextMessages: ChatMessage[] = [
       ...messages,
@@ -299,6 +305,10 @@ export function QaWorkbench() {
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
+      if (!question.trim()) {
+        setQuestionError('Question is required.');
+        return;
+      }
       if (!submitting && question.trim() && status?.available && status.modelInstalled) {
         void submitQuestion();
       }
@@ -392,12 +402,20 @@ export function QaWorkbench() {
           <div className="rounded-2xl border border-border bg-card/80 p-3">
             <textarea
               value={question}
-              onChange={(event) => setQuestion(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setQuestion(value);
+                if (questionError && value.trim()) setQuestionError('');
+              }}
               onKeyDown={handleKeyDown}
               rows={4}
-              className="min-h-[132px] w-full resize-none rounded-xl border border-border bg-transparent p-3 text-sm outline-none transition focus:border-accent"
+              className={cn(
+                'min-h-[132px] w-full resize-none rounded-xl border bg-transparent p-3 text-sm outline-none transition',
+                questionError ? 'border-rose-400 focus:border-rose-500' : 'border-border focus:border-accent',
+              )}
               placeholder="Ask me"
             />
+            {questionError ? <p className="mt-2 text-xs text-rose-500">{questionError}</p> : null}
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                 Press Enter to send. Use Shift+Enter for a new line.
