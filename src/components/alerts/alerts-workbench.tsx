@@ -31,9 +31,19 @@ function conditionText(alert: PriceAlertRecord) {
     : `Below ${formatNumber(alert.targetPrice, 2)}`;
 }
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function resolveAlertNotificationEmail(alert: PriceAlertRecord, fallbackEmail?: string | null) {
+  return alert.notifyEmailTo?.trim() || fallbackEmail?.trim() || '';
+}
+
 export function AlertsWorkbench() {
   const user = useAuthStore((s) => s.user);
   const authLoading = useAuthStore((s) => s.loading);
+  const userId = user?.id;
+  const userEmail = user?.email;
 
   const [alerts, setAlerts] = useState<PriceAlertRecord[]>([]);
   const [messages, setMessages] = useState<AlertMessageRecord[]>([]);
@@ -49,6 +59,7 @@ export function AlertsWorkbench() {
   const [direction, setDirection] = useState<'above' | 'below'>('above');
   const [targetPrice, setTargetPrice] = useState('');
   const [notifyEmail, setNotifyEmail] = useState(true);
+  const [notifyEmailTo, setNotifyEmailTo] = useState('');
 
   async function refreshData() {
     if (!user) {
@@ -83,6 +94,14 @@ export function AlertsWorkbench() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!userId) {
+      setNotifyEmailTo('');
+      return;
+    }
+    setNotifyEmailTo(userEmail?.trim() ?? '');
+  }, [userId, userEmail]);
+
   const enabledCount = useMemo(
     () => alerts.filter((alert) => alert.enabled).length,
     [alerts],
@@ -92,6 +111,8 @@ export function AlertsWorkbench() {
     if (!user) return;
     const normalizedSymbol = symbol.trim().toUpperCase();
     const target = Number(targetPrice);
+    const customNotificationEmail = notifyEmailTo.trim();
+    const notificationEmail = customNotificationEmail || user.email?.trim() || '';
 
     if (!normalizedSymbol) {
       setError('Please enter a stock symbol.');
@@ -100,6 +121,11 @@ export function AlertsWorkbench() {
 
     if (!Number.isFinite(target) || target <= 0) {
       setError('Please enter a valid target price above zero.');
+      return;
+    }
+
+    if (notifyEmail && !isValidEmail(notificationEmail)) {
+      setError('Please enter a valid notification email for this alert.');
       return;
     }
 
@@ -116,6 +142,7 @@ export function AlertsWorkbench() {
         targetPrice: target,
         enabled: true,
         notifyEmail,
+        notifyEmailTo: notificationEmail || undefined,
         createdAt: now,
         updatedAt: now,
         lastConditionMet: false,
@@ -143,6 +170,26 @@ export function AlertsWorkbench() {
 
   async function removeAlert(id: string) {
     await deletePriceAlert(id);
+    await refreshData();
+  }
+
+  async function changeAlertNotificationEmail(alert: PriceAlertRecord) {
+    const currentEmail = resolveAlertNotificationEmail(alert, user?.email);
+    const nextValue = window.prompt('Enter notification email for this alert.', currentEmail);
+    if (nextValue === null) return;
+
+    const nextEmail = nextValue.trim();
+    if (!isValidEmail(nextEmail)) {
+      setError('Please enter a valid email address to save notification settings.');
+      return;
+    }
+
+    setError(null);
+    await upsertPriceAlert({
+      ...alert,
+      notifyEmailTo: nextEmail,
+      updatedAt: new Date().toISOString(),
+    });
     await refreshData();
   }
 
@@ -293,7 +340,7 @@ export function AlertsWorkbench() {
                   onChange={(event) => setNotifyEmail(event.target.checked)}
                   className="h-4 w-4 rounded border-border"
                 />
-                Send email to {user.email || 'signed-in account'}
+                Send email notification
               </label>
 
               <button
@@ -307,12 +354,25 @@ export function AlertsWorkbench() {
               </button>
             </div>
 
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                Notification Email
+              </label>
+              <input
+                type="email"
+                value={notifyEmailTo}
+                onChange={(event) => setNotifyEmailTo(event.target.value)}
+                placeholder={user.email || 'you@example.com'}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
+              />
+            </div>
+
             {error ? (
               <p className="mt-3 text-xs text-negative">{error}</p>
             ) : null}
-            {!user.email ? (
+            {notifyEmail && !notifyEmailTo.trim() && !user.email ? (
               <p className="mt-2 text-xs text-amber-600 dark:text-amber-300">
-                No email found for this account, so Gmail notification will fail until an email is available.
+                No email found for this account. Add a notification email above to send alerts.
               </p>
             ) : null}
           </div>
@@ -337,6 +397,11 @@ export function AlertsWorkbench() {
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         {alert.market.toUpperCase()} • {conditionText(alert)}
                       </p>
+                      {alert.notifyEmail ? (
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          Email: {resolveAlertNotificationEmail(alert, user.email) || 'Not set'}
+                        </p>
+                      ) : null}
                       {alert.lastTriggeredAt ? (
                         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                           Last triggered: {formatDateTime(alert.lastTriggeredAt)} at{' '}
@@ -358,6 +423,15 @@ export function AlertsWorkbench() {
                       >
                         {alert.enabled ? 'Enabled' : 'Disabled'}
                       </button>
+                      {alert.notifyEmail ? (
+                        <button
+                          type="button"
+                          onClick={() => void changeAlertNotificationEmail(alert)}
+                          className="rounded-xl border border-border px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-muted/40 dark:text-slate-300"
+                        >
+                          Change Email
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => void removeAlert(alert.id)}

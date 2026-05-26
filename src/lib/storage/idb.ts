@@ -73,6 +73,7 @@ export interface PriceAlertRecord {
   targetPrice: number;
   enabled: boolean;
   notifyEmail: boolean;
+  notifyEmailTo?: string;
   createdAt: string;
   updatedAt: string;
   lastConditionMet: boolean;

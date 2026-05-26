@@ -12,6 +12,10 @@ import { useAuthStore } from '@/stores/auth-store';
 
 const ALERT_POLL_INTERVAL_MS = 45_000;
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 async function fetchLatestQuote(symbol: string, market: 'us' | 'india' | 'mf') {
   const response = await fetch(
     `/api/market/quote?symbol=${encodeURIComponent(symbol)}&market=${market}`,
@@ -107,17 +111,21 @@ export function AlertBackgroundMonitor() {
           let emailError: string | undefined;
 
           if (alert.notifyEmail) {
-            if (currentUser.email) {
+            const recipientEmail = alert.notifyEmailTo?.trim() || currentUser.email?.trim() || '';
+            if (recipientEmail && isValidEmail(recipientEmail)) {
               const email = await notifyByEmail(
-                currentUser.email,
+                recipientEmail,
                 alertContent.subject,
                 alertContent.body,
               );
               emailStatus = email.status;
               emailError = email.error;
+            } else if (recipientEmail) {
+              emailStatus = 'failed';
+              emailError = 'Notification email address is invalid.';
             } else {
               emailStatus = 'failed';
-              emailError = 'No signed-in email found for this account.';
+              emailError = 'No notification email found for this alert.';
             }
           }
 
