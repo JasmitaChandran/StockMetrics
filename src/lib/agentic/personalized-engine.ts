@@ -85,6 +85,7 @@ export interface LoanInput {
 export interface InsurancePolicyInput {
   id: string;
   type: 'life' | 'health' | 'vehicle' | 'home' | 'travel' | 'other';
+  coverAmount: number;
   monthlyPremium: number;
   benefitSource: 'self' | 'office' | 'family' | 'government' | 'other';
 }
@@ -565,6 +566,7 @@ function normalizeInsurancePolicies(policies: InsurancePolicyInput[] | undefined
   return policies.map((policy, index) => ({
     id: policy?.id?.trim() || `policy-${index + 1}`,
     type: normalizeInsuranceType(policy?.type ?? 'other'),
+    coverAmount: Number.isFinite(policy?.coverAmount) ? Math.max(0, policy.coverAmount) : 0,
     monthlyPremium: Number.isFinite(policy?.monthlyPremium) ? Math.max(0, policy.monthlyPremium) : 0,
     benefitSource: normalizeInsuranceBenefitSource(policy?.benefitSource ?? 'other'),
   }));
@@ -776,6 +778,9 @@ function validateAgenticInput(input: AgenticFormInput) {
     }
   }
   for (const policy of input.insurancePolicies) {
+    if (!Number.isFinite(policy.coverAmount) || policy.coverAmount < 0) {
+      throw new Error('Insurance cover amount must be a non-negative number.');
+    }
     if (!Number.isFinite(policy.monthlyPremium) || policy.monthlyPremium < 0) {
       throw new Error('Insurance monthly premium must be a non-negative number.');
     }

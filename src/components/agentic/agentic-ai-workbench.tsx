@@ -246,7 +246,7 @@ const FIELD_INFO = {
   cashSavings: [{ label: 'Use', detail: 'Bank balance and liquid savings available right now.' }],
   insuranceCover: [{ label: 'Use', detail: 'Total active insurance cover across all policies for household protection.' }],
   insurancePolicies: [
-    { label: 'Use', detail: 'Add each insurance type separately and enter its monthly premium.' },
+    { label: 'Use', detail: 'Add each insurance type separately with cover amount and monthly premium.' },
     { label: 'Source', detail: 'Mark if coverage comes from office benefit or any other source.' },
   ],
   debtFdInterestAnnual: [{ label: 'Use', detail: 'Annual interest received from debt funds, FDs, or bonds.' }],
@@ -316,6 +316,7 @@ function createBlankInsurancePolicy(): InsurancePolicyInput {
   return {
     id: crypto.randomUUID(),
     type: 'health',
+    coverAmount: 0,
     monthlyPremium: 0,
     benefitSource: 'self',
   };
@@ -634,6 +635,10 @@ function officeInsuranceBenefitMonthly(form: Pick<AgenticFormInput, 'insurancePo
   return sum(form.insurancePolicies.filter((policy) => policy.benefitSource === 'office').map((policy) => policy.monthlyPremium));
 }
 
+function insuranceCoverTotalFromPolicies(policies: InsurancePolicyInput[]) {
+  return sum(policies.map((policy) => policy.coverAmount));
+}
+
 function listMissingCompulsoryFields(
   selectionState: Partial<ProfileSelectSelectionState> | undefined,
   loans: LoanInput[],
@@ -700,11 +705,12 @@ function validateFormInput(
     form.debtFdInterestAnnual,
     ...Object.values(form.assets),
     ...Object.values(form.retirement),
+    ...form.insurancePolicies.map((policy) => policy.coverAmount),
     ...form.insurancePolicies.map((policy) => policy.monthlyPremium),
     ...form.loans.flatMap((loan) => [loan.outstandingAmount, loan.monthlyEmi, loan.interestRate]),
   ];
   if (nonNegativePool.some((value) => value < 0)) {
-    return 'Assets, retirement, insurance premium, and loan values must be non-negative.';
+    return 'Assets, retirement, insurance cover/premium, and loan values must be non-negative.';
   }
   if (form.effectiveTaxRate < 0 || form.effectiveTaxRate > 60) return 'Effective tax rate must be between 0% and 60%.';
   if (form.expectedReturnTarget < 0 || form.expectedReturnTarget > 40) return 'Expected return target must be between 0% and 40%.';
@@ -2212,6 +2218,8 @@ export function AgenticAiWorkbench() {
   const totalEmiPreview = sum(form.loans.map((loan) => loan.monthlyEmi));
   const householdInsurancePremiumPreview = householdInsurancePremiumMonthly(form);
   const officeInsuranceBenefitPreview = officeInsuranceBenefitMonthly(form);
+  const insurancePolicies = form.insurancePolicies;
+  const insuranceCoverPreview = insuranceCoverTotalFromPolicies(insurancePolicies);
   const monthlyBurnPreview = form.monthlyFixedExpenses + form.monthlyDiscretionaryExpenses + householdInsurancePremiumPreview + totalEmiPreview;
   const monthlyReliableIncomePreview = form.monthlyIncome + form.debtFdInterestAnnual / 12;
   const requiresIncomeSource = form.employmentType !== 'unemployed' && form.employmentType !== 'retired';
@@ -2282,6 +2290,14 @@ export function AgenticAiWorkbench() {
   const progressIsComplete = progress?.phase === 'completed';
   const screenedTotal = typeof progress?.screenedTotal === 'number' ? progress.screenedTotal : null;
   const deepAnalyzed = progress?.deepAnalyzed ?? progress?.analyzed ?? 0;
+
+  useEffect(() => {
+    const calculatedCover = insuranceCoverTotalFromPolicies(insurancePolicies);
+    setForm((prev) => {
+      if (Math.abs(prev.insuranceCover - calculatedCover) < 0.01) return prev;
+      return { ...prev, insuranceCover: calculatedCover };
+    });
+  }, [insurancePolicies]);
 
   function updateField<K extends keyof AgenticFormInput>(key: K, value: AgenticFormInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -2862,7 +2878,12 @@ export function AgenticAiWorkbench() {
                   value={form.insuranceCover}
                   onChange={(value) => updateField('insuranceCover', value)}
                   info={FIELD_INFO.insuranceCover}
-                  hint="Enter total combined cover across all active insurance plans."
+                  disabled={form.insurancePolicies.length > 0}
+                  hint={
+                    form.insurancePolicies.length > 0
+                      ? `Auto-calculated from policies: ${formatCurrency(insuranceCoverPreview, displayCurrency)}`
+                      : 'Add insurance policies to auto-calculate this value.'
+                  }
                 />
                 <NumberField label="Alternatives" value={form.assets.alternatives} onChange={(value) => updateAssets('alternatives', value)} info={FIELD_INFO.alternatives} />
               </div>
@@ -2871,11 +2892,14 @@ export function AgenticAiWorkbench() {
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <FieldShell
                     label="Insurance Policies"
-                    hint="Add one row per insurance type and monthly premium. Mark if it is office-provided or from another source."
+                    hint="Add one row per insurance type with cover amount and monthly premium. Mark if it is office-provided or from another source."
                     info={FIELD_INFO.insurancePolicies}
                     className="w-full"
                   >
-                    <div className="grid gap-2 text-xs text-slate-600 dark:text-slate-300 md:grid-cols-2">
+                    <div className="grid gap-2 text-xs text-slate-600 dark:text-slate-300 md:grid-cols-3">
+                      <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/50">
+                        Total cover amount: {formatCurrency(insuranceCoverPreview, displayCurrency)}
+                      </div>
                       <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/50">
                         Monthly premium (self/family/other): {formatCurrency(householdInsurancePremiumPreview, displayCurrency)}
                       </div>
@@ -2898,7 +2922,7 @@ export function AgenticAiWorkbench() {
                   <div className="space-y-3">
                     {form.insurancePolicies.map((policy) => (
                       <div key={policy.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-900/60">
-                        <div className="grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto]">
+                        <div className="grid gap-4 md:grid-cols-[1fr_1fr_1fr_1fr_auto]">
                           <FieldShell label="Type" className="w-full">
                             <select
                               value={policy.type}
@@ -2912,6 +2936,11 @@ export function AgenticAiWorkbench() {
                               ))}
                             </select>
                           </FieldShell>
+                          <NumberField
+                            label="Cover Amount"
+                            value={policy.coverAmount}
+                            onChange={(value) => updateInsurancePolicy(policy.id, 'coverAmount', value)}
+                          />
                           <NumberField
                             label="Premium / Month"
                             value={policy.monthlyPremium}
