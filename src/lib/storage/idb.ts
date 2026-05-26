@@ -74,6 +74,8 @@ export interface PriceAlertRecord {
   enabled: boolean;
   notifyEmail: boolean;
   notifyEmailTo?: string;
+  notifyWhatsApp?: boolean;
+  notifyWhatsAppTo?: string;
   createdAt: string;
   updatedAt: string;
   lastConditionMet: boolean;
@@ -94,6 +96,14 @@ export interface AlertMessageRecord {
   message: string;
   emailStatus: 'sent' | 'failed' | 'skipped';
   emailError?: string;
+  whatsappStatus?: 'sent' | 'failed' | 'skipped';
+  whatsappError?: string;
+}
+
+export interface AlertContactSettings {
+  whatsappPhone?: string;
+  whatsappVerified: boolean;
+  whatsappVerifiedAt?: string;
 }
 
 export async function getDb() {

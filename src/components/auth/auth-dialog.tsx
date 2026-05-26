@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import { buildWelcomeWhatsAppMessage, notifyByWhatsApp } from '@/lib/alerts/whatsapp';
 import { getAuthAdapter } from '@/lib/auth';
+import { getAlertContactSettings } from '@/lib/storage/repositories';
 import { useAuthStore } from '@/stores/auth-store';
 
 export function AuthDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -14,6 +16,12 @@ export function AuthDialog({ open, onClose }: { open: boolean; onClose: () => vo
   if (!open) return null;
 
   const adapter = getAuthAdapter();
+
+  async function sendLoginWelcomeMessage(userId: string, displayName: string) {
+    const settings = await getAlertContactSettings({ userId });
+    if (!settings.whatsappVerified || !settings.whatsappPhone) return;
+    await notifyByWhatsApp(settings.whatsappPhone, buildWelcomeWhatsAppMessage(displayName));
+  }
 
   async function continueWithGoogle() {
     setLoading(true);
@@ -30,6 +38,7 @@ export function AuthDialog({ open, onClose }: { open: boolean; onClose: () => vo
         mode === 'register'
           ? await adapter.registerWithGoogle!()
           : await adapter.loginWithGoogle!();
+      void sendLoginWelcomeMessage(user.id, user.username || user.email || 'there');
       setUser(user);
       onClose();
     } catch (e) {

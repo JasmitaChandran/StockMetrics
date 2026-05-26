@@ -3,20 +3,85 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, Info, LogOut, Mail, ShieldAlert, ShieldCheck, UserCircle2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  LogOut,
+  Mail,
+  MessageCircle,
+  ShieldAlert,
+  ShieldCheck,
+  Smartphone,
+  UserCircle2,
+} from 'lucide-react';
+import { buildWelcomeWhatsAppMessage, notifyByWhatsApp } from '@/lib/alerts/whatsapp';
 import { getAuthAdapter } from '@/lib/auth';
+import {
+  getAlertContactSettings,
+  setAlertContactSettings,
+} from '@/lib/storage/repositories';
 import { useAuthStore } from '@/stores/auth-store';
+import {
+  isValidWhatsAppPhone,
+  maskPhoneNumber,
+  toE164Phone,
+} from '@/lib/utils/whatsapp';
+
+const OTP_EXPIRY_MS = 10 * 60 * 1000;
+
+function generateSixDigitOtp() {
+  return String(Math.floor(100_000 + Math.random() * 900_000));
+}
 
 export function AccountPageCard() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const userId = user?.id;
   const loadingSession = useAuthStore((s) => s.loading);
   const setUser = useAuthStore((s) => s.setUser);
 
   const [submitting, setSubmitting] = useState(false);
+  const [contactLoading, setContactLoading] = useState(true);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const [whatsAppPhone, setWhatsAppPhone] = useState('');
+  const [verifiedWhatsAppPhone, setVerifiedWhatsAppPhone] = useState('');
+  const [verifiedAt, setVerifiedAt] = useState<string | undefined>();
+  const [otpInput, setOtpInput] = useState('');
+  const [pendingOtp, setPendingOtp] = useState('');
+  const [pendingOtpPhone, setPendingOtpPhone] = useState('');
+  const [pendingOtpExpiry, setPendingOtpExpiry] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!userId) {
+      setContactLoading(false);
+      return;
+    }
+
+    setContactLoading(true);
+    void (async () => {
+      const settings = await getAlertContactSettings({ userId });
+      if (!active) return;
+      const normalizedPhone = toE164Phone(settings.whatsappPhone ?? '');
+      const verified =
+        Boolean(settings.whatsappVerified) && Boolean(normalizedPhone);
+
+      setWhatsAppPhone(normalizedPhone);
+      setVerifiedWhatsAppPhone(verified ? normalizedPhone : '');
+      setVerifiedAt(verified ? settings.whatsappVerifiedAt : undefined);
+      setContactLoading(false);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   async function logout() {
     setSubmitting(true);
@@ -54,8 +119,120 @@ export function AccountPageCard() {
     }
   }
 
+  async function sendOtpToWhatsApp() {
+    if (!user) return;
+    const normalizedPhone = toE164Phone(whatsAppPhone);
+    if (!isValidWhatsAppPhone(normalizedPhone)) {
+      setError(
+        'Please enter a valid WhatsApp number in international format (example: +14155552671).',
+      );
+      return;
+    }
+
+    setOtpSending(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const otpCode = generateSixDigitOtp();
+      const expiry = Date.now() + OTP_EXPIRY_MS;
+      const otpMessage = `Your Stock Metrics OTP is ${otpCode}. It expires in 10 minutes.`;
+      const delivery = await notifyByWhatsApp(normalizedPhone, otpMessage);
+      if (delivery.status === 'failed') {
+        throw new Error(delivery.error ?? 'Unable to send OTP to WhatsApp.');
+      }
+
+      setPendingOtp(otpCode);
+      setPendingOtpPhone(normalizedPhone);
+      setPendingOtpExpiry(expiry);
+      setOtpInput('');
+      setVerifiedWhatsAppPhone('');
+      setVerifiedAt(undefined);
+
+      await setAlertContactSettings(
+        {
+          whatsappPhone: normalizedPhone,
+          whatsappVerified: false,
+        },
+        { userId: user.id },
+      );
+
+      setSuccess(`OTP sent to ${normalizedPhone}.`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setOtpSending(false);
+    }
+  }
+
+  async function verifyOtpAndSavePhone() {
+    if (!user) return;
+    if (!pendingOtp || !pendingOtpPhone || !pendingOtpExpiry) {
+      setError('Please request an OTP first.');
+      return;
+    }
+
+    if (Date.now() > pendingOtpExpiry) {
+      setError('OTP expired. Please request a new code.');
+      return;
+    }
+
+    if (otpInput.trim() !== pendingOtp) {
+      setError('Incorrect OTP. Please try again.');
+      return;
+    }
+
+    setOtpVerifying(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const nowIso = new Date().toISOString();
+      await setAlertContactSettings(
+        {
+          whatsappPhone: pendingOtpPhone,
+          whatsappVerified: true,
+          whatsappVerifiedAt: nowIso,
+        },
+        { userId: user.id },
+      );
+
+      setVerifiedWhatsAppPhone(pendingOtpPhone);
+      setVerifiedAt(nowIso);
+      setWhatsAppPhone(pendingOtpPhone);
+      setPendingOtp('');
+      setPendingOtpPhone('');
+      setPendingOtpExpiry(null);
+      setOtpInput('');
+
+      const welcomeMessage = buildWelcomeWhatsAppMessage(
+        user.username || user.email || 'there',
+      );
+      const welcomeDelivery = await notifyByWhatsApp(
+        pendingOtpPhone,
+        welcomeMessage,
+      );
+      if (welcomeDelivery.status === 'failed') {
+        setSuccess(
+          'Phone verified successfully. Welcome message could not be delivered right now.',
+        );
+        return;
+      }
+
+      setSuccess(
+        'Phone verified successfully. Welcome message sent on WhatsApp.',
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setOtpVerifying(false);
+    }
+  }
+
   if (loadingSession) {
-    return <div className="h-[460px] animate-pulse rounded-2xl border border-border bg-card/70" />;
+    return (
+      <div className="h-[460px] animate-pulse rounded-2xl border border-border bg-card/70" />
+    );
   }
 
   if (!user) {
@@ -65,7 +242,9 @@ export function AccountPageCard() {
           <ShieldAlert className="h-5 w-5 text-amber-400" />
           <h1 className="text-xl font-semibold">No Account Signed In</h1>
         </div>
-        <p className="text-sm text-slate-500">Please login first to manage logout or permanent account deletion.</p>
+        <p className="text-sm text-slate-500">
+          Please login first to manage logout or permanent account deletion.
+        </p>
         <Link
           href="/login"
           className="mt-4 inline-flex items-center rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white"
@@ -75,6 +254,11 @@ export function AccountPageCard() {
       </div>
     );
   }
+
+  const isOtpActive =
+    Boolean(pendingOtpPhone) &&
+    Boolean(pendingOtpExpiry) &&
+    Date.now() <= (pendingOtpExpiry ?? 0);
 
   return (
     <div className="ui-panel glass mx-auto w-full max-w-xl rounded-2xl p-6 shadow-panel">
@@ -112,6 +296,63 @@ export function AccountPageCard() {
         </p>
       </div>
 
+      <div className="mt-4 rounded-xl border border-border bg-card/30 p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <MessageCircle className="h-4 w-4 text-emerald-500" />
+          <h2 className="text-sm font-semibold">WhatsApp Notifications</h2>
+        </div>
+        <p className="text-xs text-slate-500">
+          Add your phone number and verify it using OTP to receive alerts on WhatsApp.
+        </p>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <input
+            type="tel"
+            value={whatsAppPhone}
+            onChange={(event) => setWhatsAppPhone(event.target.value)}
+            placeholder="+14155552671"
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => void sendOtpToWhatsApp()}
+            disabled={contactLoading || otpSending || otpVerifying}
+            className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200"
+          >
+            {otpSending ? 'Sending...' : isOtpActive ? 'Resend OTP' : 'Send OTP'}
+          </button>
+        </div>
+
+        {verifiedWhatsAppPhone ? (
+          <p className="mt-2 inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Verified number: {maskPhoneNumber(verifiedWhatsAppPhone)}
+            {verifiedAt ? ` (${new Date(verifiedAt).toLocaleString()})` : ''}
+          </p>
+        ) : null}
+
+        {isOtpActive ? (
+          <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={otpInput}
+              onChange={(event) => setOtpInput(event.target.value.replace(/[^\d]/g, '').slice(0, 6))}
+              placeholder="Enter 6-digit OTP"
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => void verifyOtpAndSavePhone()}
+              disabled={otpVerifying}
+              className="rounded-xl bg-accent px-3 py-2 text-xs font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {otpVerifying ? 'Verifying...' : 'Verify OTP'}
+            </button>
+          </div>
+        ) : null}
+      </div>
+
       <p className="mt-3 inline-flex items-center gap-1 text-xs text-slate-500">
         <Info className="h-3.5 w-3.5" />
         All actions below apply only to this currently signed-in account.
@@ -144,6 +385,13 @@ export function AccountPageCard() {
         <p className="mt-3 inline-flex items-center gap-1 text-xs text-positive">
           <CheckCircle2 className="h-3.5 w-3.5" />
           {success}
+        </p>
+      ) : null}
+
+      {contactLoading ? (
+        <p className="mt-2 inline-flex items-center gap-1 text-xs text-slate-500">
+          <Smartphone className="h-3.5 w-3.5" />
+          Loading contact settings...
         </p>
       ) : null}
     </div>

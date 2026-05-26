@@ -1,5 +1,6 @@
 import {
   getDb,
+  type AlertContactSettings,
   type AlertMessageRecord,
   type CustomScreenRecord,
   type NoteRecord,
@@ -10,6 +11,7 @@ import {
 import { useAuthStore } from '@/stores/auth-store';
 
 const ANONYMOUS_SCOPE_USER_ID = '__anonymous__';
+const ALERT_CONTACT_SETTINGS_KEY = 'alert-contact-settings';
 
 type UserScopedOptions = {
   userId?: string | null;
@@ -112,6 +114,18 @@ export async function setKv<T>(key: string, value: T, options?: KvOptions) {
   const db = await getDb();
   const storageKey = getScopedKvStorageKey(key, options);
   await db.put('kv', { key: storageKey, value, updatedAt: new Date().toISOString() });
+}
+
+export async function getAlertContactSettings(options?: UserScopedOptions): Promise<AlertContactSettings> {
+  const existing = await getKv<AlertContactSettings>(ALERT_CONTACT_SETTINGS_KEY, options);
+  return existing ?? { whatsappVerified: false };
+}
+
+export async function setAlertContactSettings(
+  settings: AlertContactSettings,
+  options?: UserScopedOptions,
+) {
+  await setKv<AlertContactSettings>(ALERT_CONTACT_SETTINGS_KEY, settings, options);
 }
 
 export async function listPriceAlerts(userId?: string): Promise<PriceAlertRecord[]> {

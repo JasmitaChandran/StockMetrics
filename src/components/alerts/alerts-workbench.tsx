@@ -14,6 +14,7 @@ import {
   deleteAlertMessage,
   deleteAlertMessagesForUser,
   deletePriceAlert,
+  getAlertContactSettings,
   listAlertMessages,
   listPriceAlerts,
   upsertPriceAlert,
@@ -21,6 +22,7 @@ import {
 import type { AlertMessageRecord, PriceAlertRecord } from '@/lib/storage/idb';
 import { formatDateTime, formatNumber } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
+import { isValidWhatsAppPhone, toE164Phone } from '@/lib/utils/whatsapp';
 import { useAuthStore } from '@/stores/auth-store';
 
 const MESSAGE_REFRESH_MS = 20_000;
@@ -37,6 +39,10 @@ function isValidEmail(email: string) {
 
 function resolveAlertNotificationEmail(alert: PriceAlertRecord, fallbackEmail?: string | null) {
   return alert.notifyEmailTo?.trim() || fallbackEmail?.trim() || '';
+}
+
+function resolveAlertNotificationPhone(alert: PriceAlertRecord, fallbackPhone?: string | null) {
+  return toE164Phone(alert.notifyWhatsAppTo?.trim() || fallbackPhone?.trim() || '');
 }
 
 export function AlertsWorkbench() {
@@ -60,6 +66,9 @@ export function AlertsWorkbench() {
   const [targetPrice, setTargetPrice] = useState('');
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [notifyEmailTo, setNotifyEmailTo] = useState('');
+  const [notifyWhatsApp, setNotifyWhatsApp] = useState(false);
+  const [notifyWhatsAppTo, setNotifyWhatsAppTo] = useState('');
+  const [accountWhatsappVerified, setAccountWhatsappVerified] = useState(false);
 
   async function refreshData() {
     if (!user) {
@@ -95,11 +104,24 @@ export function AlertsWorkbench() {
   }, [user?.id]);
 
   useEffect(() => {
+    let active = true;
     if (!userId) {
       setNotifyEmailTo('');
+      setNotifyWhatsAppTo('');
+      setAccountWhatsappVerified(false);
       return;
     }
     setNotifyEmailTo(userEmail?.trim() ?? '');
+    void (async () => {
+      const settings = await getAlertContactSettings({ userId });
+      if (!active) return;
+      setNotifyWhatsAppTo(toE164Phone(settings.whatsappPhone ?? ''));
+      setAccountWhatsappVerified(Boolean(settings.whatsappVerified && settings.whatsappPhone));
+    })();
+
+    return () => {
+      active = false;
+    };
   }, [userId, userEmail]);
 
   const enabledCount = useMemo(
@@ -113,6 +135,7 @@ export function AlertsWorkbench() {
     const target = Number(targetPrice);
     const customNotificationEmail = notifyEmailTo.trim();
     const notificationEmail = customNotificationEmail || user.email?.trim() || '';
+    const notificationPhone = toE164Phone(notifyWhatsAppTo);
 
     if (!normalizedSymbol) {
       setError('Please enter a stock symbol.');
@@ -126,6 +149,11 @@ export function AlertsWorkbench() {
 
     if (notifyEmail && !isValidEmail(notificationEmail)) {
       setError('Please enter a valid notification email for this alert.');
+      return;
+    }
+
+    if (notifyWhatsApp && !isValidWhatsAppPhone(notificationPhone)) {
+      setError('Please enter a valid WhatsApp number in international format (example: +14155552671).');
       return;
     }
 
@@ -143,6 +171,8 @@ export function AlertsWorkbench() {
         enabled: true,
         notifyEmail,
         notifyEmailTo: notificationEmail || undefined,
+        notifyWhatsApp,
+        notifyWhatsAppTo: notificationPhone || undefined,
         createdAt: now,
         updatedAt: now,
         lastConditionMet: false,
@@ -193,6 +223,30 @@ export function AlertsWorkbench() {
     await refreshData();
   }
 
+  async function changeAlertNotificationPhone(alert: PriceAlertRecord) {
+    const currentPhone = resolveAlertNotificationPhone(alert, notifyWhatsAppTo);
+    const nextValue = window.prompt(
+      'Enter WhatsApp number for this alert in international format (example: +14155552671).',
+      currentPhone,
+    );
+    if (nextValue === null) return;
+
+    const nextPhone = toE164Phone(nextValue);
+    if (!isValidWhatsAppPhone(nextPhone)) {
+      setError('Please enter a valid WhatsApp number in international format.');
+      return;
+    }
+
+    setError(null);
+    await upsertPriceAlert({
+      ...alert,
+      notifyWhatsApp: true,
+      notifyWhatsAppTo: nextPhone,
+      updatedAt: new Date().toISOString(),
+    });
+    await refreshData();
+  }
+
   async function removeMessage(id: string) {
     setDeletingMessageId(id);
     setMessageError(null);
@@ -237,7 +291,7 @@ export function AlertsWorkbench() {
         subtitle="Sign in to create stock alerts and receive notifications."
       >
         <div className="rounded-2xl border border-dashed border-border p-6 text-sm text-slate-500 dark:text-slate-400">
-          You need to login first. Once signed in, alerts can notify you in-app and by email.
+          You need to login first. Once signed in, alerts can notify you in-app, by email, and on WhatsApp.
         </div>
       </SectionCard>
     );
@@ -333,15 +387,26 @@ export function AlertsWorkbench() {
             </div>
 
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={notifyEmail}
-                  onChange={(event) => setNotifyEmail(event.target.checked)}
-                  className="h-4 w-4 rounded border-border"
-                />
-                Send email notification
-              </label>
+              <div className="flex flex-wrap items-center gap-4">
+                <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={notifyEmail}
+                    onChange={(event) => setNotifyEmail(event.target.checked)}
+                    className="h-4 w-4 rounded border-border"
+                  />
+                  Send email notification
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={notifyWhatsApp}
+                    onChange={(event) => setNotifyWhatsApp(event.target.checked)}
+                    className="h-4 w-4 rounded border-border"
+                  />
+                  Send WhatsApp notification
+                </label>
+              </div>
 
               <button
                 type="button"
@@ -367,12 +432,30 @@ export function AlertsWorkbench() {
               />
             </div>
 
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                WhatsApp Number
+              </label>
+              <input
+                type="tel"
+                value={notifyWhatsAppTo}
+                onChange={(event) => setNotifyWhatsAppTo(event.target.value)}
+                placeholder="+14155552671"
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
+              />
+            </div>
+
             {error ? (
               <p className="mt-3 text-xs text-negative">{error}</p>
             ) : null}
             {notifyEmail && !notifyEmailTo.trim() && !user.email ? (
               <p className="mt-2 text-xs text-amber-600 dark:text-amber-300">
                 No email found for this account. Add a notification email above to send alerts.
+              </p>
+            ) : null}
+            {notifyWhatsApp && !accountWhatsappVerified ? (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-300">
+                WhatsApp phone is not verified yet. Go to Account and verify your number with OTP.
               </p>
             ) : null}
           </div>
@@ -400,6 +483,11 @@ export function AlertsWorkbench() {
                       {alert.notifyEmail ? (
                         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                           Email: {resolveAlertNotificationEmail(alert, user.email) || 'Not set'}
+                        </p>
+                      ) : null}
+                      {alert.notifyWhatsApp ? (
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          WhatsApp: {resolveAlertNotificationPhone(alert, notifyWhatsAppTo) || 'Not set'}
                         </p>
                       ) : null}
                       {alert.lastTriggeredAt ? (
@@ -432,6 +520,15 @@ export function AlertsWorkbench() {
                           Change Email
                         </button>
                       ) : null}
+                      {alert.notifyWhatsApp ? (
+                        <button
+                          type="button"
+                          onClick={() => void changeAlertNotificationPhone(alert)}
+                          className="rounded-xl border border-border px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-muted/40 dark:text-slate-300"
+                        >
+                          Change Phone
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => void removeAlert(alert.id)}
@@ -455,7 +552,7 @@ export function AlertsWorkbench() {
 
       <SectionCard
         title="Messages"
-        subtitle="Triggered alerts are logged here with the same details sent by email."
+        subtitle="Triggered alerts are logged here with the same details sent by email and WhatsApp."
         action={
           messages.length ? (
             <button
@@ -504,7 +601,7 @@ export function AlertsWorkbench() {
                 <p className="leading-6 text-slate-600 dark:text-slate-300">
                   {message.message}
                 </p>
-                <div className="mt-3 inline-flex items-center gap-2 text-xs">
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                   {message.emailStatus === 'sent' ? (
                     <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-emerald-700 dark:text-emerald-300">
                       <CheckCircle2 className="h-3.5 w-3.5" />
@@ -522,6 +619,24 @@ export function AlertsWorkbench() {
                   )}
                   {message.emailError ? (
                     <span className="text-amber-400">{message.emailError}</span>
+                  ) : null}
+                  {(message.whatsappStatus ?? 'skipped') === 'sent' ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-emerald-700 dark:text-emerald-300">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      WhatsApp sent
+                    </span>
+                  ) : (message.whatsappStatus ?? 'skipped') === 'failed' ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-1 text-amber-700 dark:text-amber-300">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      WhatsApp failed
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-slate-500 dark:text-slate-400">
+                      WhatsApp skipped
+                    </span>
+                  )}
+                  {message.whatsappError ? (
+                    <span className="text-amber-400">{message.whatsappError}</span>
                   ) : null}
                 </div>
               </div>

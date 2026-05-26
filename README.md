@@ -202,6 +202,21 @@ cp .env.example .env.local
 
 Only set variables if you want optional AI providers or optional Firebase auth.
 
+### WhatsApp setup (Twilio)
+
+To enable WhatsApp OTP + alert delivery, add these variables in `.env.local`:
+
+```bash
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+```
+
+Notes:
+- `TWILIO_WHATSAPP_FROM` must be a Twilio-approved WhatsApp sender.
+- If you use Twilio Sandbox, users must join your sandbox before receiving messages.
+- Restart the dev server after updating env vars.
+
 ## Future improvements (easy extensions)
 
 - Add more India public data adapters (if stable and legally usable)

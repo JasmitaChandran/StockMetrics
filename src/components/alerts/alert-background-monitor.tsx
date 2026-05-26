@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { buildAlertMessage, evaluatePriceAlert } from '@/lib/alerts/logic';
+import { notifyByWhatsApp } from '@/lib/alerts/whatsapp';
 import {
   addAlertMessage,
   listPriceAlerts,
@@ -9,6 +10,7 @@ import {
 } from '@/lib/storage/repositories';
 import type { Quote } from '@/types';
 import { useAuthStore } from '@/stores/auth-store';
+import { isValidWhatsAppPhone, toE164Phone } from '@/lib/utils/whatsapp';
 
 const ALERT_POLL_INTERVAL_MS = 45_000;
 
@@ -109,6 +111,8 @@ export function AlertBackgroundMonitor() {
 
           let emailStatus: 'sent' | 'failed' | 'skipped' = 'skipped';
           let emailError: string | undefined;
+          let whatsappStatus: 'sent' | 'failed' | 'skipped' = 'skipped';
+          let whatsappError: string | undefined;
 
           if (alert.notifyEmail) {
             const recipientEmail = alert.notifyEmailTo?.trim() || currentUser.email?.trim() || '';
@@ -129,6 +133,21 @@ export function AlertBackgroundMonitor() {
             }
           }
 
+          if (alert.notifyWhatsApp) {
+            const recipientPhone = toE164Phone(alert.notifyWhatsAppTo?.trim() ?? '');
+            if (!recipientPhone) {
+              whatsappStatus = 'failed';
+              whatsappError = 'No WhatsApp phone number found for this alert.';
+            } else if (!isValidWhatsAppPhone(recipientPhone)) {
+              whatsappStatus = 'failed';
+              whatsappError = 'WhatsApp phone number is invalid.';
+            } else {
+              const whatsapp = await notifyByWhatsApp(recipientPhone, alertContent.body);
+              whatsappStatus = whatsapp.status;
+              whatsappError = whatsapp.error;
+            }
+          }
+
           await addAlertMessage({
             id: crypto.randomUUID(),
             userId: currentUser.id,
@@ -142,6 +161,8 @@ export function AlertBackgroundMonitor() {
             message: alertContent.body,
             emailStatus,
             emailError,
+            whatsappStatus,
+            whatsappError,
           });
 
           await upsertPriceAlert({

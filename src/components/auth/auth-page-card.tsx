@@ -3,7 +3,12 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import {
+  buildWelcomeWhatsAppMessage,
+  notifyByWhatsApp,
+} from '@/lib/alerts/whatsapp';
 import { getAuthAdapter } from '@/lib/auth';
+import { getAlertContactSettings } from '@/lib/storage/repositories';
 import { useAuthStore } from '@/stores/auth-store';
 import { StockMetricsLogo } from '@/components/common/stock-metrics-logo';
 
@@ -40,6 +45,15 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
     router.replace('/dashboard');
   }, [user, router]);
 
+  async function sendLoginWelcomeMessage(userId: string, displayName: string) {
+    const settings = await getAlertContactSettings({ userId });
+    if (!settings.whatsappVerified || !settings.whatsappPhone) return;
+    await notifyByWhatsApp(
+      settings.whatsappPhone,
+      buildWelcomeWhatsAppMessage(displayName),
+    );
+  }
+
   async function continueWithGoogle() {
     setSubmitting(true);
     setError(null);
@@ -55,6 +69,10 @@ export function AuthPageCard({ mode }: { mode: 'login' | 'register' }) {
         mode === 'register'
           ? await adapter.registerWithGoogle!({ remember: rememberMe })
           : await adapter.loginWithGoogle!({ remember: rememberMe });
+      void sendLoginWelcomeMessage(
+        nextUser.id,
+        nextUser.username || nextUser.email || 'there',
+      );
       setUser(nextUser);
       router.replace('/dashboard');
     } catch (e) {
