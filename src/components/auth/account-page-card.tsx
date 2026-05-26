@@ -89,12 +89,12 @@ export function AccountPageCard() {
           alt=""
           width={1200}
           height={600}
-          className="h-32 w-full object-cover"
+          className="h-32 w-full object-cover opacity-60 dark:opacity-100"
         />
-        <div className="absolute inset-0 bg-slate-950/55" />
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-950/70 via-slate-900/50 to-blue-950/70" />
+        <div className="absolute inset-0 bg-white/58 dark:bg-slate-950/55" />
+        <div className="absolute inset-0 bg-gradient-to-r from-cyan-100/35 via-sky-100/20 to-indigo-100/35 dark:from-indigo-950/70 dark:via-slate-900/50 dark:to-blue-950/70" />
         <div className="absolute inset-0 flex flex-col justify-end p-3">
-          <div className="inline-flex w-fit items-center gap-1 rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white">
+          <div className="inline-flex w-fit items-center gap-1 rounded-full border border-slate-300/85 bg-white/75 px-2.5 py-1 text-[11px] font-medium text-slate-700 dark:border-white/25 dark:bg-white/10 dark:text-white">
             <ShieldCheck className="h-3.5 w-3.5" />
             Account Protected
           </div>
@@ -132,7 +132,7 @@ export function AccountPageCard() {
           type="button"
           onClick={deleteAccount}
           disabled={submitting}
-          className="surface-hover inline-flex items-center gap-1 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+          className="surface-hover inline-flex items-center gap-1 rounded-xl border border-red-400/70 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-500/20 dark:border-red-500/40 dark:text-red-300 disabled:opacity-50"
         >
           <AlertTriangle className="h-4 w-4" />
           Delete Account Permanently

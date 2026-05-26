@@ -6,7 +6,7 @@ export default function RegisterPage() {
     <AuthBackdropShell
       mode="register"
       title="Create Your Stock Metrics Account"
-      subtitle="Create your account and start tracking market opportunities."
+      subtitle="Create your account with Google and start tracking market opportunities."
     >
       <AuthPageCard mode="register" />
     </AuthBackdropShell>

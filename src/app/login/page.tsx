@@ -6,7 +6,7 @@ export default function LoginPage() {
     <AuthBackdropShell
       mode="login"
       title="Login To Your Trading Workspace"
-      subtitle="Secure sign-in with market insights at your fingertips."
+      subtitle="Secure Google sign-in with market insights at your fingertips."
     >
       <AuthPageCard mode="login" />
     </AuthBackdropShell>
