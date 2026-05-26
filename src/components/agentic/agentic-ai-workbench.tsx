@@ -3782,10 +3782,56 @@ export function AgenticAiWorkbench() {
           {primaryStock ? (
             <SectionCard
               title="Security Analysis Engine"
-              action={<ScorePill value={primaryStock.scores.personalizedFit} recommendation={primaryStock.recommendation} />}
+              action={
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <ScorePill value={primaryStock.scores.personalizedFit} recommendation={primaryStock.recommendation} />
+                  <button
+                    type="button"
+                    onClick={downloadPdf}
+                    disabled={exportingPdf}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-70 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-200 dark:hover:bg-slate-900"
+                  >
+                    {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                    {exportingPdf ? 'Preparing PDF...' : 'Download PDF Report'}
+                  </button>
+                </div>
+              }
               className="agentic-section"
             >
-              <div className="agentic-highlight-card agentic-highlight-card--subtle p-5">
+              <div className="agentic-final-card p-6">
+                <div className="max-w-3xl">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700 dark:text-cyan-300">Final recommendation</div>
+                  <h3 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">{report.finalRecommendation.headline}</h3>
+                  <p className="mt-3 text-base leading-7 text-slate-700 dark:text-slate-200">{report.finalRecommendation.keyReason}</p>
+                </div>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-2xl border border-white/70 bg-white/85 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+                    <div className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Suggested Allocation</div>
+                    <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
+                      {formatCurrency(report.finalRecommendation.suggestedAllocationMonthly, reportCurrency)}/mo
+                    </div>
+                    {primaryStock.allocation.baseCurrency !== primaryStock.allocation.securityCurrency ? (
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {formatCurrency(primaryStock.allocation.securityAmountMonthly, primaryStock.allocation.securityCurrency)}/mo in security currency
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="rounded-2xl border border-white/70 bg-white/85 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+                    <div className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Holding Period</div>
+                    <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{report.finalRecommendation.holdingPeriod}</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/70 bg-white/85 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+                    <div className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Tax Posture</div>
+                    <div className="mt-1 text-sm font-medium leading-6 text-slate-900 dark:text-white">{report.finalRecommendation.taxNote}</div>
+                  </div>
+                </div>
+                <div className="mt-5 rounded-3xl border border-dashed border-cyan-200 p-4 text-sm leading-6 text-slate-700 dark:border-cyan-900/40 dark:text-slate-200">
+                  {report.finalRecommendation.portfolioGapCallout}
+                </div>
+              </div>
+
+              <div className="mt-5 agentic-highlight-card agentic-highlight-card--subtle p-5">
                 <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
                   <div>
                     <div className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-300">
@@ -3797,7 +3843,9 @@ export function AgenticAiWorkbench() {
                         {recommendationBadgeLabel(primaryStock)}
                       </span>
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-slate-200">{primaryStock.keyReason}</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-slate-200">
+                      Evidence snapshot for the recommended security. Detailed factors are shown in the sections below.
+                    </p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       {primaryStock.personalityTags.map((tag) => (
                         <span
@@ -3822,7 +3870,6 @@ export function AgenticAiWorkbench() {
                       tone="emerald"
                     />
                     <MetricCard label="Dividend Fit" value={primaryStock.dividendSuitability.label} note={primaryStock.dividendSuitability.note} tone="slate" />
-                    <MetricCard label="Holding Window" value={primaryStock.expectedHoldingPeriod} note={primaryStock.taxImpact.preferredHoldingPeriod} tone="amber" />
                     <MetricCard
                       label="Confidence Band"
                       value={`${primaryStock.confidence.fitLow}-${primaryStock.confidence.fitHigh}`}
@@ -4152,61 +4199,10 @@ export function AgenticAiWorkbench() {
           ) : null}
 
           <SectionCard
-            title="Final Recommendation"
+            title="Execution, Alternatives & Notes"
             className="agentic-section"
-            action={
-              <button
-                type="button"
-                onClick={downloadPdf}
-                disabled={exportingPdf}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-70 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-200 dark:hover:bg-slate-900"
-              >
-                {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                {exportingPdf ? 'Preparing PDF...' : 'Download PDF Report'}
-              </button>
-            }
           >
             <div className="space-y-5">
-              <div className="agentic-final-card p-6">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="max-w-3xl">
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700 dark:text-cyan-300">Final recommendation</div>
-                    <h3 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">{report.finalRecommendation.headline}</h3>
-                    <p className="mt-3 text-base leading-7 text-slate-700 dark:text-slate-200">{report.finalRecommendation.keyReason}</p>
-                  </div>
-                  <ScorePill value={primaryStock?.scores.personalizedFit ?? report.finance.riskProfileScore} recommendation={report.finalRecommendation.recommendation} />
-                </div>
-
-                <div className="mt-5 grid gap-3 md:grid-cols-4">
-                  <div className="rounded-2xl border border-white/70 bg-white/85 p-4 dark:border-slate-800 dark:bg-slate-950/60">
-                    <div className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Suggested Allocation</div>
-                    <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
-                      {formatCurrency(report.finalRecommendation.suggestedAllocationMonthly, reportCurrency)}/mo
-                    </div>
-                    {primaryStock && primaryStock.allocation.baseCurrency !== primaryStock.allocation.securityCurrency ? (
-                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        {formatCurrency(primaryStock.allocation.securityAmountMonthly, primaryStock.allocation.securityCurrency)}/mo in security currency
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="rounded-2xl border border-white/70 bg-white/85 p-4 dark:border-slate-800 dark:bg-slate-950/60">
-                    <div className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Holding Period</div>
-                    <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{report.finalRecommendation.holdingPeriod}</div>
-                  </div>
-                  <div className="rounded-2xl border border-white/70 bg-white/85 p-4 dark:border-slate-800 dark:bg-slate-950/60">
-                    <div className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Best Use</div>
-                    <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{report.finalRecommendation.subject}</div>
-                  </div>
-                  <div className="rounded-2xl border border-white/70 bg-white/85 p-4 dark:border-slate-800 dark:bg-slate-950/60">
-                    <div className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Tax Posture</div>
-                    <div className="mt-1 text-sm font-medium leading-6 text-slate-900 dark:text-white">{report.finalRecommendation.taxNote}</div>
-                  </div>
-                </div>
-                <div className="mt-5 rounded-3xl border border-dashed border-cyan-200 p-4 text-sm leading-6 text-slate-700 dark:border-cyan-900/40 dark:text-slate-200">
-                  {report.finalRecommendation.portfolioGapCallout}
-                </div>
-              </div>
-
               {showAdvancedInsights ? (
                 <>
                   {missionPlan.length ? (
