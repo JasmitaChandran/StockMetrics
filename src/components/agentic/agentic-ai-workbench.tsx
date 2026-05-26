@@ -25,7 +25,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { SectionCard } from '@/components/common/section-card';
-import { demoUniverse } from '@/lib/data/mock/demo-data';
+import { demoFundamentalsBySymbol, demoUniverse } from '@/lib/data/mock/demo-data';
 import {
   type AgentMarketScope,
   type AgenticAnalysisReport,
@@ -135,6 +135,15 @@ const ANALYSIS_MODE_OPTIONS: Array<{ value: AgenticFormInput['analysisMode']; la
   { value: 'suggest', label: 'Let the agent suggest stocks + funds' },
   { value: 'specific', label: 'Analyze a specific stock or fund' },
 ];
+
+type EquityInputMode = 'manual' | 'portfolio';
+
+const EQUITY_INPUT_MODE_OPTIONS: Array<{ value: EquityInputMode; label: string }> = [
+  { value: 'portfolio', label: 'Fetch from Portfolio tab' },
+  { value: 'manual', label: 'Enter manually' },
+];
+
+const FALLBACK_USD_INR_RATE = 83;
 
 const LOAN_TYPE_OPTIONS: Array<{ value: LoanInput['type']; label: string }> = [
   { value: 'home', label: 'Home loan' },
@@ -360,6 +369,7 @@ function createDefaultForm(): AgenticFormInput {
 
 interface SavedProfileDraft {
   form: Partial<AgenticFormInput>;
+  equityInputMode?: EquityInputMode;
   profileStep?: number;
   selectSelectionState?: Partial<ProfileSelectSelectionState>;
   loanTypeSelectionState?: Record<string, boolean>;
@@ -457,6 +467,7 @@ function parseSavedDraft(value: unknown): SavedProfileDraft | undefined {
   if ('form' in value && typeof (value as { form?: unknown }).form === 'object') {
     const typed = value as {
       form?: Partial<AgenticFormInput>;
+      equityInputMode?: unknown;
       profileStep?: unknown;
       selectSelectionState?: unknown;
       loanTypeSelectionState?: unknown;
@@ -476,6 +487,7 @@ function parseSavedDraft(value: unknown): SavedProfileDraft | undefined {
         : undefined;
     return {
       form: typed.form ?? {},
+      equityInputMode: typed.equityInputMode === 'portfolio' || typed.equityInputMode === 'manual' ? typed.equityInputMode : undefined,
       profileStep: typeof typed.profileStep === 'number' ? typed.profileStep : undefined,
       selectSelectionState,
       loanTypeSelectionState,
@@ -559,6 +571,42 @@ function deriveLoanTypeSelectionState(
 function parseNumber(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toBaseCurrency(amount: number, from: 'INR' | 'USD', base: 'INR' | 'USD') {
+  if (from === base) return amount;
+  if (from === 'USD') return amount * FALLBACK_USD_INR_RATE;
+  return amount / FALLBACK_USD_INR_RATE;
+}
+
+function derivePortfolioEquityValue(txns: PortfolioTxn[], baseCurrency: 'INR' | 'USD') {
+  const map = new Map<string, { qty: number; invested: number; market: PortfolioTxn['market'] }>();
+  for (const txn of txns) {
+    const key = `${txn.market}:${txn.symbol}`;
+    const current = map.get(key) ?? { qty: 0, invested: 0, market: txn.market };
+    if (txn.side === 'buy') {
+      current.qty += txn.quantity;
+      current.invested += txn.quantity * txn.price;
+    } else if (current.qty > 0) {
+      const avgCost = current.invested / current.qty;
+      current.qty = Math.max(0, current.qty - txn.quantity);
+      current.invested = Math.max(0, current.invested - txn.quantity * avgCost);
+    }
+    map.set(key, current);
+  }
+
+  let total = 0;
+  for (const [key, value] of map.entries()) {
+    if (value.qty <= 0) continue;
+    const symbol = key.split(':')[1] ?? '';
+    const demoPrice = demoFundamentalsBySymbol[symbol]?.keyMetrics.find((metric) => metric.key === 'currentPrice')?.value;
+    const fallbackPrice = value.qty > 0 ? value.invested / value.qty : 0;
+    const price = typeof demoPrice === 'number' && Number.isFinite(demoPrice) && demoPrice > 0 ? demoPrice : fallbackPrice;
+    const holdingValue = value.qty * price;
+    const holdingCurrency: 'INR' | 'USD' = value.market === 'us' ? 'USD' : 'INR';
+    total += toBaseCurrency(holdingValue, holdingCurrency, baseCurrency);
+  }
+  return Math.round(total * 100) / 100;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -1564,6 +1612,7 @@ function NumberField({
   info,
   required,
   suffix,
+  disabled = false,
   min = 0,
   step = 1,
 }: {
@@ -1574,6 +1623,7 @@ function NumberField({
   info?: FieldInfoItem[];
   required?: boolean;
   suffix?: string;
+  disabled?: boolean;
   min?: number;
   step?: number;
 }) {
@@ -1586,9 +1636,11 @@ function NumberField({
           step={step}
           value={value === 0 ? '' : value}
           onChange={(event) => onChange(parseNumber(event.target.value))}
+          disabled={disabled}
           className={cn(
             'agentic-input w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none',
             'focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-cyan-950',
+            'disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-900 dark:disabled:text-slate-400',
             suffix ? 'pr-12' : '',
           )}
         />
@@ -1847,6 +1899,7 @@ export function AgenticAiWorkbench() {
   const monitorCooldownUntilRef = useRef(0);
   const [portfolioTxns, setPortfolioTxns] = useState<PortfolioTxn[]>([]);
   const [form, setForm] = useState<AgenticFormInput>(createDefaultForm());
+  const [equityInputMode, setEquityInputMode] = useState<EquityInputMode>('manual');
   const [report, setReport] = useState<AgenticAnalysisReport | null>(null);
   const [changeAudit, setChangeAudit] = useState<ChangeAuditSummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1887,6 +1940,7 @@ export function AgenticAiWorkbench() {
     draftHydratedRef.current = false;
     setPortfolioTxns([]);
     setForm(createDefaultForm());
+    setEquityInputMode('manual');
     setReport(null);
     setChangeAudit(null);
     setProfileStep(1);
@@ -1908,10 +1962,12 @@ export function AgenticAiWorkbench() {
         ]);
         const savedDraft = parseSavedDraft(rawDraft);
         const hydrated = hydrateForm(savedDraft?.form);
+        const savedEquityInputMode = savedDraft?.equityInputMode === 'portfolio' ? 'portfolio' : 'manual';
 
         if (disposed) return;
         setPortfolioTxns(txns);
         setForm(hydrated);
+        setEquityInputMode(savedEquityInputMode);
         setSelectSelectionState(deriveSelectSelectionState(hydrated, savedDraft?.selectSelectionState));
         setDependentCategoriesEnabled({
           kids: hydrated.dependentsKids > 0,
@@ -1938,6 +1994,7 @@ export function AgenticAiWorkbench() {
         if (!disposed) {
           setPortfolioTxns([]);
           setForm(createDefaultForm());
+          setEquityInputMode('manual');
           setSelectSelectionState(DEFAULT_SELECT_SELECTION_STATE);
           setDependentCategoriesEnabled({
             kids: false,
@@ -1970,6 +2027,7 @@ export function AgenticAiWorkbench() {
       const updatedAt = new Date().toISOString();
       void setKv(PROFILE_STORAGE_KEY, {
         form,
+        equityInputMode,
         profileStep,
         selectSelectionState,
         loanTypeSelectionState,
@@ -1984,7 +2042,7 @@ export function AgenticAiWorkbench() {
     return () => {
       if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
     };
-  }, [authLoading, form, loanTypeSelectionState, profileStep, selectSelectionState, userId]);
+  }, [authLoading, equityInputMode, form, loanTypeSelectionState, profileStep, selectSelectionState, userId]);
 
   useEffect(() => {
     if (!draftHydratedRef.current || authLoading) return;
@@ -2133,6 +2191,22 @@ export function AgenticAiWorkbench() {
   }, [monitoringSettings, report, loading]);
 
   const displayCurrency = getDisplayCurrency(form);
+  const portfolioEquityValue = derivePortfolioEquityValue(portfolioTxns, displayCurrency);
+
+  useEffect(() => {
+    if (equityInputMode !== 'portfolio') return;
+    setForm((prev) => {
+      if (Math.abs(prev.assets.equity - portfolioEquityValue) < 0.01) return prev;
+      return {
+        ...prev,
+        assets: {
+          ...prev.assets,
+          equity: portfolioEquityValue,
+        },
+      };
+    });
+  }, [equityInputMode, portfolioEquityValue]);
+
   const totalAssetsPreview = sum(Object.values(form.assets)) + sum(Object.values(form.retirement));
   const totalLiabilitiesPreview = sum(form.loans.map((loan) => loan.outstandingAmount));
   const totalEmiPreview = sum(form.loans.map((loan) => loan.monthlyEmi));
@@ -2318,8 +2392,36 @@ export function AgenticAiWorkbench() {
     });
 
     try {
+      setProgress({
+        phase: 'profile',
+        analyzed: 0,
+        total: 0,
+        message: 'Syncing latest portfolio from Portfolio tab.',
+      });
+      const latestPortfolioTxns = await listPortfolioTxns({ userId });
+      setPortfolioTxns(latestPortfolioTxns);
+      const analysisForm =
+        equityInputMode === 'portfolio'
+          ? {
+              ...form,
+              assets: {
+                ...form.assets,
+                equity: derivePortfolioEquityValue(latestPortfolioTxns, getDisplayCurrency(form)),
+              },
+            }
+          : form;
+      if (equityInputMode === 'portfolio') {
+        setForm((prev) => ({
+          ...prev,
+          assets: {
+            ...prev.assets,
+            equity: analysisForm.assets.equity,
+          },
+        }));
+      }
+
       const previousSnapshot = report;
-      const nextReport = await generatePersonalizedAgenticAnalysis(form, portfolioTxns, {
+      const nextReport = await generatePersonalizedAgenticAnalysis(analysisForm, latestPortfolioTxns, {
         signal: controller.signal,
         onProgress: (next) => setProgress(next),
         memory: {
@@ -2335,13 +2437,14 @@ export function AgenticAiWorkbench() {
       setLearningMemory(updatedMemory);
       setWhatIfIncomeDelta(0);
       setWhatIfEmiDelta(0);
-      setWhatIfRiskPreference(form.riskPreference);
+      setWhatIfRiskPreference(analysisForm.riskPreference);
       const updatedAt = new Date().toISOString();
       await Promise.all([
         setKv(
           PROFILE_STORAGE_KEY,
           {
-            form,
+            form: analysisForm,
+            equityInputMode,
             profileStep,
             selectSelectionState,
             loanTypeSelectionState,
@@ -2723,7 +2826,25 @@ export function AgenticAiWorkbench() {
                 Assets, Retirement Corpus & Liabilities
               </div>
               <div className="grid gap-4 md:grid-cols-3">
-                <NumberField label="Equity (stocks + MF)" value={form.assets.equity} onChange={(value) => updateAssets('equity', value)} info={FIELD_INFO.equityAssets} />
+                <SelectField
+                  label="Equity Source"
+                  value={equityInputMode}
+                  options={EQUITY_INPUT_MODE_OPTIONS}
+                  onChange={(value) => setEquityInputMode(value)}
+                  hint="Choose portfolio fetch to auto-sync and lock this field, or manual entry to type your own value."
+                />
+                <NumberField
+                  label="Equity (stocks + MF)"
+                  value={form.assets.equity}
+                  onChange={(value) => updateAssets('equity', value)}
+                  info={FIELD_INFO.equityAssets}
+                  disabled={equityInputMode === 'portfolio'}
+                  hint={
+                    equityInputMode === 'portfolio'
+                      ? `Auto-fetched from Portfolio tab: ${formatCurrency(portfolioEquityValue, displayCurrency)}`
+                      : 'Manual entry mode. This value is editable.'
+                  }
+                />
                 <NumberField label="Debt / FD" value={form.assets.debt} onChange={(value) => updateAssets('debt', value)} info={FIELD_INFO.debtAssets} />
                 <NumberField
                   label="Debt/FD Interest (Annual)"

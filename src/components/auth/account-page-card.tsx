@@ -214,13 +214,13 @@ export function AccountPageCard() {
       );
       if (welcomeDelivery.status === 'failed') {
         setSuccess(
-          'Phone verified successfully. Welcome message could not be delivered right now.',
+          'Phone verified successfully. Whatsapp message could not be delivered right now.',
         );
         return;
       }
 
       setSuccess(
-        'Phone verified successfully. Welcome message sent on WhatsApp.',
+        'Phone verified successfully.',
       );
     } catch (e) {
       setError((e as Error).message);
