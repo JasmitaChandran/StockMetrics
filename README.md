@@ -1,25 +1,21 @@
 # Stock Metrics
 
-Stock Metrics is a fast, free, static-first stock market web app inspired by screener.in, tickertape.in, and moneycontrol.in.
+“AI-Powered Personalized Stock Metrics & Investment Dashboard” is a full-stack, stock market analysis web application, which is AI driven and is designed to provide retail investors, finance students, and market learners with a unified workspace for multi-market research, intelligent screening, portfolio observation, price alerting, learning resource discovery, and AI-assisted investment guidance.
 
 It ships with:
 - `PRO` + `Beginner` modes
 - Dark/Light theme toggle
 - Universal search (US / India / Mutual Funds)
-- `Q/A` tab for general-purpose local LLM chat
+- `Q/A` tab for general-purpose chat
 - Stock detail page (about, metrics, statements, charts, peer comparison, news, docs, notes)
-- Rule-based AI layer (works without paid APIs)
+- Rule-based AI layer
 - AI screener (rule parser) + built-in strategies
-- Watchlist / Portfolio / Notes stored locally (IndexedDB)
+- Watchlist / Portfolio / Notes stored (IndexedDB)
 - Learning tab with local markdown knowledge base + optional AI providers
 
 ## Non-negotiable goals covered
-
-- **Zero paid API requirement**: app works with no API keys.
 - **Fast UI**: React Query caching, debounced search, dynamic chart import, downsampling, virtualization, skeletons.
 - **Easy setup**: `npm install && npm run dev`
-- **Graceful degradation**: hides missing metrics instead of showing wrong placeholders.
-- **Free deployment-friendly**: static-first pages + optional free serverless route handlers for proxy/caching.
 
 ## Tech Stack
 
@@ -52,20 +48,6 @@ npm run build
 ```bash
 npm test
 ```
-
-## Free deployment (Cloudflare Pages)
-
-This repo is **static-first**, but uses some optional Next route handlers (`/api/*`) to proxy free no-key providers (Yahoo chart, SEC, RSS, FX) and add cache headers. On Cloudflare Pages, use Next-on-Pages.
-
-### Cloudflare Pages (recommended config)
-
-1. Push repo to GitHub.
-2. Create a new Cloudflare Pages project from the repo.
-3. Use the following build settings:
-
-- **Build command**: `npm run build:cloudflare`
-- **Build output directory**: `.vercel/output/static`
-- **Functions directory**: `.vercel/output/functions`
 
 4. Environment variables are optional (only needed for optional AI/auth providers).
 
