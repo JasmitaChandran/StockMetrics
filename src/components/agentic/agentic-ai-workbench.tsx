@@ -1537,7 +1537,7 @@ function FieldShell({
   return (
     <div className={cn('block text-sm', className)}>
       <div className="mb-1.5 flex min-h-[1.5rem] items-center justify-between gap-2">
-        <span className="flex flex-1 items-center gap-1 text-[11px] font-semibold uppercase leading-[1.3] tracking-[0.16em] text-slate-500 dark:text-slate-300">
+        <span className="flex flex-1 items-center gap-1 text-[11px] font-semibold uppercase leading-[1.3] tracking-[0.16em] text-slate-600 dark:text-slate-300">
           <span>{label}</span>
           {required ? <span className="text-rose-500 dark:text-rose-400">*</span> : null}
         </span>
@@ -1552,10 +1552,10 @@ function FieldShell({
                 setInfoOpen((open) => !open);
               }}
               className={cn(
-                'inline-flex h-5 w-5 items-center justify-center rounded-full border bg-slate-900/30 transition focus:outline-none focus:ring-2 focus:ring-cyan-300/30 dark:bg-slate-900/40',
+                'inline-flex h-5 w-5 items-center justify-center rounded-full border bg-slate-100 transition focus:outline-none focus:ring-2 focus:ring-cyan-300/30 dark:bg-slate-900/40',
                 infoOpen
-                  ? 'border-cyan-300/70 text-cyan-300'
-                  : 'border-slate-500/45 text-slate-400 hover:border-cyan-300/60 hover:text-cyan-300 dark:border-slate-500/45 dark:text-slate-400',
+                  ? 'border-cyan-400/80 text-cyan-700 dark:border-cyan-300/70 dark:text-cyan-300'
+                  : 'border-slate-300 text-slate-600 hover:border-cyan-400/80 hover:text-cyan-700 dark:border-slate-500/45 dark:text-slate-400 dark:hover:text-cyan-300',
               )}
             >
               <Info className="h-3 w-3" />
@@ -1569,10 +1569,10 @@ function FieldShell({
           <div className="space-y-2">
             {info.map((item) => (
               <div key={`${label}-${item.label}`} className="flex items-start gap-2.5">
-                <span className="min-w-[3.8rem] rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2 py-0.5 text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-300">
+                <span className="min-w-[3.8rem] rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-700 dark:border-cyan-400/20 dark:text-cyan-300">
                   {item.label}
                 </span>
-                <span className="pt-0.5 text-[12px] leading-5 normal-case tracking-normal text-slate-300">
+                <span className="pt-0.5 text-[12px] leading-5 normal-case tracking-normal text-slate-700 dark:text-slate-300">
                   {item.detail}
                 </span>
               </div>
@@ -1580,7 +1580,7 @@ function FieldShell({
           </div>
         </div>
       ) : null}
-      {hint ? <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{hint}</span> : null}
+      {hint ? <span className="mt-1 block text-xs text-slate-600 dark:text-slate-400">{hint}</span> : null}
     </div>
   );
 }
