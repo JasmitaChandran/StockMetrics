@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   BellRing,
   CheckCircle2,
-  Mail,
   Plus,
   RefreshCw,
   Trash2,
@@ -138,16 +137,6 @@ export function AlertsWorkbench() {
       enabled: !alert.enabled,
       updatedAt: now,
       lastConditionMet: alert.enabled ? false : alert.lastConditionMet,
-    });
-    await refreshData();
-  }
-
-  async function toggleAlertEmail(alert: PriceAlertRecord) {
-    const now = new Date().toISOString();
-    await upsertPriceAlert({
-      ...alert,
-      notifyEmail: !alert.notifyEmail,
-      updatedAt: now,
     });
     await refreshData();
   }
@@ -368,19 +357,6 @@ export function AlertsWorkbench() {
                         )}
                       >
                         {alert.enabled ? 'Enabled' : 'Disabled'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void toggleAlertEmail(alert)}
-                        className={cn(
-                          'rounded-xl border px-3 py-1.5 text-xs font-medium',
-                          alert.notifyEmail
-                            ? 'border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300'
-                            : 'border-border text-slate-500 dark:text-slate-300',
-                        )}
-                      >
-                        <Mail className="mr-1 inline h-3.5 w-3.5" />
-                        {alert.notifyEmail ? 'Email On' : 'Email Off'}
                       </button>
                       <button
                         type="button"
