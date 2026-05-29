@@ -1227,10 +1227,10 @@ export function ScreenerWorkbench() {
   return (
     <div className="space-y-4">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-sm dark:border-border dark:bg-card/40">
-        <div className="border-b border-slate-200 px-5 py-4 dark:border-border">
+        <div className="border-b border-slate-200 px-3 py-4 sm:px-5 dark:border-border">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="text-[28px] font-semibold text-slate-900 dark:text-white">Stock Screener</h2>
+              <h2 className="text-2xl font-semibold text-slate-900 dark:text-white sm:text-[28px]">Stock Screener</h2>
             </div>
             <button
               onClick={clearAllFilters}
@@ -1241,8 +1241,8 @@ export function ScreenerWorkbench() {
           </div>
         </div>
 
-        <div className="border-b border-slate-200 px-5 py-3 dark:border-border">
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+        <div className="border-b border-slate-200 px-3 py-3 sm:px-5 dark:border-border">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             <label className="space-y-1">
               <span className="block text-xs font-medium text-slate-600 dark:text-slate-300">Stocks</span>
               <select
@@ -1378,93 +1378,139 @@ export function ScreenerWorkbench() {
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-5 py-3 text-sm dark:border-border">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-3 text-sm sm:px-5 dark:border-border">
           <div className="font-medium text-slate-700 dark:text-slate-200">
             Showing {showingFrom} - {showingTo} of {rows.length} results
           </div>
           <div className="text-slate-500 dark:text-slate-400">Updated {refreshedAt} IST</div>
         </div>
         {universeLoading || universeError ? (
-          <div className="border-b border-slate-200 px-5 py-2 text-xs text-slate-500 dark:border-border dark:text-slate-400">
+          <div className="border-b border-slate-200 px-3 py-2 text-xs text-slate-500 sm:px-5 dark:border-border dark:text-slate-400">
             {universeLoading ? 'Loading full India + US stock universe...' : universeError}
           </div>
         ) : null}
 
-        <VirtualizedTable
-          rows={rows}
-          height={700}
-          estimateRowHeight={72}
-          onVisibleRowsChange={handleVisibleRowsChange}
-          headerClassName="bg-slate-100 px-4 py-3 text-[14px] text-slate-700 dark:bg-muted/70 dark:text-slate-200"
-          className="rounded-none border-0"
-          header={
-            <div className={TABLE_GRID_CLASS}>
-              <button onClick={() => onSort('name')} className="flex items-center gap-1 text-left font-semibold">
-                Name <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'name', sortConfig.direction)}</span>
-              </button>
-              <button onClick={() => onSort('stockUniverse')} className="flex items-center gap-1 text-left font-semibold">
-                Stocks <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'stockUniverse', sortConfig.direction)}</span>
-              </button>
-              <button onClick={() => onSort('pe')} className="flex items-center justify-end gap-1 font-semibold">
-                P/E <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'pe', sortConfig.direction)}</span>
-              </button>
-              <button onClick={() => onSort('pb')} className="flex items-center justify-end gap-1 font-semibold">
-                P/B <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'pb', sortConfig.direction)}</span>
-              </button>
-              <button onClick={() => onSort('evEbitda')} className="flex items-center justify-end gap-1 font-semibold">
-                EV/EBITDA <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'evEbitda', sortConfig.direction)}</span>
-              </button>
-              <button onClick={() => onSort('priceToSales')} className="flex items-center justify-end gap-1 font-semibold">
-                P/S <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'priceToSales', sortConfig.direction)}</span>
-              </button>
-              <button onClick={() => onSort('pegRatio')} className="flex items-center justify-end gap-1 font-semibold">
-                PEG <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'pegRatio', sortConfig.direction)}</span>
-              </button>
-              <button onClick={() => onSort('dividendYield')} className="flex items-center justify-end gap-1 font-semibold">
-                Div Yield <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'dividendYield', sortConfig.direction)}</span>
-              </button>
-              <button onClick={() => onSort('roe')} className="flex items-center justify-end gap-1 font-semibold">
-                ROE <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'roe', sortConfig.direction)}</span>
-              </button>
-              <button onClick={() => onSort('roce')} className="flex items-center justify-end gap-1 font-semibold">
-                ROCE <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'roce', sortConfig.direction)}</span>
-              </button>
-              <button onClick={() => onSort('debtToEquity')} className="flex items-center justify-end gap-1 font-semibold">
-                Debt/Equity <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'debtToEquity', sortConfig.direction)}</span>
-              </button>
-              <button onClick={() => onSort('return1m')} className="flex items-center justify-end gap-1 font-semibold">
-                1M Return <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'return1m', sortConfig.direction)}</span>
-              </button>
-            </div>
-          }
-          renderRow={(row) => (
-            <div className="border-t border-slate-200 px-4 py-3 text-sm first:border-t-0 hover:bg-slate-50 dark:border-border dark:hover:bg-muted/40">
-              <div className={cn(TABLE_GRID_CLASS, 'items-center')}>
-                <div>
-                  <Link href={`/dashboard/${row.market}/${encodeURIComponent(row.symbol)}`} className="text-[15px] font-semibold text-slate-800 hover:text-blue-700 dark:text-slate-100 dark:hover:text-blue-300">
-                    {row.name}
-                  </Link>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
-                    <span>{row.symbol}</span>
-                    <span>•</span>
-                    <span>{row.exchange}</span>
-                  </div>
+        <div className="space-y-2 p-3 lg:hidden">
+          {rows.slice(0, 120).map((row) => (
+            <div key={row.id} className="rounded-xl border border-slate-200 bg-white/90 p-3 dark:border-border dark:bg-card/55">
+              <Link
+                href={`/dashboard/${row.market}/${encodeURIComponent(row.symbol)}`}
+                className="text-sm font-semibold text-slate-900 hover:text-blue-700 dark:text-slate-100 dark:hover:text-blue-300"
+              >
+                {row.name}
+              </Link>
+              <div className="mt-1 text-xs text-slate-500">
+                {row.symbol} • {row.exchange} • {row.stockUniverse}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg border border-slate-200 bg-slate-50/90 px-2 py-1 dark:border-border dark:bg-muted/30">
+                  <div className="text-slate-500">P/E</div>
+                  <div className="font-semibold">{typeof row.pe === 'number' ? formatNumber(row.pe, 2) : '—'}</div>
                 </div>
-                <div className="text-[13px] text-slate-500 dark:text-slate-400">{row.stockUniverse}</div>
-                <div className="text-right tabular-nums">{typeof row.pe === 'number' ? formatNumber(row.pe, 2) : '—'}</div>
-                <div className="text-right tabular-nums">{typeof row.pb === 'number' ? formatNumber(row.pb, 2) : '—'}</div>
-                <div className="text-right tabular-nums">{typeof row.evEbitda === 'number' ? formatNumber(row.evEbitda, 2) : '—'}</div>
-                <div className="text-right tabular-nums">{typeof row.priceToSales === 'number' ? formatNumber(row.priceToSales, 2) : '—'}</div>
-                <div className="text-right tabular-nums">{typeof row.pegRatio === 'number' ? formatNumber(row.pegRatio, 2) : '—'}</div>
-                <div className="text-right tabular-nums">{typeof row.dividendYield === 'number' ? formatPercent(row.dividendYield) : '—'}</div>
-                <div className="text-right tabular-nums">{typeof row.roe === 'number' ? formatPercent(row.roe) : '—'}</div>
-                <div className="text-right tabular-nums">{typeof row.roce === 'number' ? formatPercent(row.roce) : '—'}</div>
-                <div className="text-right tabular-nums">{typeof row.debtToEquity === 'number' ? formatNumber(row.debtToEquity, 2) : '—'}</div>
-                <div className="text-right tabular-nums">{typeof row.return1m === 'number' ? formatPercent(row.return1m) : '—'}</div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50/90 px-2 py-1 dark:border-border dark:bg-muted/30">
+                  <div className="text-slate-500">ROE</div>
+                  <div className="font-semibold">{typeof row.roe === 'number' ? formatPercent(row.roe) : '—'}</div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50/90 px-2 py-1 dark:border-border dark:bg-muted/30">
+                  <div className="text-slate-500">Debt/Equity</div>
+                  <div className="font-semibold">{typeof row.debtToEquity === 'number' ? formatNumber(row.debtToEquity, 2) : '—'}</div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50/90 px-2 py-1 dark:border-border dark:bg-muted/30">
+                  <div className="text-slate-500">1M Return</div>
+                  <div className="font-semibold">{typeof row.return1m === 'number' ? formatPercent(row.return1m) : '—'}</div>
+                </div>
               </div>
             </div>
-          )}
-        />
+          ))}
+          {rows.length > 120 ? (
+            <p className="px-1 text-xs text-slate-500 dark:text-slate-400">
+              Showing first 120 matches on mobile. Use tablet/desktop view for the full sortable table.
+            </p>
+          ) : null}
+          {!rows.length ? (
+            <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-border dark:text-slate-400">
+              No stocks matched the current filters.
+            </div>
+          ) : null}
+        </div>
+
+        <div className="hidden lg:block">
+          <VirtualizedTable
+            rows={rows}
+            height={700}
+            estimateRowHeight={72}
+            onVisibleRowsChange={handleVisibleRowsChange}
+            headerClassName="bg-slate-100 px-4 py-3 text-[14px] text-slate-700 dark:bg-muted/70 dark:text-slate-200"
+            className="rounded-none border-0"
+            header={
+              <div className={TABLE_GRID_CLASS}>
+                <button onClick={() => onSort('name')} className="flex items-center gap-1 text-left font-semibold">
+                  Name <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'name', sortConfig.direction)}</span>
+                </button>
+                <button onClick={() => onSort('stockUniverse')} className="flex items-center gap-1 text-left font-semibold">
+                  Stocks <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'stockUniverse', sortConfig.direction)}</span>
+                </button>
+                <button onClick={() => onSort('pe')} className="flex items-center justify-end gap-1 font-semibold">
+                  P/E <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'pe', sortConfig.direction)}</span>
+                </button>
+                <button onClick={() => onSort('pb')} className="flex items-center justify-end gap-1 font-semibold">
+                  P/B <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'pb', sortConfig.direction)}</span>
+                </button>
+                <button onClick={() => onSort('evEbitda')} className="flex items-center justify-end gap-1 font-semibold">
+                  EV/EBITDA <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'evEbitda', sortConfig.direction)}</span>
+                </button>
+                <button onClick={() => onSort('priceToSales')} className="flex items-center justify-end gap-1 font-semibold">
+                  P/S <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'priceToSales', sortConfig.direction)}</span>
+                </button>
+                <button onClick={() => onSort('pegRatio')} className="flex items-center justify-end gap-1 font-semibold">
+                  PEG <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'pegRatio', sortConfig.direction)}</span>
+                </button>
+                <button onClick={() => onSort('dividendYield')} className="flex items-center justify-end gap-1 font-semibold">
+                  Div Yield <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'dividendYield', sortConfig.direction)}</span>
+                </button>
+                <button onClick={() => onSort('roe')} className="flex items-center justify-end gap-1 font-semibold">
+                  ROE <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'roe', sortConfig.direction)}</span>
+                </button>
+                <button onClick={() => onSort('roce')} className="flex items-center justify-end gap-1 font-semibold">
+                  ROCE <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'roce', sortConfig.direction)}</span>
+                </button>
+                <button onClick={() => onSort('debtToEquity')} className="flex items-center justify-end gap-1 font-semibold">
+                  Debt/Equity <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'debtToEquity', sortConfig.direction)}</span>
+                </button>
+                <button onClick={() => onSort('return1m')} className="flex items-center justify-end gap-1 font-semibold">
+                  1M Return <span className="text-[10px] text-slate-500">{sortIndicator(sortConfig.field === 'return1m', sortConfig.direction)}</span>
+                </button>
+              </div>
+            }
+            renderRow={(row) => (
+              <div className="border-t border-slate-200 px-4 py-3 text-sm first:border-t-0 hover:bg-slate-50 dark:border-border dark:hover:bg-muted/40">
+                <div className={cn(TABLE_GRID_CLASS, 'items-center')}>
+                  <div>
+                    <Link href={`/dashboard/${row.market}/${encodeURIComponent(row.symbol)}`} className="text-[15px] font-semibold text-slate-800 hover:text-blue-700 dark:text-slate-100 dark:hover:text-blue-300">
+                      {row.name}
+                    </Link>
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
+                      <span>{row.symbol}</span>
+                      <span>•</span>
+                      <span>{row.exchange}</span>
+                    </div>
+                  </div>
+                  <div className="text-[13px] text-slate-500 dark:text-slate-400">{row.stockUniverse}</div>
+                  <div className="text-right tabular-nums">{typeof row.pe === 'number' ? formatNumber(row.pe, 2) : '—'}</div>
+                  <div className="text-right tabular-nums">{typeof row.pb === 'number' ? formatNumber(row.pb, 2) : '—'}</div>
+                  <div className="text-right tabular-nums">{typeof row.evEbitda === 'number' ? formatNumber(row.evEbitda, 2) : '—'}</div>
+                  <div className="text-right tabular-nums">{typeof row.priceToSales === 'number' ? formatNumber(row.priceToSales, 2) : '—'}</div>
+                  <div className="text-right tabular-nums">{typeof row.pegRatio === 'number' ? formatNumber(row.pegRatio, 2) : '—'}</div>
+                  <div className="text-right tabular-nums">{typeof row.dividendYield === 'number' ? formatPercent(row.dividendYield) : '—'}</div>
+                  <div className="text-right tabular-nums">{typeof row.roe === 'number' ? formatPercent(row.roe) : '—'}</div>
+                  <div className="text-right tabular-nums">{typeof row.roce === 'number' ? formatPercent(row.roce) : '—'}</div>
+                  <div className="text-right tabular-nums">{typeof row.debtToEquity === 'number' ? formatNumber(row.debtToEquity, 2) : '—'}</div>
+                  <div className="text-right tabular-nums">{typeof row.return1m === 'number' ? formatPercent(row.return1m) : '—'}</div>
+                </div>
+              </div>
+            )}
+          />
+        </div>
       </section>
     </div>
   );

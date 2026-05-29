@@ -38,6 +38,28 @@ body {
   background-attachment: scroll;
 }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 .font-sora {
   font-family: var(--font-sora), var(--font-manrope), 'Avenir Next', 'Segoe UI', sans-serif;
 }

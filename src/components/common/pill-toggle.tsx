@@ -23,7 +23,7 @@ export function PillToggle<T extends string>({
           aria-selected={value === opt.value}
           onClick={() => onChange(opt.value)}
           className={cn(
-            'relative rounded-full px-3 py-1.5 text-xs font-medium transition-colors duration-150',
+            'relative rounded-full px-2 py-1.5 text-xs font-medium transition-colors duration-150 sm:px-3',
             value === opt.value
               ? 'bg-gradient-to-r from-indigo-500 via-violet-500 to-blue-500 text-white shadow-violet'
               : 'text-slate-600 hover:bg-muted/70 dark:text-slate-300',

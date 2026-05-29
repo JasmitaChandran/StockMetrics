@@ -358,7 +358,7 @@ export function QaWorkbench() {
             </div>
           ) : null}
 
-          <div className="max-h-[720px] min-h-[560px] space-y-3 overflow-auto rounded-2xl border border-border bg-card/70 p-3 md:p-4">
+          <div className="max-h-[70vh] min-h-[360px] space-y-3 overflow-auto rounded-2xl border border-border bg-card/70 p-3 sm:min-h-[460px] lg:max-h-[720px] lg:min-h-[560px] md:p-4">
             {messages.map((message) => (
               <div
                 key={message.id}

@@ -36,7 +36,7 @@ const borders = (): CS['border'] => ({
 
 const fill = (rgb: string): CS['fill'] => ({ patternType: 'solid', fgColor: { rgb } });
 
-function headerStyle(bg = C.headerBg, fg = C.headerFg): CS {
+function headerStyle(bg: string = C.headerBg, fg: string = C.headerFg): CS {
   return {
     font:      { name: 'Arial', bold: true, sz: 11, color: { rgb: fg } },
     fill:      fill(bg),

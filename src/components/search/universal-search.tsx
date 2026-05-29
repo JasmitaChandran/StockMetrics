@@ -188,12 +188,12 @@ export function UniversalSearch({
             }
           }}
           placeholder={showAnimatedHint ? '' : placeholder ?? 'Search for Indian stocks / US stocks / Mutual Funds'}
-          className="w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 py-3 text-sm outline-none ring-0 placeholder:text-slate-400"
+          className="w-full rounded-2xl border-0 bg-transparent py-3 pl-10 pr-12 text-sm outline-none ring-0 placeholder:text-slate-400 sm:pr-28"
         />
         {showAnimatedHint ? (
-          <div className="pointer-events-none absolute inset-y-0 left-10 right-28 flex items-center text-sm text-slate-400">
-            <span className="mr-1.5">Search for</span>
-            <span className="inline-block font-medium text-slate-500 dark:text-slate-200">{rotatingHints[hintIndex]}</span>
+          <div className="pointer-events-none absolute inset-y-0 left-10 right-12 flex items-center overflow-hidden whitespace-nowrap text-sm text-slate-400 sm:right-28">
+            <span className="mr-1.5 shrink-0">Search for</span>
+            <span className="inline-block truncate font-medium text-slate-500 dark:text-slate-200">{rotatingHints[hintIndex]}</span>
           </div>
         ) : null}
         <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
@@ -201,7 +201,7 @@ export function UniversalSearch({
             type="button"
             onClick={clearQuery}
             disabled={!hasQuery}
-            className="rounded-md px-2 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-muted/60 disabled:cursor-default disabled:opacity-50"
+            className="hidden rounded-md px-2 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-muted/60 disabled:cursor-default disabled:opacity-50 lg:inline-flex"
           >
             Clear
           </button>
@@ -219,7 +219,7 @@ export function UniversalSearch({
             type="button"
             onClick={autocompleteFromTopResult}
             disabled={!hasQuery || !items.length}
-            className="rounded-md border border-border/80 px-2 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-muted/60 disabled:cursor-default disabled:opacity-50"
+            className="hidden rounded-md border border-border/80 px-2 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-muted/60 disabled:cursor-default disabled:opacity-50 xl:inline-flex"
             title="Autocomplete with top result"
           >
             Tab

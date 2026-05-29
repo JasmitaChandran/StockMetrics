@@ -17,8 +17,8 @@ const tabs = [
   { href: '/watchlist', label: 'Watchlist' },
   { href: '/portfolio', label: 'Portfolio' },
   { href: '/alerts', label: 'Alert' },
-  { href: '/agentic', label: 'Personalized Agent' },
-  { href: '/qa', label: 'Chat with AI' },
+  { href: '/agentic', label: 'Personalized Agent', compactLabel: 'Agent' },
+  { href: '/qa', label: 'Chat with AI', compactLabel: 'AI Chat' },
   { href: '/learning', label: 'Learning' },
 ];
 
@@ -38,23 +38,23 @@ export function Navbar() {
       </div>
 
       <div className="mx-auto max-w-[1800px] px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-          <div className="order-1 flex w-full min-w-0 items-center gap-3 md:justify-self-stretch md:pr-4 lg:pr-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+          <div className="order-1 flex w-full min-w-0 items-center gap-3 xl:justify-self-stretch xl:pr-4 2xl:pr-8">
             <Link href="/dashboard" className="flex shrink-0 items-center gap-2 rounded-xl px-2 py-1 transition hover:bg-muted/45">
               <div className="grid h-9 w-9 place-items-center rounded-xl bg-white/95 p-1 shadow-violet ring-1 ring-indigo-300/30 dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 dark:ring-slate-500/55">
                 <StockMetricsLogo className="h-7 w-7" />
               </div>
               <div>
-                <div className="text-sm font-semibold tracking-tight text-slate-900 dark:text-white">Stock Metrics</div>
+                <div className="text-xs font-semibold tracking-tight text-slate-900 dark:text-white sm:text-sm">Stock Metrics</div>
                 <div className="hidden text-[10px] uppercase tracking-[0.18em] text-slate-500 lg:block">Intelligence Beyond Data</div>
               </div>
             </Link>
-            <div className="min-w-0 flex-1 md:min-w-[320px] md:max-w-[2000px]">
+            <div className="min-w-0 flex-1 md:min-w-[280px] xl:min-w-[320px] md:max-w-[2000px]">
               <UniversalSearch />
             </div>
           </div>
 
-          <div className="order-2 flex items-center gap-2 md:justify-self-end">
+          <div className="order-2 flex w-full flex-wrap items-center justify-between gap-2 lg:w-auto lg:justify-end xl:justify-self-end">
             <PillToggle
               options={[
                 { value: 'beginner', label: 'Beginner' },
@@ -77,7 +77,7 @@ export function Navbar() {
         </div>
 
         <div className="mt-3 flex">
-          <nav className="ui-panel glass flex w-full min-w-0 gap-1 overflow-x-auto rounded-2xl p-1 shadow-panel md:mx-auto md:w-auto md:max-w-full">
+          <nav className="scrollbar-hide ui-panel glass flex w-full min-w-0 gap-1 overflow-x-auto rounded-2xl p-1 shadow-panel md:mx-auto md:w-auto md:max-w-full">
             {tabs.map((tab) => {
               const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
               return (
@@ -85,13 +85,14 @@ export function Navbar() {
                   key={tab.href}
                   href={tab.href}
                   className={cn(
-                    'shrink-0 whitespace-nowrap rounded-xl px-3 py-2 text-sm transition',
+                    'shrink-0 whitespace-nowrap rounded-xl px-2.5 py-2 text-xs transition sm:px-3 sm:text-sm',
                     active
                       ? 'bg-gradient-to-r from-indigo-500 via-violet-500 to-blue-500 text-white shadow-violet'
                       : 'text-slate-600 hover:bg-muted/60 dark:text-slate-300',
                   )}
                 >
-                  {tab.label}
+                  <span className="2xl:hidden">{tab.compactLabel ?? tab.label}</span>
+                  <span className="hidden 2xl:inline">{tab.label}</span>
                 </Link>
               );
             })}

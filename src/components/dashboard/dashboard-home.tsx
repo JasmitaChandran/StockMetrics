@@ -379,18 +379,18 @@ export function DashboardHome() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.28, ease: 'easeOut' }}
-        className="ui-panel hero-glow relative overflow-hidden rounded-3xl px-5 pb-5 pt-2 shadow-panel md:px-6 md:pb-6 md:pt-2"
+        className="ui-panel hero-glow relative overflow-hidden rounded-3xl px-5 pb-5 pt-1 shadow-panel md:px-6 md:pb-6 md:pt-5"
       >
         <div className="dashboard-grid-overlay" aria-hidden />
         <div className="absolute left-8 top-6 h-28 w-28 rounded-full bg-indigo-500/20 blur-3xl motion-safe:animate-pulseSoft" />
         <div className="absolute right-8 top-8 h-36 w-36 rounded-full bg-blue-500/14 blur-3xl motion-safe:animate-float" />
         <div className="absolute bottom-6 left-1/3 h-24 w-24 rounded-full bg-violet-500/12 blur-2xl motion-safe:animate-driftSlow" />
-        <div className="relative space-y-4 md:space-y-5">
-          <div className="mx-auto max-w-4xl -translate-y-1 text-center md:-translate-y-60 lg:-translate-y-30">
+        <div className="relative space-y-3 md:space-y-4">
+          <div className="mx-auto max-w-4xl text-center">
             <div className="inline-flex items-center rounded-full purple-chip px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-indigo-700 dark:text-indigo-200">
               {uiMode === 'pro' ? 'Pro Mode' : 'Beginner Mode'}
             </div>
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-5xl">
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-5xl">
               <span className="bg-gradient-to-r from-indigo-600 via-sky-500 to-cyan-400 bg-clip-text font-semibold tracking-[-0.03em] text-transparent">
                 AI-Powered Personalized
               </span>
@@ -399,7 +399,7 @@ export function DashboardHome() {
             </h1>
           </div>
 
-          <div className="relative -translate-y-40">
+          <div className="relative -mt-2 sm:-mt-4 md:-mt-6">
             <HeroMarketIllustration />
           </div>
 

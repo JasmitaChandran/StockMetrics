@@ -429,7 +429,7 @@ function StatementTableView({ table }: { table: FinancialStatementTable }) {
         )}
       </div>
       <div className="overflow-auto rounded-xl border border-border">
-        <table className="min-w-full text-sm">
+        <table className="min-w-[640px] text-sm md:min-w-full">
           <thead className="bg-muted/40 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-3 py-2 text-left font-medium">Particulars</th>
@@ -548,9 +548,9 @@ function NotesSection({ stockId }: { stockId: string }) {
         placeholder="Write your own notes for this stock..."
         className="w-full rounded-xl border border-border bg-card p-3 text-sm"
       />
-      <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
         <span>{savedAt ? `Last saved: ${formatDateTime(savedAt)}` : 'Not saved yet'}</span>
-        <button onClick={save} disabled={saving} className="rounded-lg bg-accent px-3 py-1.5 text-white disabled:opacity-60">
+        <button onClick={save} disabled={saving} className="w-full rounded-lg bg-accent px-3 py-1.5 text-white disabled:opacity-60 sm:w-auto">
           {saving ? 'Saving...' : 'Save Notes'}
         </button>
       </div>
@@ -1271,7 +1271,7 @@ function PeerComparisonPanel({ bundle }: { bundle: StockDetailBundle }) {
       </div>
       <div className="mt-3">
         <label className="mb-1 block text-sm font-medium">Detailed Comparison with</label>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <div ref={manualInputRootRef} className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -1329,7 +1329,7 @@ function PeerComparisonPanel({ bundle }: { bundle: StockDetailBundle }) {
               </div>
             ) : null}
           </div>
-          <button onClick={() => void addManualPeer()} className="rounded-xl border border-border px-3 py-2 text-sm hover:bg-muted">
+          <button onClick={() => void addManualPeer()} className="w-full rounded-xl border border-border px-3 py-2 text-sm hover:bg-muted sm:w-auto">
             Add
           </button>
         </div>
@@ -1620,7 +1620,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
             {bundle.entity.market === 'us' ? (
               <PillToggle
                 options={[
@@ -1633,7 +1633,7 @@ export function StockDetailView({ bundle }: { bundle: StockDetailBundle }) {
             ) : null}
             <button
               onClick={() => exportStatementsToXlsx(bundle.fundamentals.statements, `${bundle.entity.displaySymbol}-income-statements`)}
-              className="ui-panel glass surface-hover inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm shadow-panel"
+              className="ui-panel glass surface-hover inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm shadow-panel sm:w-auto"
             >
               <FileSpreadsheet className="h-4 w-4" /> Export to Excel
             </button>

@@ -562,7 +562,7 @@ export function WatchlistManager() {
           <div className="space-y-3">
             <div className="space-y-2 rounded-xl border border-border p-3">
               <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Rename watchlist</div>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   value={renameName}
                   onChange={(event) => {
@@ -580,7 +580,7 @@ export function WatchlistManager() {
                 />
                 <button
                   onClick={() => void renameCurrentWatchlist()}
-                  className="rounded-xl border border-border px-3 py-2 text-sm hover:bg-muted"
+                  className="w-full rounded-xl border border-border px-3 py-2 text-sm hover:bg-muted sm:w-auto"
                 >
                   Save Name
                 </button>
@@ -589,7 +589,7 @@ export function WatchlistManager() {
             </div>
 
             <div className="space-y-2 rounded-xl border border-border p-3">
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <div ref={addSymbolRootRef} className="relative flex-1">
                   <input
                     value={addSymbol}
@@ -650,7 +650,7 @@ export function WatchlistManager() {
                 </div>
                 <button
                   onClick={() => void addToCurrent()}
-                  className="rounded-xl bg-accent px-3 py-2 text-sm font-medium text-white"
+                  className="w-full rounded-xl bg-accent px-3 py-2 text-sm font-medium text-white sm:w-auto"
                 >
                   Add
                 </button>

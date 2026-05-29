@@ -16,7 +16,7 @@ export function SectionCard({
   disablePerfContainment?: boolean;
 }) {
   return (
-    <section className={cn('ui-panel glass rounded-2xl p-4 shadow-panel', !disablePerfContainment && 'perf-section', className)}>
+    <section className={cn('ui-panel glass rounded-2xl p-3 shadow-panel sm:p-4', !disablePerfContainment && 'perf-section', className)}>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">{title}</h2>

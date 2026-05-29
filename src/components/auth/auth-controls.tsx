@@ -17,12 +17,16 @@ export function AuthControls() {
       <div className="ui-panel glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm shadow-panel">
         <Link href="/account" className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-fg">
           <UserCircle2 className="h-4 w-4" />
-          Account Info
+          <span className="sm:hidden">Account</span>
+          <span className="hidden sm:inline xl:hidden">Account</span>
+          <span className="hidden xl:inline">Account Info</span>
         </Link>
       </div>
     ) : (
       <Link href="/login" className="ui-panel glass surface-hover rounded-xl px-3 py-2 text-sm font-medium shadow-panel">
-        Login / Register
+        <span className="sm:hidden">Login</span>
+        <span className="hidden sm:inline xl:hidden">Login</span>
+        <span className="hidden xl:inline">Login / Register</span>
       </Link>
     )
   );
