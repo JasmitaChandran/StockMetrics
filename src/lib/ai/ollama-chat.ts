@@ -51,6 +51,14 @@ function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
 }
 
+function getOllamaRequestHeaders(extra: Record<string, string> = {}) {
+  const apiKey = process.env.OLLAMA_API_KEY?.trim();
+  return {
+    ...extra,
+    ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+  };
+}
+
 export function getOllamaApiBaseUrl(envBaseUrl = process.env.OLLAMA_BASE_URL): string {
   const base = trimTrailingSlash(envBaseUrl?.trim() || DEFAULT_OLLAMA_BASE_URL);
   return base.endsWith('/api') ? base : `${base}/api`;
@@ -113,9 +121,9 @@ export async function getOllamaStatus(fetchImpl: typeof fetch = fetch): Promise<
       fetchImpl,
       `${apiBaseUrl}/tags`,
       {
-        headers: {
+        headers: getOllamaRequestHeaders({
           Accept: 'application/json',
-        },
+        }),
       },
       4000,
     );
@@ -190,9 +198,9 @@ export async function chatWithOllama(
     `${status.apiBaseUrl}/chat`,
     {
       method: 'POST',
-      headers: {
+      headers: getOllamaRequestHeaders({
         'Content-Type': 'application/json',
-      },
+      }),
       body: JSON.stringify({
         model: status.activeModel,
         messages: input.messages,

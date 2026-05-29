@@ -30,13 +30,85 @@ describe('chat formatting', () => {
       {
         type: 'unordered-list',
         items: [
+          {
+            content: [
+              { type: 'strong', content: 'Time Horizon:' },
+              { type: 'text', content: ' Typically 5-10 years.' },
+            ],
+          },
+          {
+            content: [
+              { type: 'strong', content: 'Revenue Forecast:' },
+              { type: 'text', content: ' Start with revenue growth rates.' },
+            ],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('keeps nested bullet details under ordered list items', () => {
+    const blocks = parseChatContent([
+      '1. **Equity Funds**',
+      '   - Invest in stocks.',
+      '',
+      '1. **Bond Funds**',
+      '   - Hold government or corporate bonds.',
+    ].join('\n'));
+
+    expect(blocks).toEqual([
+      {
+        type: 'ordered-list',
+        items: [
+          {
+            content: [{ type: 'strong', content: 'Equity Funds' }],
+            nestedList: {
+              type: 'unordered-list',
+              items: [{ content: [{ type: 'text', content: 'Invest in stocks.' }] }],
+            },
+          },
+          {
+            content: [{ type: 'strong', content: 'Bond Funds' }],
+            nestedList: {
+              type: 'unordered-list',
+              items: [{ content: [{ type: 'text', content: 'Hold government or corporate bonds.' }] }],
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('parses level-4 headings and markdown tables', () => {
+    const blocks = parseChatContent([
+      '#### A. Growth Funds',
+      '',
+      '| Risk Level | Fund Type |',
+      '| --- | --- |',
+      '| Low | Money Market |',
+      '| High | Aggressive Growth |',
+    ].join('\n'));
+
+    expect(blocks).toEqual([
+      {
+        type: 'heading',
+        level: 4,
+        content: [{ type: 'text', content: 'A. Growth Funds' }],
+      },
+      {
+        type: 'table',
+        header: [
+          [{ type: 'text', content: 'Risk Level' }],
+          [{ type: 'text', content: 'Fund Type' }],
+        ],
+        rows: [
           [
-            { type: 'strong', content: 'Time Horizon:' },
-            { type: 'text', content: ' Typically 5-10 years.' },
+            [{ type: 'text', content: 'Low' }],
+            [{ type: 'text', content: 'Money Market' }],
           ],
           [
-            { type: 'strong', content: 'Revenue Forecast:' },
-            { type: 'text', content: ' Start with revenue growth rates.' },
+            [{ type: 'text', content: 'High' }],
+            [{ type: 'text', content: 'Aggressive Growth' }],
           ],
         ],
       },

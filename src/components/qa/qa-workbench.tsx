@@ -3,7 +3,7 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Bot, Loader2, Send, Trash2 } from 'lucide-react';
 import { SectionCard } from '@/components/common/section-card';
-import { parseChatContent, type ChatInlineSegment } from '@/lib/qa/chat-format';
+import { parseChatContent, type ChatInlineSegment, type ChatListItem } from '@/lib/qa/chat-format';
 import { getKv, setKv } from '@/lib/storage/repositories';
 import { cn } from '@/lib/utils/cn';
 import { useAuthStore } from '@/stores/auth-store';
@@ -88,6 +88,30 @@ function renderInlineSegments(segments: ChatInlineSegment[]) {
   });
 }
 
+function renderChatList(items: ChatListItem[], ordered: boolean, keyPrefix: string) {
+  const ListTag = ordered ? 'ol' : 'ul';
+  const listClassName = ordered
+    ? 'list-decimal space-y-2 pl-6 marker:text-indigo-500 dark:marker:text-indigo-300'
+    : 'list-disc space-y-2 pl-6 marker:text-indigo-500 dark:marker:text-indigo-300';
+
+  return (
+    <ListTag key={keyPrefix} className={listClassName}>
+      {items.map((item, itemIndex) => (
+        <li key={`${keyPrefix}-${itemIndex}`} className="pl-1">
+          <span>{renderInlineSegments(item.content)}</span>
+          {item.nestedList
+            ? renderChatList(
+                item.nestedList.items,
+                item.nestedList.type === 'ordered-list',
+                `${keyPrefix}-${itemIndex}-nested`,
+              )
+            : null}
+        </li>
+      ))}
+    </ListTag>
+  );
+}
+
 function FormattedAssistantMessage({ content }: { content: string }) {
   const blocks = parseChatContent(content);
 
@@ -97,34 +121,59 @@ function FormattedAssistantMessage({ content }: { content: string }) {
         const key = `${block.type}-${index}`;
 
         if (block.type === 'heading') {
+          const headingClassName =
+            block.level <= 2
+              ? 'text-xl font-semibold tracking-tight text-slate-900 dark:text-white'
+              : block.level === 3
+                ? 'text-lg font-semibold tracking-tight text-slate-900 dark:text-white'
+                : 'text-base font-semibold tracking-tight text-slate-900 dark:text-white';
           return (
-            <h3 key={key} className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
+            <h3 key={key} className={headingClassName}>
               {renderInlineSegments(block.content)}
             </h3>
           );
         }
 
         if (block.type === 'unordered-list') {
-          return (
-            <ul key={key} className="list-disc space-y-2 pl-6 marker:text-indigo-500 dark:marker:text-indigo-300">
-              {block.items.map((item, itemIndex) => (
-                <li key={`${key}-${itemIndex}`} className="pl-1">
-                  {renderInlineSegments(item)}
-                </li>
-              ))}
-            </ul>
-          );
+          return renderChatList(block.items, false, key);
         }
 
         if (block.type === 'ordered-list') {
+          return renderChatList(block.items, true, key);
+        }
+
+        if (block.type === 'table') {
           return (
-            <ol key={key} className="list-decimal space-y-2 pl-6 marker:text-indigo-500 dark:marker:text-indigo-300">
-              {block.items.map((item, itemIndex) => (
-                <li key={`${key}-${itemIndex}`} className="pl-1">
-                  {renderInlineSegments(item)}
-                </li>
-              ))}
-            </ol>
+            <div key={key} className="overflow-x-auto rounded-2xl border border-border/80">
+              <table className="min-w-full border-collapse text-sm leading-7">
+                <thead className="bg-slate-100/80 dark:bg-slate-900/80">
+                  <tr>
+                    {block.header.map((cell, cellIndex) => (
+                      <th
+                        key={`${key}-head-${cellIndex}`}
+                        className="border-b border-border px-3 py-2 text-left font-semibold text-slate-900 dark:text-slate-100"
+                      >
+                        {renderInlineSegments(cell)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {block.rows.map((row, rowIndex) => (
+                    <tr key={`${key}-row-${rowIndex}`} className="odd:bg-white/40 even:bg-slate-50/40 dark:odd:bg-slate-950/30 dark:even:bg-slate-900/30">
+                      {row.map((cell, cellIndex) => (
+                        <td
+                          key={`${key}-row-${rowIndex}-cell-${cellIndex}`}
+                          className="border-t border-border/70 px-3 py-2 align-top"
+                        >
+                          {renderInlineSegments(cell)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           );
         }
 
