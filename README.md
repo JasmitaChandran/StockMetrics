@@ -1,345 +1,280 @@
 # Stock Metrics
 
-“AI-Powered Personalized Stock Metrics & Investment Dashboard” is a full-stack, stock market analysis web application, which is AI driven and is designed to provide retail investors, finance students, and market learners with a unified workspace for multi-market research, intelligent screening, portfolio observation, price alerting, learning resource discovery, and AI-assisted investment guidance.
+The stock market is rich in information but fragmented in delivery. Investors frequently move between market quote pages, financial statement websites, screeners, portfolio trackers, news portals, learning resources, and notes applications to build a single view of a company or investment idea. 
 
-It ships with:
-- `PRO` + `Beginner` modes
-- Dark/Light theme toggle
-- Universal search (US / India / Mutual Funds)
-- `Q/A` tab for general-purpose chat
-- Stock detail page (about, metrics, statements, charts, peer comparison, news, docs, notes)
-- Rule-based AI layer
-- AI screener (rule parser) + built-in strategies
-- Watchlist / Portfolio / Notes stored (IndexedDB)
-- Learning tab with local markdown knowledge base + optional AI providers
+This fragmentation increases the effort required for even basic analysis and creates a particularly difficult learning curve for beginners. Most existing financial platforms function primarily display data in their systems. They present raw financial statements, historical price charts, and a list of technical or fundamental ratios. While this information is comprehensive, it assumes that users already possess the expertise required to interpret it.
 
-## Non-negotiable goals covered
-- **Fast UI**: React Query caching, debounced search, dynamic chart import, downsampling, virtualization, skeletons.
-- **Easy setup**: `npm install && npm run dev`
-=======
-**One-line summary:** Stock Metrics is a static-first, local-first stock analysis platform for India, US, and Mutual Funds that combines free market data, explainable rule-based intelligence, and optional AI providers.
+Beginners often feel overwhelmed by unfamiliar terminology such as EBITDA, P/E ratio, ROE or ROCE. On the other hand, experienced users frequently need deeper analytical tools that go beyond static ratios.
+
+“AI-Powered Personalized Stock Metrics & Investment Dashboard” was designed as a response to these issues. It is a research-oriented finance web application that unifies stock discovery, multi-market analysis, charting, documents, news, notes, screening, learning resources, alerts, local portfolio tracking, and AI-based interpretation under one system. 
+
+It has a defining innovation of the system of dual-mode adaptive interface (Beginner and Pro Mode). In Beginner Mode, complex financial concepts are translated into clear, plain-language explanations. Income statements are contextualized. Ratios are explained intuitively. 
+
+The system reduces cognitive overload and acts as an educational bridge for new investors. In PRO Mode, advanced analytical tools become accessible, including valuation models, derived financial metrics, factor scoring frameworks, and structured risk diagnostics.
+
+The integration of modular system architecture, intelligent data normalization, caching strategies, and AI-assisted insights ensures that the platform is not merely informative but analytically actionable.
+
+
+It combines:
+- India + US + Mutual Fund discovery
+- Stock detail analysis (quote, chart, fundamentals, news, documents)
+- Screener, watchlist, portfolio, and alert workflows
+- Personalized agentic recommendation engine
+- LLM chat (Ollama) for Q/A
 
 ## Table of Contents
 
-1. [Project Overview](#project-overview)
-2. [Features](#features)
-3. [System Architecture](#system-architecture)
-4. [Installation Guide](#installation-guide)
-5. [Environment Variables](#environment-variables)
-6. [API Integrations](#api-integrations)
-7. [AI/ML and Recommendation Engine](#aiml-and-recommendation-engine)
-8. [Performance Optimizations](#performance-optimizations)
-9. [Security](#security)
-10. [Deployment](#deployment)
-11. [Contributors](#contributors)
-12. [License](#license)
+1. [Project Snapshot](#project-snapshot)
+2. [Core Features](#core-features)
+3. [Architecture](#architecture)
+4. [Data Sources and Fallback Behavior](#data-sources-and-fallback-behavior)
+5. [Tech Stack](#tech-stack)
+6. [Getting Started](#getting-started)
+7. [Environment Variables](#environment-variables)
+8. [API Route Reference](#api-route-reference)
+9. [Storage Model (IndexedDB)](#storage-model-indexeddb)
+10. [Testing](#testing)
+11. [Deployment](#deployment)
+12. [Repository Structure](#repository-structure)
+13. [Known Limitations](#known-limitations)
+14. [Security Notes](#security-notes)
+15. [Contributing](#contributing)
+16. [License](#license)
 
-## Project Overview
->>>>>>> aedfb00 (Readme)
+## Project Snapshot
 
-### What problem this project solves
+- Framework: Next.js 13.5 (App Router)
+- Language: TypeScript
+- UI: React + Tailwind CSS + Framer Motion
+- AI strategy: deterministic heuristics by default, Ollama/OpenAI-compatible integrations
 
-Retail investors usually face one or more of these problems:
+## Core Features
 
-- Paid market APIs are expensive for side projects and students.
-- Many tools hide recommendation logic behind black-box outputs.
-- Portfolio tools, learning resources, and analysis are spread across multiple apps.
-- New investors need beginner-friendly guidance, while experienced users need deeper diagnostics.
+### 1) Dashboard and Stock Detail
 
-Stock Metrics solves this by providing a single web app with free-first data access, local-first persistence, and transparent recommendation logic.
+- Universal search for:
+  - US equities
+  - Indian equities
+  - Indian mutual funds (`AMFI:<code>`)
+- Detailed stock/fund page:
+  - Live quote and price change
+  - Multi-range chart (`1M`, `6M`, `1Y`, `3Y`, `5Y`, `10Y`, `Max`)
+  - Optional overlays: volume, `50 DMA`, `200 DMA`
+  - About section and website link
+  - Key metrics or beginner-friendly snapshot (mode-dependent)
+  - Financial statements with tabs:
+    - Profit & Loss
+    - Quarterly Results
+    - Balance Sheet
+    - Cash Flow
+  - Statement summaries and AI insight panels
+  - Peer comparison
+  - Shareholding view (when available)
+  - News and document feed
+  - Personal notes per symbol
+  - Excel export for statements
+- Market timing context:
+  - India/US market open-closed status
+  - Current IST time, last update timestamp, next open
 
-### Target users
+### 2) UI Modes and Experience
 
-- Individual investors in India and US markets
-- Students and beginner investors learning fundamentals
-- Users who want local/private-first workflows (watchlist, notes, portfolio) without mandatory backend storage
-- Developers who want an extensible stock analytics starter built on Next.js
+- `PRO` and `Beginner` mode toggle
+- Dark/light theme toggle
+- Responsive layout
+- Virtualized large tables
+- Animated top ticker strip with periodic quote refresh
 
-### Why this project exists
+### 3) Screener
 
-The project was designed to prove that a useful stock analytics platform can run with:
+- Loads broad India + US stock universe via internal search API
+- Advanced filter controls:
+  - Universe
+  - Valuation metrics (P/E, P/B, EV/EBITDA, etc.)
+  - Profitability metrics (ROE, ROCE, dividend yield)
+  - Leverage and momentum filters
+- Sortable and virtualized desktop table
+- Mobile card layout
+- Progressive hydration:
+  - initial rows from universe/index data
+  - best-effort quote and fundamentals enrichment in background
 
-- No mandatory paid APIs
-- No mandatory cloud database for personal data
-- Graceful degradation when live feeds are missing
-- Explainable recommendation outputs rather than opaque prompts
+### 4) Watchlist
 
-### Key differentiators
+- Create and manage multiple watchlists
+- Add symbols with optional “reason for adding” notes
+- Symbol metadata and trend indicators
+- Sparkline and short-horizon return snippets
+- User-scoped local persistence
 
-- **Zero-key baseline mode:** App works without paid API keys.
-- **Hybrid intelligence:** Deterministic heuristics + optional LLM integrations.
-- **Explainable agentic analysis:** Risk profile, fit score components, confidence ranges, and data freshness are all exposed.
-- **Cross-market scope:** India equities, US equities, and Indian mutual funds.
-- **Local-first data ownership:** Portfolio transactions, watchlists, notes, and custom screens are stored in IndexedDB.
+### 5) Portfolio
 
-## Features
+- Transaction ledger (`buy`/`sell`)
+- Holdings derivation from transaction history
+- P&L and allocation summary
+- Mixed-currency normalization via USD/INR FX snapshot
+- Deep link from holding to stock detail page
 
-### Market data and research
+### 6) Alerts
 
-- Universal search across US, India, and Mutual Funds
-- Quote and history charts with multiple ranges (1M to Max)
-- Key metrics and financial statements (P&L, quarterly, balance sheet, cash flow)
-- Company documents integration (SEC filings, annual reports, presentations)
-- News feed with relevance filtering and sentiment scoring
-- USD/INR FX context for cross-market comparison
+- Price threshold alerts (`above` / `below`)
+- Background monitor checks enabled alerts on interval
+- Deduplicated triggering (`lastConditionMet` guard)
+- Optional notification channels:
+  - Email via Gmail SMTP
+  - WhatsApp via Twilio API
+- Alert event history in local storage
+- WhatsApp OTP verification flow in account page
 
-### Analysis and recommendations
+### 7) Personalized Agentic Analysis
 
-- Rule-based AI insights (works in default no-key mode)
-- Beginner assessment panel with metric-specific explanations
-- AI Screener with natural-language query parsing and built-in strategies
-- Agentic personalized engine with user profile capture, suitability scoring, recommendation pools (India, US, MF), and an action panel with allocation and holding-period guidance
+- Dedicated personalized workbench with multi-step profile form
+- Captures household and investment inputs:
+  - demographics, dependents, income/expenses
+  - assets/retirement, loans, insurance
+  - risk preference, liquidity need, target return, market scope
+- Engine pipeline includes:
+  - financial profile and cash-flow diagnostics
+  - market-universe filtering
+  - per-security scoring
+  - recommendation mix (`BUY` / `HOLD` / `AVOID`)
+  - guardrails (may return `HOLD CASH` when confidence/freshness is weak)
+- Progress telemetry with phase-by-phase status
+- Local memory for prior runs/weights
+- PDF report export
 
-### Portfolio, watchlist, and notes
+### 8) Q/A (Ollama-backed)
 
-- Multi-watchlist local persistence
-- Portfolio transaction tracking with P&L and allocation views
-- Stock-level personal notes
-- Local snapshots and reusable analysis memory hooks
+- General chat UI at `/qa`
+- Ollama status check (`/api/qa/status`)
+- Chat endpoint (`/api/qa/chat`) with local model
+- Per-user local chat history autosave (IndexedDB KV)
 
-### Alerts and notifications
+### 9) Learning
 
-- Price alert condition engine (`above`/`below` threshold)
-- Optional email alerts via Gmail SMTP
-- Optional WhatsApp alerts via Twilio API
+- Learning tab currently focuses on curated free external courses
+- Categories include stocks, investing, personal finance, markets, and theory
+- Providers include Khan Academy, MIT OpenCourseWare, and Open Yale Courses
 
-### Learning and Q/A
+### 10) Authentication
 
-- Local markdown-based learning content hub
-- Learning assistant with heuristic retrieval
-- Q/A tab backed by local Ollama (optional)
-- Optional OpenAI-compatible provider path for learning assistant answers
+- Auth adapter abstraction exists (`local` + `firebase` implementations)
+- UI login/register path is Google-based and intended for Firebase-backed flows
+- Main market research flows can still be used without mandatory server-side user database
 
-### UX and mode support
+## Architecture
 
-- PRO and Beginner mode support
-- Dark/light theme support
-- Skeleton loading patterns and responsive dashboard layout
-
-## System Architecture
-
-Stock Metrics uses a **client-heavy, static-first architecture** with lightweight Next.js route handlers as integration boundaries.
+Stock Metrics follows a client-heavy architecture with Next.js route handlers as integration boundaries.
 
 ```mermaid
 flowchart TB
-  UI["Next.js App Router UI\nDashboard | Screener | Watchlist | Portfolio | Learning | Agentic"]
-  Hooks["Client Hooks + React Query"]
-  Adapters["Data Adapters\nmarket/fundamentals/news/docs/search/fx"]
-  Routes["Next.js API Routes\n/api/*"]
-  Providers["External Providers\nYahoo | SEC | RSS | NSE/Nasdaq | MFAPI | FX"]
-  Local["Local Storage\nIndexedDB + localStorage + sessionStorage"]
-  AI["AI Layer\nHeuristic + Optional Ollama/OpenAI-compatible"]
+  UI["Next.js App UI\nDashboard | Screener | Watchlist | Portfolio | Alerts | Agentic | QA | Learning"]
+  Hooks["React Query + Hooks"]
+  Adapters["Client Adapters\nmarket | fundamentals | news | docs | search | fx"]
+  API["Next.js API Routes\n/api/*"]
+  Providers["External Providers\nYahoo | SEC | Nasdaq | NSE | MFAPI/AMFI | Google RSS | FX API"]
+  Local["Local Persistence\nIndexedDB + localStorage + sessionStorage"]
+  AI["AI Layer\nHeuristic default\nOllama/OpenAI-compatible optional"]
 
   UI --> Hooks
   Hooks --> Adapters
-  Adapters --> Routes
-  Routes --> Providers
+  Adapters --> API
+  API --> Providers
   UI --> Local
   UI --> AI
 ```
 
-### Core layers
+### Key Design Choices
 
-- **Presentation layer:** `src/app`, `src/components`
-- **State and hooks:** React Query + Zustand (`src/lib/hooks`, `src/stores`)
-- **Domain adapters:** `src/lib/data/adapters`
-- **Provider integrations:** `src/lib/data/providers`
-- **AI/Agentic logic:** `src/lib/ai`, `src/lib/agentic`
-- **Persistence:** IndexedDB repositories (`src/lib/storage`, `src/lib/storage/repositories.ts`)
+- Local-first: user data (watchlists, portfolio, notes, alerts, chat history) remains browser-local.
+- Free-source-first: external integrations favor free public endpoints.
+- Fallback-first resilience: demo/reference data is used when providers fail.
+- Explainability focus: recommendation pipeline surfaces fit scores, uncertainty, and rationale.
 
-### Data flow (stock detail)
+## Data Sources and Fallback Behavior
 
-1. User opens `/dashboard/[market]/[symbol]`.
-2. UI hook calls `getStockDetail(symbol)`.
-3. Adapter fan-out fetches quote, history, fundamentals, news, docs in parallel.
-4. Route handlers call provider modules and return normalized responses.
-5. UI renders only available metrics; missing fields are hidden, not fabricated.
+### Search and Symbol Discovery
 
-For a full architecture map, see `docs/architecture-diagram.md`.
+- US listings: Nasdaq Trader symbol directories
+- India listings: NSE equity CSV
+- Mutual funds: MFAPI with AMFI fallback
+- Local fallback: demo universe entries
 
-## Installation Guide
+### Quotes and History
+
+- Primary: Yahoo Finance chart endpoints
+- Mutual funds: MFAPI NAV history/quote (`AMFI:<code>`)
+- Fallback: deterministic demo history and derived quote
+
+### Fundamentals
+
+- US: SEC EDGAR (`companyfacts`, `submissions`)
+- India/MF: demo fallback when live coverage is limited
+- Missing metrics are hidden rather than fabricated
+
+### News
+
+- Google News RSS with relevance + lexicon sentiment scoring
+- Fallback: demo news
+
+### Documents
+
+- US: SEC filing links
+- India: latest annual/presentation extraction from public company pages
+
+### FX
+
+- USD/INR via `open.er-api.com`
+- Cached in IndexedDB KV
+- stale fallback returned when live fetch fails
+
+## Tech Stack
+
+- Next.js 13.5.6
+- React 18
+- TypeScript 5
+- Tailwind CSS 3
+- React Query 5
+- Zustand 4
+- Recharts
+- Framer Motion
+- IndexedDB via `idb`
+- Vitest
+- Nodemailer (email alerts)
+- `xlsx` (statement export)
+- `jspdf` (agentic report export)
+
+## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ (Node 20 recommended)
+- Node.js 18+
 - npm
 
-### 1. Clone and install
+### 1) Install
 
 ```bash
-git clone <your-repo-url>
-cd StockMetrics
 npm install
 ```
 
-
-Open: [http://localhost:3000](http://localhost:3000)
-
-## Build
-
-```bash
-npm run build
-```
-
-## Run tests
-
-```bash
-npm test
-```
-
-4. Environment variables are optional (only needed for optional AI/auth providers).
-
-Notes:
-- Cloudflare build environments are typically Node 20+, which is ideal for `@cloudflare/next-on-pages`.
-- The app itself runs locally with no API keys and no backend setup.
-
-## Alternative free deployment (Vercel)
-
-- Import the repo into Vercel
-- No env vars required for default mode
-- Deploy with default `npm run build`
-
-## Data Sources (free only) + fallback behavior
-
-### Market prices/history
-- **Yahoo Finance chart endpoint (no API key)** via local `/api/market/*` proxy
-- If unavailable/rate-limited: **deterministic demo fallback history** (clearly labeled delayed/demo)
-
-### Fundamentals
-- **US**: SEC EDGAR Company Facts + filings (free)
-- **India**: best-effort demo/curated fundamentals fallback (free public India fundamentals are often inconsistent without paid APIs)
-- Missing metrics are **hidden** (not guessed)
-
-### News
-- **Google News RSS** (no key) via `/api/news`, filtered by ticker/company relevance
-- Fallback demo news if feed fails
-
-### FX (USD->INR)
-- `open.er-api.com` (no key) via `/api/fx/usd-inr`
-- Cached value in IndexedDB + stale fallback if request fails
-
-## AI Layer (works offline/free by default)
-
-### Default provider (no API key)
-- Deterministic heuristics + templates
-- Lexicon-based news sentiment
-- Rule-based bull/bear periods, risk checks, fraud red flags
-- Baseline trend forecasts
-- Statement summaries (heuristic)
-- Beginner “Should I consider buying?” panel (educational only)
-
-### Optional providers
-Configure via `.env` (not required):
-- Local Ollama endpoint (`qwen3` is a good default for the general Q/A tab)
-- OpenAI-compatible endpoint
-
-These are behind a provider interface (`src/lib/ai/*`) so the app works without them.
-
-## Auth (optional, default local-only)
-
-### Default
-- **Guest mode / local demo auth** (no backend required)
-- Local IndexedDB fake session + local username/email/password for demo UX
-- Includes demo “Google” login button behavior for local adapter
-
-### Optional Firebase Auth
-- Adapter interface included (`src/lib/auth/*`)
-- Set env vars and replace placeholder adapter with Firebase SDK integration if desired
-
-## Feature map
-
-### Dashboard (PRO + Beginner)
-- Universal search
-- Dashboard market tabs: US / Indian / Mutual Funds
-- Stock detail page with:
-  - About + website link
-  - Key metrics (only available ones)
-  - Income statements (P&L, Quarterly, Balance Sheet, Cash Flow)
-  - Consolidated/Standalone toggle (UI + heuristic summary)
-  - Charts (1M/6M/3Y/5Y/Max)
-  - Shareholding pattern
-  - AI insights (heuristic)
-  - Peer comparison + manual compare input
-  - Export to Excel (.xlsx)
-  - News, documents, notes
-  - US values currency toggle (USD/INR)
-  - Market open/closed + last update + next open (IST display)
-
-### Screener
-- AI screener natural language parser (rule-based)
-- Built-in strategies: Piotroski (approx), Magic Formula, Coffee Can, Quality, Value, Momentum
-- Custom screens stored locally
-- Virtualized results table
-
-### Watchlist
-- Multiple watchlists
-- Local persistence
-- Quick sparkline + short-term move indicator
-
-### Portfolio
-- Buy/sell transaction tracking
-- Holdings + P&L + allocation bars
-- Local persistence
-
-### Learning
-- Local markdown docs knowledge base
-- Q&A assistant with heuristic retrieval/answers
-- Optional Ollama/OpenAI-compatible provider support
-
-### Q/A
-- General-purpose local chat tab backed by Ollama
-- No API key required
-- No in-app request cap when running locally
-- Status panel shows whether Ollama is reachable and which local model is active
-
-## Folder structure
-
-```text
-src/
-  app/            # App Router pages + api routes
-  components/     # UI and feature components
-  lib/            # data adapters, providers, AI, storage, utils
-  stores/         # Zustand stores (theme/mode/auth)
-  types/          # domain types
-  content/        # learning markdown docs
-tests/            # minimal unit tests
-```
-
-## Important transparency notes
-
-- This app does **not** claim real-time market data.
-- Data quality varies by symbol and market because only free sources are used.
-- Some advanced fundamentals for Indian stocks are best-effort/demo unless a reliable free provider is added.
-- When a metric is missing, the UI intentionally hides it.
-
-## Optional configuration
-
-Copy env file if needed:
-=======
-### 2. (Optional) Configure environment
->>>>>>> aedfb00 (Readme)
+### 2) Optional env setup
 
 ```bash
 cp .env.example .env.local
 ```
 
-You can run the app without setting any env vars in baseline mode.
+All environment variables are optional for baseline app usage. Optional features (alerts/auth/AI providers) require relevant env values.
 
-### 3. Run development server
+### 3) Run dev server
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+App URL:
+- [http://localhost:3000](http://localhost:3000)
 
-### 4. Run tests
-
-```bash
-npm test
-```
-
-### 5. Build for production
+### 4) Build and run production locally
 
 ```bash
 npm run build
@@ -348,246 +283,143 @@ npm run start
 
 ## Environment Variables
 
-### Required vs optional
+Reference file: `.env.example`
 
-- **Required for baseline app:** None
-- **Optional by feature:** All variables in `.env.example` are feature-gated
+### AI / LLM
 
-### Environment variable matrix
+- `OPENAI_COMPATIBLE_BASE_URL`
+- `OPENAI_COMPATIBLE_API_KEY`
+- `OPENAI_COMPATIBLE_MODEL`
+- `OLLAMA_BASE_URL`
+- `OLLAMA_MODEL`
+- `OLLAMA_API_KEY`
+- `NEXT_PUBLIC_DEFAULT_AI_PROVIDER`
 
-| Variable | Required | Purpose | Where to get it |
-| --- | --- | --- | --- |
-| `OPENAI_COMPATIBLE_BASE_URL` | Optional | Base URL for OpenAI-compatible chat endpoint | Your compatible provider docs |
-| `OPENAI_COMPATIBLE_API_KEY` | Optional | Auth key for compatible provider | Your compatible provider dashboard |
-| `OPENAI_COMPATIBLE_MODEL` | Optional | Model name for compatible provider | Your compatible provider model list |
-| `OLLAMA_BASE_URL` | Optional | Local Ollama host | Local Ollama install (`http://localhost:11434` default) |
-| `OLLAMA_MODEL` | Optional | Ollama model name | `ollama list` output |
-| `GMAIL_SMTP_USER` | Optional | Sender Gmail account for alert emails | Google account settings |
-| `GMAIL_SMTP_APP_PASSWORD` | Optional | App password for Gmail SMTP | Google Account -> Security -> App passwords |
-| `GMAIL_FROM_NAME` | Optional | Display name in outgoing alert email | Custom value |
-| `TWILIO_ACCOUNT_SID` | Optional | Twilio API account SID | Twilio Console |
-| `TWILIO_AUTH_TOKEN` | Optional | Twilio auth token | Twilio Console |
-| `TWILIO_WHATSAPP_FROM` | Optional | Twilio WhatsApp sender (`whatsapp:+...`) | Twilio WhatsApp Sandbox/approved sender |
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | Optional* | Firebase web config | Firebase Console -> Project Settings |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Optional* | Firebase auth domain | Firebase Console |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Optional* | Firebase project id | Firebase Console |
-| `NEXT_PUBLIC_FIREBASE_APP_ID` | Optional* | Firebase app id | Firebase Console |
-| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Optional | Firebase storage bucket | Firebase Console |
-| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Optional | Firebase messaging sender id | Firebase Console |
-| `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | Optional | Firebase analytics measurement id | Firebase Console |
-| `NEXT_PUBLIC_ENABLE_FIREBASE_AUTH` | Optional | Force Firebase auth on/off (`true`/`false`) | Set manually |
-| `NEXT_PUBLIC_DEFAULT_AI_PROVIDER` | Optional | Default AI provider selector (`heuristic`, `ollama`, `openai-compatible`) | Set manually |
+### Alerting
 
-`*` Firebase Auth requires at least API key, auth domain, project id, and app id when enabled.
+- `GMAIL_SMTP_USER`
+- `GMAIL_SMTP_APP_PASSWORD`
+- `GMAIL_FROM_NAME`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_WHATSAPP_FROM`
 
-### Notes
+### Firebase Auth
 
-- Keep secrets only in `.env.local` (already ignored by `.gitignore`).
-- Restart dev server after changing env variables.
-- If optional integrations are missing, the app degrades gracefully.
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
+- `NEXT_PUBLIC_ENABLE_FIREBASE_AUTH`
 
-## API Integrations
+## API Route Reference
 
-### Internal API routes
+- `GET /api/search/universal`
+  - query, market filter, pagination, symbol resolution
+- `GET /api/market/quote`
+  - quote for stock or mutual fund
+- `GET /api/market/history`
+  - historical series
+- `GET /api/fundamentals/us`
+  - SEC-derived US fundamentals
+- `GET /api/news`
+  - relevant Google RSS headlines
+- `GET /api/documents`
+  - SEC filings or India public docs
+- `GET /api/fx/usd-inr`
+  - USD/INR snapshot
+- `GET /api/qa/status`
+  - Ollama availability and model status
+- `POST /api/qa/chat`
+  - Ollama chat completion
+- `POST /api/alerts/email`
+  - SMTP email alert dispatch
+- `POST /api/alerts/whatsapp`
+  - Twilio WhatsApp dispatch
 
-| Route | Function |
-| --- | --- |
-| `/api/search/universal` | Universal symbol/entity search and symbol resolution |
-| `/api/market/quote` | Latest quote (Yahoo or MFAPI) |
-| `/api/market/history` | Historical candles/NAV series |
-| `/api/fundamentals/us` | US fundamentals from SEC EDGAR |
-| `/api/news` | Filtered Google News RSS feed |
-| `/api/documents` | SEC filings (US) and public company documents (India) |
-| `/api/fx/usd-inr` | USD to INR conversion snapshot |
-| `/api/qa/status` | Ollama availability/status |
-| `/api/qa/chat` | Q/A chat via Ollama |
-| `/api/alerts/email` | Optional email notifications |
-| `/api/alerts/whatsapp` | Optional WhatsApp notifications |
+## Storage Model (IndexedDB)
 
-### External providers and usage
+Database: `stock-metrics-db` (version `2`)
 
-| Provider | Used for | Auth required |
-| --- | --- | --- |
-| Yahoo Finance chart endpoint | Stock quotes and price history | No |
-| SEC EDGAR (companyfacts + submissions) | US fundamentals and filings | No |
-| Nasdaq Trader symbol directories | US search index | No |
-| NSE equity list | India search index | No |
-| MFAPI / AMFI | Mutual fund index, NAV history, quote | No |
-| Google News RSS | News feed | No |
-| open.er-api.com | USD/INR FX rate | No |
-| Twilio API | WhatsApp alerts (optional) | Yes (optional feature) |
-| Gmail SMTP | Email alerts (optional) | Yes (optional feature) |
-| Firebase Auth | Cloud auth (optional) | Yes (optional feature) |
-| Ollama local API | Local Q/A and optional AI answers | Local runtime |
+Object stores:
+- `users`
+- `session`
+- `watchlists`
+- `portfolioTxns`
+- `notes`
+- `customScreens`
+- `priceAlerts`
+- `alertMessages`
+- `kv`
 
-### Integration behavior
+User data is scoped by active user ID when available; otherwise anonymous scope is used for local workflows.
 
-- Provider calls are wrapped with in-memory TTL cache on both client and server paths.
-- Most routes include `Cache-Control` headers with `stale-while-revalidate` where appropriate.
-- When provider requests fail, adapters fall back to demo/reference data where available.
+## Testing
 
-## AI/ML and Recommendation Engine
+Run:
 
-Stock Metrics uses a **hybrid intelligence model**:
+```bash
+npm test
+```
 
-- **Default engine:** deterministic rule-based heuristics (no key required)
-- **Optional providers:** Ollama and OpenAI-compatible endpoint for selected workflows
+Current test coverage includes:
+- alert trigger logic
+- chat formatting parser
+- heuristic AI behavior
+- metric mapping
+- Ollama helper logic
+- personalized engine validation and guardrails
 
-### Profile inputs (agentic mode)
-
-The personalized engine captures rich household and investor context, including:
-
-- Demographics: age, marital status, dependents
-- Employment and income: job type, monthly income, tax rate
-- Expenses and liabilities: fixed/discretionary spend, loans/EMI
-- Protection and cashflow support: insurance cover/policies, debt/FD interest
-- Assets and retirement corpus: equity/debt/gold/cash/alternatives + EPF/PPF/NPS
-- Investment intent: goal, horizon, risk preference, liquidity need, target return
-- Scope controls: market scope (India/US/both), specific ticker mode, compare-with-alternatives
-
-### Risk profiling logic
-
-The engine computes a `riskProfileScore` (0-100) from:
-
-- age and life stage
-- dependents
-- debt burden and emergency coverage
-- horizon and user-declared risk preference
-- liquidity need
-- income stability and insurance adequacy
-
-Risk label thresholds:
-
-- `>=72`: Aggressive
-- `>=48`: Moderate
-- `<48`: Conservative
-
-Policy overrides can downgrade risk label (for example high debt burden, very low emergency fund, weak protection with dependents).
-
-### Scoring logic
-
-For each analyzed security, the engine computes:
-
-- `stockQuality` from fundamentals + technicals + DCF + sentiment
-- `riskCompatibility` between user risk target and stock risk level
-- `portfolioFit` based on allocation gaps and concentration/diversification context
-- `lifeStageFit` based on goal, horizon, dependents, liquidity and household constraints
-
-Default weighted fit:
-
-- Stock Quality: `40%`
-- Risk Compatibility: `25%`
-- Portfolio Fit: `20%`
-- Life-stage Fit: `15%`
-
-Final recommendation thresholds:
-
-- `>=68`: `BUY`
-- `52-67`: `HOLD`
-- `<52`: `AVOID`
-
-### Recommendation pipeline
-
-1. Validate and normalize profile input
-2. Build household cash-flow and allocation diagnostics
-3. Load market universe (live index, demo fallback, or mixed)
-4. Pre-screen and select candidates for deep analysis
-5. Deep-analyze each candidate (fundamentals, technicals, risk, DCF, sentiment)
-6. Apply personalized weighting and risk guardrails
-7. Build recommendation pools (India stocks, US stocks, mutual funds)
-8. Produce final action output (headline, allocation/month, holding period, cautions)
-
-### Explainability outputs
-
-Each recommendation includes:
-
-- component scores and weighted contributions
-- confidence score, fit interval (`fitLow`/`fitHigh`), uncertainty percentage
-- provenance per metric channel (quote/history/fundamentals/news/dcf)
-- freshness classification (`Live`, `Delayed`, `Demo fallback`)
-- support points, caution points, and key reason
-- tax impact note and holding period context
-
-### Guardrails and risk controls
-
-Engine-level guardrails can force `HOLD CASH` when:
-
-- confidence is too low
-- quote/history freshness is fallback-heavy
-- household surplus is insufficient
-
-This prevents overconfident calls on low-quality or stale data.
-
-## Performance Optimizations
-
-The app includes several practical optimization layers:
-
-- **React Query defaults:** query stale/gc windows, retry caps, window-focus controls
-- **Client-side TTL cache:** `fetchJsonWithTtl` memoizes adapter fetches
-- **Server-side TTL cache:** `withServerCache` reduces provider call frequency
-- **Debounced search inputs:** used in universal search, watchlist, alerts, portfolio, and agentic ticker lookup
-- **Virtualized tables:** large screener-style lists rendered with `@tanstack/react-virtual`
-- **Chart data thinning:** long series are sampled/thinned before rendering heavy chart views
-- **Dynamic imports:** chart and devtools are lazily loaded to reduce initial bundle pressure
-- **Graceful fallbacks:** avoids UI blocking when provider integrations fail
-
-## Security
-
-### Current security posture
-
-- Secrets for optional integrations are read from server-side env vars.
-- API routes validate required inputs and return explicit error responses.
-- `.env` and `.env.local` are git-ignored.
-- Firebase auth (when enabled) uses official SDK flows and provider/domain checks.
-
-### Important caveat
-
-- The local auth adapter is intentionally **demo-grade** and stores credentials in browser storage with lightweight hashing. It is not intended for hardened internet-facing production without additional security work.
-
-### Production hardening recommendations
-
-- Use Firebase Auth or another managed identity provider in production.
-- Add rate limiting and abuse protection on alert/QA endpoints.
-- Add stricter content validation and request throttling for message endpoints.
-- Add security headers/CSP policy and audit dependency updates regularly.
+Last local run result:
+- `6` test files
+- `37` tests
+- all passing
 
 ## Deployment
 
-Stock Metrics is built as a **static-first Next.js app** with optional route handlers.
+### Vercel
 
-### Option A: Cloudflare Pages (recommended in this project)
+- Standard Next.js deployment with `npm run build`
+- Add only env vars for the features you enable
 
-1. Push repository to GitHub.
-2. Create Cloudflare Pages project.
-3. Configure build as: build command `npm run build:cloudflare`, build output directory `.vercel/output/static`, and functions directory `.vercel/output/functions`.
-4. Add env vars only for optional features you enable.
+## Repository Structure
 
-### Option B: Vercel
+```text
+src/
+  app/                  App Router pages + API routes
+  components/           Feature UI (dashboard, screener, watchlist, etc.)
+  lib/
+    agentic/            Personalized analysis engine + PDF reporting
+    ai/                 Heuristic + optional provider adapters
+    alerts/             Trigger logic + notification helpers
+    auth/               Auth adapter abstraction and implementations
+    data/               Adapters, providers, mock data, caching
+    hooks/              React Query hooks
+    learning/           Learning catalog/content loaders
+    qa/                 Chat response formatting utilities
+    storage/            IndexedDB schema + repository helpers
+    utils/              Formatting, market-hours, Excel export, etc.
+  stores/               Zustand stores
+  types/                Shared domain types
+tests/                  Vitest unit tests
+docs/                   Architecture + project docs
+```
 
-1. Import repository in Vercel.
-2. Use default Next.js build (`npm run build`).
-3. Add optional env vars as needed.
 
-### Post-deploy checklist
+## Security Notes
 
-- Verify `/api/search/universal`, `/api/market/quote`, and `/api/news` responses.
-- If alerts are enabled, test both email and WhatsApp routes.
-- If Firebase is enabled, test register/login/forgot-password flows.
-- If Ollama is used in hosted environments, ensure network access to the configured Ollama endpoint.
+- Keep secrets only in `.env.local`.
+- Do not commit credentials.
+- Email/WhatsApp routes should be protected with additional rate-limiting and abuse controls before internet-facing production use.
+- Review dependencies and apply security updates regularly.
 
-## Contributors
+## Contributing
 
-Contributions are welcome.
+1. Create a feature branch.
+2. Make focused changes.
+3. Run tests (`npm test`).
+4. Open a PR with clear summary and reasoning.
 
-- Open an issue describing the change.
-- Create a feature branch.
-- Add/update tests where relevant.
-- Submit a pull request with a clear summary.
-
-If you want a formal contributor roster, add a `CONTRIBUTORS.md` file and reference names/handles there.
-
-## License
-
-A license file is not currently included in this repository.
-
-Until a license is added, default copyright protections apply. If you intend to open-source this project, add a `LICENSE` file (for example MIT, Apache-2.0, or GPL) and update this section.
