@@ -17,8 +17,8 @@ const tabs = [
   { href: '/watchlist', label: 'Watchlist' },
   { href: '/portfolio', label: 'Portfolio' },
   { href: '/alerts', label: 'Alert' },
-  { href: '/agentic', label: 'Personalized Agent', compactLabel: 'Agent' },
-  { href: '/qa', label: 'Chat with AI', compactLabel: 'AI Chat' },
+  { href: '/agentic', label: 'Personalized Agent', compactLabel: 'Personalized Agent' },
+  { href: '/qa', label: 'Chat with AI', compactLabel: 'Chat with AI' },
   { href: '/learning', label: 'Learning' },
 ];
 
