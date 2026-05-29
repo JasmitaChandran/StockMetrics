@@ -257,6 +257,38 @@ html:not(.dark) .surface-hover:hover {
   z-index: 0;
 }
 
+.dashboard-market-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url('/images/market-hero-bg.svg');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.34;
+  -webkit-mask-image: linear-gradient(180deg, black 0%, rgba(0, 0, 0, 0.88) 48%, transparent 100%);
+  mask-image: linear-gradient(180deg, black 0%, rgba(0, 0, 0, 0.88) 48%, transparent 100%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: marketBgDrift 24s ease-in-out infinite;
+}
+
+.dashboard-market-fade {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 22% 14%, rgba(56, 189, 248, 0.12), transparent 38%),
+    radial-gradient(circle at 82% 12%, rgba(99, 102, 241, 0.15), transparent 44%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.08) 0%, rgba(2, 6, 23, 0.62) 72%, rgba(2, 6, 23, 0.84) 100%);
+  pointer-events: none;
+}
+
+.ui-panel > .dashboard-market-bg,
+.ui-panel > .dashboard-market-fade {
+  z-index: 0;
+}
+
 html:not(.dark) .dashboard-grid-overlay {
   background-image:
     linear-gradient(rgba(59, 130, 246, 0.24) 1px, transparent 1px),
@@ -265,6 +297,34 @@ html:not(.dark) .dashboard-grid-overlay {
   mask-image: radial-gradient(circle at 50% 35%, black 70%, transparent 100%);
   mix-blend-mode: multiply;
   opacity: 0.6;
+}
+
+html:not(.dark) .dashboard-market-bg {
+  opacity: 0.22;
+  mix-blend-mode: multiply;
+}
+
+html:not(.dark) .dashboard-market-fade {
+  background:
+    radial-gradient(circle at 22% 14%, rgba(56, 189, 248, 0.14), transparent 38%),
+    radial-gradient(circle at 82% 12%, rgba(79, 70, 229, 0.1), transparent 44%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(241, 245, 249, 0.68) 62%, rgba(226, 232, 240, 0.9) 100%);
+}
+
+@keyframes marketBgDrift {
+  0%,
+  100% {
+    transform: translateX(-0.8%) translateY(0);
+  }
+  50% {
+    transform: translateX(0.8%) translateY(0.4%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-market-bg {
+    animation: none;
+  }
 }
 
 @keyframes agenticSweep {
