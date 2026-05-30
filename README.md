@@ -365,18 +365,23 @@ Run:
 npm test
 ```
 
-Current test coverage includes:
-- alert trigger logic
-- chat formatting parser
-- heuristic AI behavior
-- metric mapping
-- Ollama helper logic
-- personalized engine validation and guardrails
+Run integration tests:
 
-Last local run result:
-- `6` test files
-- `37` tests
-- all passing
+```bash
+npm run test:integration
+```
+
+Run end-to-end (Playwright) tests:
+
+```bash
+npm run e2e:install
+npm run test:e2e
+```
+
+Current automated coverage includes:
+- unit tests for utility, AI helper, and domain logic
+- route-level integration tests for market/search/QA/alerts/fx/news/documents/fundamentals APIs
+- browser E2E smoke + workflow tests for dashboard navigation, watchlist, portfolio validation, and QA input validation
 
 ## Deployment
 
@@ -422,4 +427,3 @@ docs/                   Architecture + project docs
 2. Make focused changes.
 3. Run tests (`npm test`).
 4. Open a PR with clear summary and reasoning.
-
