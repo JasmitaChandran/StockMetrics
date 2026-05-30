@@ -396,11 +396,41 @@ Run visual regression checks:
 npm run test:e2e:visual
 ```
 
+Run cross-browser/device matrix checks (Chromium, Firefox, WebKit, mobile viewports):
+
+```bash
+npm run test:e2e:matrix:install
+npm run test:e2e:matrix
+```
+
 Update visual baselines intentionally:
 
 ```bash
 npm run test:e2e:visual -- --update-snapshots
 ```
+
+Run external API contract tests (Yahoo/SEC/Twilio payload contracts):
+
+```bash
+npm run test:contract
+```
+
+Run API load testing (Artillery):
+
+```bash
+npm run test:load
+```
+
+Run security scans:
+
+```bash
+npm run test:security
+```
+
+Security subcommands:
+- `npm run test:security:deps` (dependency vulnerability audit)
+- `npm run test:security:sast` (SAST-oriented ESLint security rules)
+- `npm run test:security:secrets` (secret scanning via Secretlint)
 
 Current automated coverage includes:
 - unit tests for utility, AI helper, and domain logic
@@ -408,6 +438,10 @@ Current automated coverage includes:
 - browser E2E smoke + workflow tests for dashboard navigation, watchlist, portfolio validation, and QA input validation
 - accessibility E2E checks (axe-core) for key workspace pages
 - visual regression snapshots for key workspace pages
+- cross-browser/device matrix smoke checks across desktop + mobile engines
+- external provider contract tests for Yahoo, SEC, and Twilio response shape validation
+- API load profile for quote/history/news/alerts validation paths
+- security test stack for dependency audit, static security rules, and secret scanning
 
 ## Deployment
 

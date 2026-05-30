@@ -44,15 +44,47 @@ interface SecSubmissionsResponse {
   };
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object';
+}
+
+function isSecTickerMap(value: unknown): value is SecTickerMap {
+  if (!isRecord(value)) return false;
+  const entries = Object.values(value);
+  if (!entries.length) return false;
+  return entries.every((entry) => {
+    if (!isRecord(entry)) return false;
+    return typeof entry.cik_str === 'number' && typeof entry.ticker === 'string' && typeof entry.title === 'string';
+  });
+}
+
+function isCompanyFactsResponse(value: unknown): value is CompanyFactsResponse {
+  if (!isRecord(value)) return false;
+  const facts = value.facts;
+  if (!isRecord(facts)) return false;
+  return true;
+}
+
+function isSecSubmissionsResponse(value: unknown): value is SecSubmissionsResponse {
+  if (!isRecord(value)) return false;
+  const filings = value.filings;
+  if (!isRecord(filings)) return false;
+  return true;
+}
+
+async function fetchJson<T>(url: string, validator?: (payload: unknown) => payload is T, contractName?: string): Promise<T> {
   const res = await fetch(url, { headers: SEC_HEADERS, next: { revalidate: 60 * 60 } });
   if (!res.ok) throw new Error(`SEC fetch failed ${res.status}`);
-  return (await res.json()) as T;
+  const payload = await res.json();
+  if (validator && !validator(payload)) {
+    throw new Error(`SEC contract mismatch: ${contractName ?? 'unexpected payload'}`);
+  }
+  return payload as T;
 }
 
 async function getTickerMap() {
   return withServerCache('sec-tickers', 24 * 60 * 60_000, () =>
-    fetchJson<SecTickerMap>('https://www.sec.gov/files/company_tickers.json'),
+    fetchJson<SecTickerMap>('https://www.sec.gov/files/company_tickers.json', isSecTickerMap, 'ticker map shape changed'),
   );
 }
 
@@ -134,8 +166,16 @@ export async function getSecFundamentals(ticker: string): Promise<FundamentalsBu
   return withServerCache(`sec-fundamentals:${ticker}`, 6 * 60 * 60_000, async () => {
     const cik = await getCikForTicker(ticker);
     const [facts, submissions] = await Promise.all([
-      fetchJson<CompanyFactsResponse>(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`),
-      fetchJson<SecSubmissionsResponse>(`https://data.sec.gov/submissions/CIK${cik}.json`),
+      fetchJson<CompanyFactsResponse>(
+        `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`,
+        isCompanyFactsResponse,
+        'company facts shape changed',
+      ),
+      fetchJson<SecSubmissionsResponse>(
+        `https://data.sec.gov/submissions/CIK${cik}.json`,
+        isSecSubmissionsResponse,
+        'submissions shape changed',
+      ),
     ]);
 
     const revenues = getFactSeries(facts, ['Revenues', 'RevenueFromContractWithCustomerExcludingAssessedTax']);
@@ -357,7 +397,11 @@ export async function getSecFundamentals(ticker: string): Promise<FundamentalsBu
 export async function getSecDocuments(ticker: string) {
   return withServerCache(`sec-docs:${ticker}`, 12 * 60 * 60_000, async () => {
     const cik = await getCikForTicker(ticker);
-    const submissions = await fetchJson<SecSubmissionsResponse>(`https://data.sec.gov/submissions/CIK${cik}.json`);
+    const submissions = await fetchJson<SecSubmissionsResponse>(
+      `https://data.sec.gov/submissions/CIK${cik}.json`,
+      isSecSubmissionsResponse,
+      'submissions shape changed',
+    );
     const recent = submissions.filings?.recent;
     if (!recent) return [];
     const out = [] as Array<{

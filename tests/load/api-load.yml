@@ -1,0 +1,43 @@
+config:
+  target: "http://127.0.0.1:3200"
+  phases:
+    - duration: 20
+      arrivalRate: 2
+      name: warm-up
+    - duration: 40
+      arrivalRate: 5
+      rampTo: 20
+      name: ramp-up
+    - duration: 60
+      arrivalRate: 20
+      name: sustained-load
+  defaults:
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+
+scenarios:
+  - name: market-api-mix
+    weight: 4
+    flow:
+      - get:
+          url: "/api/market/quote?symbol=AAPL&market=us"
+      - get:
+          url: "/api/market/history?symbol=AAPL&range=1y"
+      - get:
+          url: "/api/news?symbol=AAPL&name=Apple%20Inc.&market=us"
+
+  - name: alerts-validation-path
+    weight: 1
+    flow:
+      - post:
+          url: "/api/alerts/email"
+          json:
+            toEmail: "not-an-email"
+            subject: "Load test"
+            message: "Validation path"
+      - post:
+          url: "/api/alerts/whatsapp"
+          json:
+            toPhone: "12345"
+            message: "Validation path"

@@ -58,16 +58,25 @@ export async function POST(req: NextRequest) {
       cache: 'no-store',
     });
 
-    const payload = (await response.json().catch(() => ({}))) as { sid?: string; message?: string };
+    const payload = (await response.json().catch(() => null)) as { sid?: unknown; message?: unknown } | null;
+    const payloadSid = typeof payload?.sid === 'string' ? payload.sid : undefined;
+    const payloadMessage = typeof payload?.message === 'string' ? payload.message : undefined;
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: payload.message ?? `Twilio request failed (${response.status}).` },
+        { error: payloadMessage ?? `Twilio request failed (${response.status}).` },
         { status: 502 },
       );
     }
 
-    return NextResponse.json({ ok: true, sid: payload.sid });
+    if (!payloadSid) {
+      return NextResponse.json(
+        { error: 'Twilio contract mismatch: successful response did not include message SID.' },
+        { status: 502 },
+      );
+    }
+
+    return NextResponse.json({ ok: true, sid: payloadSid });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unable to send WhatsApp message.' },

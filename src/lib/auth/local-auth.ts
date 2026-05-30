@@ -36,6 +36,17 @@ function getTempSessionUser() {
   return null;
 }
 
+async function getValidatedTempSessionUser(db: Awaited<ReturnType<typeof getDb>>) {
+  const tempUser = getTempSessionUser();
+  if (!tempUser) return null;
+  const existing = (await db.get('users', tempUser.id)) as LocalUserRecord | undefined;
+  if (!existing) {
+    clearTempSessionUser();
+    return null;
+  }
+  return toAppUser(existing);
+}
+
 function setTempSessionUser(user: AppUser) {
   if (typeof window === 'undefined') return;
   window.sessionStorage.setItem(TEMP_SESSION_KEY, JSON.stringify(user));
@@ -65,11 +76,18 @@ export const localAuthAdapter: AuthAdapter = {
   id: 'local',
   async getSession(): Promise<SessionState> {
     if (typeof window === 'undefined') return { user: null };
-    const tempUser = getTempSessionUser();
-    if (tempUser) return { user: tempUser };
     const db = await getDb();
+    const tempUser = await getValidatedTempSessionUser(db);
+    if (tempUser) return { user: tempUser };
     const session = await db.get('session', SESSION_KEY);
-    return { user: session?.user ?? null };
+    const sessionUser = session?.user as AppUser | undefined;
+    if (!sessionUser?.id) return { user: null };
+    const existing = (await db.get('users', sessionUser.id)) as LocalUserRecord | undefined;
+    if (!existing) {
+      await db.delete('session', SESSION_KEY);
+      return { user: null };
+    }
+    return { user: toAppUser(existing) };
   },
   async register({ username, email, password, remember = true }) {
     const db = await getDb();
@@ -119,9 +137,13 @@ export const localAuthAdapter: AuthAdapter = {
   },
   async deleteAccount() {
     const db = await getDb();
-    const tempUser = getTempSessionUser();
+    const tempUser = await getValidatedTempSessionUser(db);
     const session = tempUser ? null : await db.get('session', SESSION_KEY);
-    const currentUserId = tempUser?.id || session?.user?.id;
+    const sessionUser = session?.user as AppUser | undefined;
+    const sessionRecord = sessionUser?.id
+      ? ((await db.get('users', sessionUser.id)) as LocalUserRecord | undefined)
+      : undefined;
+    const currentUserId = tempUser?.id || sessionRecord?.id;
     if (!currentUserId) {
       throw new Error('No signed-in account found.');
     }

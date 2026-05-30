@@ -1,3 +1,14 @@
 {
-  "extends": ["next/core-web-vitals"]
+  "extends": ["next/core-web-vitals"],
+  "plugins": ["security"],
+  "overrides": [
+    {
+      "files": ["src/app/api/**/*.ts", "src/lib/**/*.ts"],
+      "rules": {
+        "security/detect-eval-with-expression": "error",
+        "security/detect-new-buffer": "error",
+        "security/detect-child-process": "error"
+      }
+    }
+  ]
 }

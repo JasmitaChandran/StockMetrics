@@ -56,6 +56,25 @@ interface YahooChartResponse {
   };
 }
 
+function parseYahooChartResponse(payload: unknown): YahooChartResponse {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Yahoo contract mismatch: response is not an object');
+  }
+
+  const chart = (payload as { chart?: unknown }).chart;
+  if (!chart || typeof chart !== 'object') {
+    throw new Error('Yahoo contract mismatch: missing chart object');
+  }
+
+  const result = (chart as { result?: unknown }).result;
+  const error = (chart as { error?: unknown }).error;
+  if (!Array.isArray(result) && (error === undefined || error === null)) {
+    throw new Error('Yahoo contract mismatch: chart.result array is missing');
+  }
+
+  return payload as YahooChartResponse;
+}
+
 async function fetchYahooChart(
   symbol: string,
   range: string,
@@ -75,7 +94,7 @@ async function fetchYahooChart(
   }
   const res = await fetch(url, fetchInit);
   if (!res.ok) throw new Error(`Yahoo chart failed: ${res.status}`);
-  return (await res.json()) as YahooChartResponse;
+  return parseYahooChartResponse(await res.json());
 }
 
 export async function getYahooHistory(symbol: string, range = 'max'): Promise<HistorySeries> {
