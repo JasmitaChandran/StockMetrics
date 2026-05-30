@@ -104,6 +104,9 @@ function getNextOpen(
         // If market is already open, the "next open" is the next trading day.
         continue;
       }
+
+      // After market close, the next open is also the next trading day.
+      continue;
     }
 
     return marketTz === IST_TZ

@@ -28,6 +28,42 @@ describe('alerts logic', () => {
     expect(evaluation.shouldTrigger).toBe(false);
   });
 
+  it('treats equal price as met for both above and below alerts', () => {
+    const above = evaluatePriceAlert({
+      symbol: 'AAPL',
+      market: 'us',
+      direction: 'above',
+      targetPrice: 100,
+      latestPrice: 100,
+      lastConditionMet: false,
+    });
+
+    const below = evaluatePriceAlert({
+      symbol: 'INFY.NS',
+      market: 'india',
+      direction: 'below',
+      targetPrice: 1500,
+      latestPrice: 1500,
+      lastConditionMet: false,
+    });
+
+    expect(above).toEqual({ isConditionMet: true, shouldTrigger: true });
+    expect(below).toEqual({ isConditionMet: true, shouldTrigger: true });
+  });
+
+  it('stays unmet when threshold is not crossed', () => {
+    const evaluation = evaluatePriceAlert({
+      symbol: 'AAPL',
+      market: 'us',
+      direction: 'above',
+      targetPrice: 120,
+      latestPrice: 119.99,
+      lastConditionMet: false,
+    });
+
+    expect(evaluation).toEqual({ isConditionMet: false, shouldTrigger: false });
+  });
+
   it('triggers when price drops below target from unmet state', () => {
     const evaluation = evaluatePriceAlert({
       symbol: 'INFY.NS',
@@ -52,5 +88,19 @@ describe('alerts logic', () => {
     });
     expect(message.subject).toContain('AAPL');
     expect(message.body).toContain('Latest price: 201.34');
+  });
+
+  it('uses mutual fund market label in alert body when market is mf', () => {
+    const message = buildAlertMessage({
+      symbol: 'HDFC-MF',
+      market: 'mf',
+      direction: 'below',
+      targetPrice: 50,
+      latestPrice: 49.9,
+      triggeredAt: '2026-04-06T12:00:00.000Z',
+    });
+
+    expect(message.subject).toContain('fell below 50.00');
+    expect(message.body).toContain('Mutual Fund');
   });
 });
