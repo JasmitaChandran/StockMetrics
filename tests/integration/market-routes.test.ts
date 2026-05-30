@@ -51,6 +51,21 @@ describe('market API route integration', () => {
     expect(getMfApiQuote).not.toHaveBeenCalled();
   });
 
+  it('defaults quote market to us when market query is omitted', async () => {
+    vi.mocked(getYahooQuote).mockResolvedValue({
+      symbol: 'MSFT',
+      market: 'us',
+      currency: 'USD',
+      price: 320,
+      source: 'yahoo',
+    });
+
+    const response = await getQuote(new NextRequest('http://localhost/api/market/quote?symbol=MSFT'));
+
+    expect(response.status).toBe(200);
+    expect(getYahooQuote).toHaveBeenCalledWith('MSFT', 'us');
+  });
+
   it('uses MFAPI provider for AMFI quote symbols', async () => {
     vi.mocked(getMfApiQuote).mockResolvedValue({
       symbol: 'AMFI:12345',
@@ -103,6 +118,20 @@ describe('market API route integration', () => {
     expect(response.headers.get('Cache-Control')).toBe('public, s-maxage=300, stale-while-revalidate=3600');
     expect(getYahooHistory).toHaveBeenCalledWith('AAPL', '1y');
     expect(getMfApiHistory).not.toHaveBeenCalled();
+  });
+
+  it('defaults history range to max when range query is omitted', async () => {
+    vi.mocked(getYahooHistory).mockResolvedValue({
+      symbol: 'TSLA',
+      currency: 'USD',
+      points: [{ ts: '2026-01-01', close: 300 }],
+      source: 'yahoo',
+    });
+
+    const response = await getHistory(new NextRequest('http://localhost/api/market/history?symbol=TSLA'));
+
+    expect(response.status).toBe(200);
+    expect(getYahooHistory).toHaveBeenCalledWith('TSLA', 'max');
   });
 
   it('uses MFAPI provider for AMFI history symbols', async () => {

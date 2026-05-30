@@ -85,6 +85,20 @@ describe('alerts email API route integration', () => {
     expect(nodemailer.createTransport).not.toHaveBeenCalled();
   });
 
+  it('treats malformed JSON payload as invalid request body', async () => {
+    setEmailEnv();
+
+    const response = await postEmailAlert(
+      new NextRequest('http://localhost/api/alerts/email', {
+        body: '{"toEmail":',
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'A valid recipient email is required.' });
+    expect(nodemailer.createTransport).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when subject or message is missing', async () => {
     setEmailEnv();
 

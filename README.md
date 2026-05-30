@@ -371,6 +371,12 @@ Run integration tests:
 npm run test:integration
 ```
 
+Run component tests:
+
+```bash
+npm run test:component
+```
+
 Run end-to-end (Playwright) tests:
 
 ```bash

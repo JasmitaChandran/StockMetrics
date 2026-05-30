@@ -125,6 +125,28 @@ describe('alerts whatsapp API route integration', () => {
     expect(params.get('Body')).toBe('Target reached');
   });
 
+  it('does not double-prefix From number when env already includes whatsapp:', async () => {
+    process.env.TWILIO_ACCOUNT_SID = 'AC123';
+    process.env.TWILIO_AUTH_TOKEN = 'AUTH_TOKEN';
+    process.env.TWILIO_WHATSAPP_FROM = 'whatsapp:+14155552671';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ sid: 'SM123' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await postWhatsAppAlert(
+      new NextRequest('http://localhost/api/alerts/whatsapp', {
+        body: JSON.stringify({ toPhone: '+919876543210', message: 'Target reached' }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const [, options] = fetchMock.mock.calls[0] as [string, { body: string }];
+    const params = new URLSearchParams(options.body);
+    expect(params.get('From')).toBe('whatsapp:+14155552671');
+  });
+
   it('returns 502 with Twilio error payload when Twilio rejects', async () => {
     setTwilioEnv();
     const fetchMock = vi.fn().mockResolvedValue({

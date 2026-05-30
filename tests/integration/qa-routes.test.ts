@@ -105,4 +105,18 @@ describe('qa API route integration', () => {
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ error: 'Ollama is unreachable' });
   });
+
+  it('returns 502 when request body is malformed JSON', async () => {
+    const response = await postQaChat(
+      new NextRequest('http://localhost/api/qa/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{"messages":',
+      }),
+    );
+
+    expect(response.status).toBe(502);
+    const payload = (await response.json()) as { error?: string };
+    expect(payload.error).toBeTruthy();
+  });
 });
