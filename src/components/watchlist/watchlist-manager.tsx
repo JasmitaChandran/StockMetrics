@@ -513,6 +513,7 @@ export function WatchlistManager() {
                 setNewName(event.target.value);
                 if (newNameError) setNewNameError('');
               }}
+              aria-label="New watchlist name"
               className="min-w-0 rounded-xl border border-border bg-card px-3 py-2 text-sm"
               placeholder="Watchlist name"
             />
@@ -575,6 +576,7 @@ export function WatchlistManager() {
                       void renameCurrentWatchlist();
                     }
                   }}
+                  aria-label="Rename watchlist"
                   placeholder="Rename watchlist"
                   className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-sm"
                 />
@@ -612,6 +614,7 @@ export function WatchlistManager() {
                         void addToCurrent(addSymbolSuggestions[0]);
                       }
                     }}
+                    aria-label="Add symbol to watchlist"
                     placeholder="Add symbol (AAPL, HDFCBANK)"
                     className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
                   />

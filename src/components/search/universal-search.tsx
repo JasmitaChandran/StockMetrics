@@ -187,6 +187,7 @@ export function UniversalSearch({
               selectEntity(items[0]);
             }
           }}
+          aria-label="Universal stock and fund search"
           placeholder={showAnimatedHint ? '' : placeholder ?? 'Search for Indian stocks / US stocks / Mutual Funds'}
           className="w-full rounded-2xl border-0 bg-transparent py-3 pl-10 pr-12 text-sm outline-none ring-0 placeholder:text-slate-400 sm:pr-28"
         />

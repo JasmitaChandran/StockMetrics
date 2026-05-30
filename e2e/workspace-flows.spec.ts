@@ -4,7 +4,7 @@ test.describe('Workspace Flows', () => {
   test('creates and deletes a watchlist', async ({ page }) => {
     await page.goto('/watchlist');
 
-    await expect(page.getByRole('heading', { name: 'Watchlists' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Watchlists' }).first()).toBeVisible();
     await expect(page.getByText('No watchlists yet. Create one to start tracking stocks.')).toBeVisible();
 
     const watchlistName = `E2E Watchlist ${Date.now()}`;
@@ -24,7 +24,7 @@ test.describe('Workspace Flows', () => {
   test('validates portfolio transaction form required fields', async ({ page }) => {
     await page.goto('/portfolio');
 
-    await expect(page.getByRole('heading', { name: 'Portfolio' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Portfolio' }).first()).toBeVisible();
     await page.getByRole('button', { name: /^Add$/ }).click();
 
     await expect(page.getByText('Symbol is required.')).toBeVisible();

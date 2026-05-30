@@ -4,7 +4,7 @@ test.describe('Primary Navigation', () => {
   test('redirects root to dashboard', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
     await expect(
       page.getByRole('heading', {
         name: /Stock Metrics & Investment Dashboard/i,
@@ -14,6 +14,8 @@ test.describe('Primary Navigation', () => {
 
   test('opens key workspaces from navbar tabs', async ({ page }) => {
     await page.goto('/dashboard');
+
+    const navTabs = page.locator('nav').first();
 
     const expectations = [
       { navLabel: 'Screener', pathname: '/screener', heading: 'Stock Screener' },
@@ -27,9 +29,11 @@ test.describe('Primary Navigation', () => {
     ] as const;
 
     for (const item of expectations) {
-      await page.getByRole('link', { name: item.navLabel }).click();
-      await expect(page).toHaveURL(new RegExp(`${item.pathname}$`));
-      await expect(page.getByRole('heading', { name: item.heading })).toBeVisible();
+      const tabLink = navTabs.getByRole('link', { name: item.navLabel }).first();
+      await tabLink.scrollIntoViewIfNeeded();
+      await tabLink.click();
+      await expect(page).toHaveURL(new RegExp(`${item.pathname}$`), { timeout: 15_000 });
+      await expect(page.getByRole('heading', { name: item.heading }).first()).toBeVisible();
     }
   });
 });

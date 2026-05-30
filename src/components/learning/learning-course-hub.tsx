@@ -83,7 +83,7 @@ function CourseCard({ course }: { course: FreeCourseResource }) {
           </div>
 
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">{course.title}</h3>
+            <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">{course.title}</h2>
             <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{course.summary}</p>
           </div>
 
@@ -158,6 +158,7 @@ export function LearningCourseHub() {
                 type="text"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
+                aria-label="Search learning courses"
                 placeholder="Search courses by topic, provider, or keyword..."
                 className="w-full rounded-2xl border border-border bg-card/70 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-accent dark:bg-card/60 dark:text-white"
               />

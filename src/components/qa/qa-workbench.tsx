@@ -457,6 +457,7 @@ export function QaWorkbench() {
                 if (questionError && value.trim()) setQuestionError('');
               }}
               onKeyDown={handleKeyDown}
+              aria-label="Ask AI question"
               rows={4}
               className={cn(
                 'min-h-[132px] w-full resize-none rounded-xl border bg-transparent p-3 text-sm outline-none transition',

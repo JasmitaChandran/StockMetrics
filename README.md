@@ -365,10 +365,10 @@ Run:
 npm test
 ```
 
-Run integration tests:
+Run API integration tests:
 
 ```bash
-npm run test:integration
+npm run test:api
 ```
 
 Run component tests:
@@ -384,10 +384,30 @@ npm run e2e:install
 npm run test:e2e
 ```
 
+Run accessibility E2E checks:
+
+```bash
+npm run test:e2e:a11y
+```
+
+Run visual regression checks:
+
+```bash
+npm run test:e2e:visual
+```
+
+Update visual baselines intentionally:
+
+```bash
+npm run test:e2e:visual -- --update-snapshots
+```
+
 Current automated coverage includes:
 - unit tests for utility, AI helper, and domain logic
 - route-level integration tests for market/search/QA/alerts/fx/news/documents/fundamentals APIs
 - browser E2E smoke + workflow tests for dashboard navigation, watchlist, portfolio validation, and QA input validation
+- accessibility E2E checks (axe-core) for key workspace pages
+- visual regression snapshots for key workspace pages
 
 ## Deployment
 

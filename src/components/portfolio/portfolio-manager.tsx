@@ -236,6 +236,7 @@ export function PortfolioManager() {
                     void addTxn();
                   }
                 }}
+                aria-label="Search stock symbol"
                 placeholder="Search stock (e.g., AAPL, HDFCBANK)"
                 className={cn(
                   'w-full rounded-xl border bg-card py-2 pl-10 pr-3 text-sm',
@@ -245,7 +246,12 @@ export function PortfolioManager() {
             </div>
             {symbolError ? <p className="text-xs text-rose-500">{symbolError}</p> : null}
           </div>
-          <select value={side} onChange={(e) => setSide(e.target.value as 'buy' | 'sell')} className="rounded-xl border border-border bg-card px-3 py-2 text-sm">
+          <select
+            value={side}
+            onChange={(e) => setSide(e.target.value as 'buy' | 'sell')}
+            aria-label="Transaction side"
+            className="rounded-xl border border-border bg-card px-3 py-2 text-sm"
+          >
             <option value="buy">Buy</option>
             <option value="sell">Sell</option>
           </select>
@@ -257,6 +263,7 @@ export function PortfolioManager() {
                 setQuantityInput(event.target.value);
                 if (quantityError) setQuantityError('');
               }}
+              aria-label="Quantity"
               placeholder="Qty"
               className={cn(
                 'w-full rounded-xl border bg-card px-3 py-2 text-sm',
@@ -273,6 +280,7 @@ export function PortfolioManager() {
                 setPriceInput(event.target.value);
                 if (priceError) setPriceError('');
               }}
+              aria-label="Price per share"
               placeholder="Price"
               className={cn(
                 'w-full rounded-xl border bg-card px-3 py-2 text-sm',
@@ -287,6 +295,7 @@ export function PortfolioManager() {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
+              aria-label="Transaction date"
               className="portfolio-date-input min-w-0 flex-1 border-0 bg-transparent p-0 text-sm outline-none"
             />
             <button
