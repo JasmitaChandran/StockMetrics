@@ -19,6 +19,10 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: 'Stock Metrics',
   description: 'Stock research and portfolio analysis platform with beginner and pro modes.',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
